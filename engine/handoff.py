@@ -2,6 +2,7 @@
 from collections import Counter
 import hashlib
 import json
+import os
 from pathlib import Path,PureWindowsPath
 import re
 import stat
@@ -11,6 +12,7 @@ import zipfile
 from .comparison import new_csv,csv_cell
 from .publication import new_path
 from .store import ensure_plain,within,now
+from .shared_read import open_snapshot_source
 
 MANIFEST='fileguard-delivery.json'
 MANIFEST_MAX=16*1024*1024
@@ -81,24 +83,49 @@ def export(db,store,args):
             for r in items:out.writerow([csv_cell(r[k]) for k in KEYS])
         store.audit(db,'导出清单目录',f"清单 #{meta['id']} · {len(items)} 项")
         return str(dest)
-    seen={}
-    for r in items:portable(r['rel'],seen)
     manifest=dict(format='FileGuard-delivery/1',label=meta['label'],scanned=meta['last_scan'],
                   created=now(),files=[{k:r[k] for k in KEYS} for r in items])
+    write_bundle(store,dest,manifest)
+    store.audit(db,'导出清单交付包',f"清单 #{meta['id']} · {len(items)} 项")
+    return str(dest)
+
+
+def write_bundle(store,dest,manifest):
+    seen={}
+    for row in manifest['files']:
+        portable(row['rel'],seen)
     content=json.dumps(manifest,ensure_ascii=False,separators=(',',':')).encode()
     if len(content)>MANIFEST_MAX:raise ValueError('交付清单过大，请缩小范围')
     with new_path(dest) as tmp:
         with zipfile.ZipFile(tmp,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=1) as pack:
             pack.writestr(MANIFEST,content)
-            for row in items:
-                obj=store.obj(row['sha']);ensure_plain(obj,store.home)
-                h=hashlib.sha256();size=0
-                with obj.open('rb') as src,pack.open('files/'+row['rel'],'w',force_zip64=True) as out:
-                    while block:=src.read(1024*1024):
-                        h.update(block);size+=len(block);out.write(block)
-                if size!=row['size'] or h.hexdigest()!=row['sha']:raise ValueError('源版本校验失败：'+row['rel'])
-    store.audit(db,'导出清单交付包',f"清单 #{meta['id']} · {len(items)} 项")
-    return str(dest)
+            for row in manifest['files']:
+                copy_member(store,pack,row)
+
+
+def copy_member(store,pack,row):
+    obj=store.obj(row['sha'])
+    ensure_plain(obj,store.home)
+    expected=row['size']
+    before=obj.stat()
+    error='源版本校验失败：'+row['rel']
+    if not stat.S_ISREG(before.st_mode) or before.st_size!=expected:
+        raise ValueError(error)
+    digest=hashlib.sha256()
+    remaining=expected
+    with open_snapshot_source(obj) as src,pack.open('files/'+row['rel'],'w',force_zip64=True) as out:
+        info=os.fstat(src.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_size!=expected:
+            raise ValueError(error)
+        while remaining:
+            block=src.read(min(remaining,1024*1024))
+            if not block:
+                raise ValueError(error)
+            digest.update(block)
+            out.write(block)
+            remaining-=len(block)
+        if src.read(1) or digest.hexdigest()!=row['sha']:
+            raise ValueError(error)
 
 
 def verify(path,reference=None):

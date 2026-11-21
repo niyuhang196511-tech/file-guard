@@ -26,6 +26,375 @@ window.exampleRequest=async function(cmd,a={}){
     return {id:e.id,stamp:e.stamp,rel:'（已撤回）',old_rel:'',kind:'已撤回',source:'',ext:'',caption:'',revision:h.revision};
   };
   const page112=arr=>{const p=paginate(arr,25);return {...p,pages:Math.max(1,Math.ceil(p.total/25))}};
+  if(cmd==='snapshot_preview'||cmd==='snapshot_preview_csv'){
+    const bundle=d.snapshotPreview,entry=bundle.samples[a.id];
+    if(!entry)throw Error('离线预览提供文本样例和一份工作簿。');
+    const size=a.size||50,width=a.width||16;
+    const q=String(a.q||'');
+    if(Array.from(q).length>160||/[\r\n\0]/.test(q))throw Error('检索内容须为不超过 160 字的单行文本');
+    if(a.low!=null&&a.high!=null&&a.low>a.high)throw Error('起始位置须小于或等于结束位置');
+    let mode=a.mode||'auto',fallback='';
+    if(mode==='auto'&&!entry.auto_text){mode='hex';fallback='此格式按原始字节查看';}
+    if(mode!=='hex'&&!entry.text){
+      if(mode==='text')throw Error('无法按文本查看：'+entry.error);
+      mode='hex';fallback='自动改按原始字节查看：'+entry.error;
+    }else if(mode!=='hex')mode='text';
+    const rows=[];
+    let units,make,encoding='',endings={};
+    if(mode==='text'){
+      if([a.low,a.high,a.at].includes(0))throw Error('文本行号从 1 开始');
+      const text=entry.text;
+      units=text.rows.length;encoding=text.encoding;endings=text.endings;
+      const fold=s=>Array.from(s,c=>d.textSearch.fold[c]??c.toLowerCase()).join('');
+      const transform=a.sensitive?s=>s:fold;
+      const needle=transform(q);
+      for(let pos=a.low||1;pos<=Math.min(a.high??units,units);pos++){
+        const original=text.rows[pos-1][0],hay=transform(original);
+        const index=a.exact?(hay===needle?0:-1):hay.indexOf(needle);
+        if(needle&&index<0)continue;
+        let start=0,stop=0;
+        if(needle){
+          let offset=0,found=false;
+          for(const [i,char] of Array.from(original).entries()){
+            offset+=transform(char).length;
+            if(!found&&offset>index){start=i;found=true;}
+            if(offset>=index+needle.length){stop=i+1;break;}
+          }
+        }
+        rows.push({pos,start,stop,match:needle?start+1:null});
+      }
+      make=({pos,start,stop,match})=>{
+        const [original,ending]=text.rows[pos-1],chars=Array.from(original);
+        const lo=Math.max(0,Math.min(start-64,chars.length-bundle.screen)),hi=lo+bundle.screen;
+        return {pos,match,text:original,ending,left:chars.slice(lo,start).join(''),hit:chars.slice(start,Math.min(stop,hi)).join(''),
+          right:chars.slice(stop,hi).join(''),before:lo>0,after:hi<chars.length};
+      };
+    }else{
+      const compact=q.replace(/\s+/g,'');
+      if(compact&&!/^(?:[0-9a-f]{2}){1,64}$/i.test(compact))throw Error('字节检索请输入 1 至 64 组两位十六进制数字');
+      const needle=(compact.match(/../g)||[]).map(x=>parseInt(x,16));
+      const raw=Uint8Array.from(atob(entry.raw),c=>c.charCodeAt(0));
+      units=raw.length;
+      const lo=a.low??0,hi=Math.min(units,(a.high??units-1)+1);
+      if(lo<hi)for(let start=Math.floor(lo/width)*width;start<hi;start+=width){
+        const pos=Math.max(start,lo),end=Math.min(start+width,hi)-1;
+        let match=null;
+        for(let i=pos;needle.length&&i<=end&&i+needle.length<=hi;i++){
+          if(needle.every((byte,j)=>byte===raw[i+j])){match=i;break;}
+        }
+        if(!needle.length||match!==null)rows.push({pos,end,match,match_size:needle.length});
+      }
+      make=row=>{
+        const chunk=raw.slice(row.pos,row.end+1);
+        return {...row,cells:Array.from(chunk,b=>b.toString(16).toUpperCase().padStart(2,'0')),
+          ascii:Array.from(chunk,b=>b>=32&&b<=126?String.fromCharCode(b):'.').join('')};
+      };
+    }
+    if(cmd==='snapshot_preview_csv'){
+      if(!rows.length||rows.length>10000)throw Error(rows.length?'超过 1 万行，请缩小预览范围':'当前没有可导出的记录');
+      return csvText([mode==='text'?bundle.text_header:bundle.hex_header,...rows.map(item=>{
+        const r=make(item);
+        return [entry.meta.rel,entry.meta.num,...(mode==='text'?[r.pos,r.match,r.ending,r.text]:
+          [r.pos,r.end,r.match,r.cells.join(' '),r.ascii])];
+      })]);
+    }
+    const pages=Math.max(1,Math.ceil(rows.length/size));
+    let page=Math.min(pages,Math.max(1,a.page||1));
+    if(a.at!=null&&rows.length){
+      const index=rows.findIndex(r=>mode==='text'?r.pos>=a.at:r.end>=a.at);
+      page=Math.floor((index<0?rows.length-1:index)/size)+1;
+    }
+    return {meta:entry.meta,mode,encoding,endings,fallback,units,total:rows.length,page,pages,size,at:a.at??null,
+      items:rows.slice((page-1)*size,page*size).map(make).map(({text,...r})=>r)};
+  }
+  if(cmd==='path_history'||cmd==='path_history_csv'){
+    const mode=a.mode||'path';
+    let path=String(a.rel||'').replaceAll('\\','/');
+    if(mode==='folder')path=path.replace(/\/+$/,'');
+    if(mode==='identity'){
+      if(!Number.isSafeInteger(a.file)||a.file<1)throw Error('请输入有效的文件身份编号');
+      path='';
+    }else if(!path||/^[a-z]:/i.test(path)||path.split('/').some(p=>!p||p==='.'||p==='..')){
+      throw Error('请输入相对于监控目录的路径');
+    }
+    if(a.start&&a.end&&a.start>a.end)throw Error('开始日期须早于或等于结束日期');
+    const structural=new Set(['初始建档','新增','重命名','移动','删除']);
+    const fold=s=>Array.from(s,c=>d.textSearch.fold[c]??c.toLowerCase()).join('');
+    const normalize=s=>a.fold?fold(s):s;
+    const needle=normalize(path);
+    const match=s=>mode==='folder'?normalize(s).startsWith(needle+'/'):normalize(s)===needle;
+    const items=[];
+    for(const event of d.events.map(publicEvent)){
+      if(!event?.file_id||(a.root&&event.root_id!==a.root)||(a.kind&&event.kind!==a.kind)||
+         (a.source&&event.source!==a.source.trim())||(a.structural&&!structural.has(event.kind))||!inRange(event.stamp))continue;
+      const old_match=mode!=='identity'&&match(event.old_rel||'');
+      const new_match=mode!=='identity'&&match(event.rel);
+      if(mode==='identity'?event.file_id!==a.file:!old_match&&!new_match)continue;
+      let direction='原位置记录';
+      if(['初始建档','新增'].includes(event.kind))direction='新占用记录';
+      else if(event.kind==='删除')direction='删除记录';
+      else if(mode==='identity'&&['重命名','移动'].includes(event.kind))direction=event.kind;
+      else if(event.old_rel){
+        if(old_match&&new_match)direction='范围内路径变化';
+        else if(old_match)direction='移出范围';
+        else if(new_match)direction='移入范围';
+      }
+      if(!a.direction||a.direction===direction)items.push({...event,old_match,new_match,direction});
+    }
+    items.sort((x,y)=>x.stamp.localeCompare(y.stamp)||x.id-y.id);
+    const first=items[0]?.stamp??null,last=items.at(-1)?.stamp??null;
+    if(a.sort!=='oldest')items.reverse();
+    if(cmd==='path_history_csv'){
+      if(!items.length)throw Error('当前范围没有可导出的记录');
+      return csvText([d.pathHistoryHeader,...items.map(r=>d.pathHistoryFields.map(k=>r[k]))]);
+    }
+    const counts={},byFile=new Map();
+    for(const e of items){
+      counts[e.direction]=(counts[e.direction]||0)+1;
+      const row=byFile.get(e.file_id)||{file_id:e.file_id,root_id:e.root_id,root:e.root,total:0,first:e.stamp,last:e.stamp};
+      row.total++;if(e.stamp<row.first)row.first=e.stamp;if(e.stamp>row.last)row.last=e.stamp;
+      byFile.set(e.file_id,row);
+    }
+    const groups=[...byFile.values()].sort((x,y)=>y.last.localeCompare(x.last)||y.file_id-x.file_id);
+    const identity_pages=Math.max(1,Math.ceil(groups.length/20));
+    const identity_page=Math.min(identity_pages,Math.max(1,a.identity_page||1));
+    const p=paginate(items,a.size||25);
+    return {...p,mode,path,first,last,counts,pages:Math.max(1,Math.ceil(p.total/p.size)),
+      identities:groups.length,roots:new Set(items.map(r=>r.root_id)).size,
+      groups:groups.slice((identity_page-1)*20,identity_page*20),identity_page,identity_pages};
+  }
+  if(['version_bundle_preview','version_bundle_create','version_bundle_csv','version_bundle_verify'].includes(cmd)){
+    const bundle=d.versionBundle;
+    if(!Array.isArray(a.ids)||!a.ids.length||a.ids.length>100||new Set(a.ids).size!==a.ids.length)
+      throw Error('请选择 1 至 100 个不同的历史版本');
+    const label=String(a.label||'').trim()||'历史版本交付',include_paths=!!a.include_paths;
+    const ids=[...a.ids].sort((x,y)=>x-y),expected=bundle.example.map(row=>row.id);
+    const items=ids.map(id=>bundle.rows[id]||{version_id:id,source_state:'历史版本不存在'});
+    const complete=items.every(row=>row.rel&&row.source_state!=='版本索引无效');
+    const bytes=items.reduce((n,r)=>n+(r.size||0),0);
+    const reasons=bytes>256*1024**2?['所选原始文件合计超过 256 MiB']:[];
+    const ready=complete&&!reasons.length&&items.every(r=>r.source_state==='可打包，待验正文');
+    const token=complete?JSON.stringify([ids,label,include_paths]):'';
+    const sample_zip=ids.join(',')===expected.join(',')&&label==='历史版本交付'&&!include_paths;
+    if(cmd==='version_bundle_preview'){
+      const counts={};
+      for(const r of items)counts[r.source_state]=(counts[r.source_state]||0)+1;
+      return {items,total:items.length,bytes,objects:new Set(items.map(r=>r.sha).filter(Boolean)).size,
+        roots:new Set(items.map(r=>r.root).filter(Boolean)).size,label,include_paths,counts,ready,complete,reasons,token,sample_zip};
+    }
+    if(cmd==='version_bundle_verify'){
+      if(!complete)throw Error('交付篮含无效或已不存在的版本');
+      const receipt=structuredClone(bundle.receipt);
+      const extra=expected.filter(id=>!ids.includes(id)),missing=ids.filter(id=>!expected.includes(id));
+      for(const [kind,list] of [['当前清单未选择',extra],['当前清单条目未交付',missing]]){
+        if(list.length)receipt.counts[kind]=list.length;
+        for(const id of list)receipt.issues.push({kind,rel:bundle.rows[id].rel});
+      }
+      receipt.issue_count=receipt.issues.length;receipt.ok=!receipt.issue_count;
+      return receipt;
+    }
+    if(!complete||a.token!==token)throw Error('交付范围已变化，请重新预览');
+    if(cmd==='version_bundle_create'){
+      if(!sample_zip)throw Error('请先载入示例交付清单');
+      return bundle.zip;
+    }
+    const header=include_paths?[...bundle.header,'最近登记相对路径']:bundle.header;
+    const fields=include_paths?[...bundle.fields,'source_rel']:bundle.fields;
+    return csvText([header,...items.map(row=>fields.map(k=>row[k]))]);
+  }
+  if(cmd==='line_origins'||cmd==='line_origins_csv'){
+    const bundle=d.lineOrigins;
+    const modes=bundle.reports[a.id]?.[a.moves?1:0];
+    const depth=a.depth||20;
+    const found=modes?.find(([n])=>n>=depth)||modes?.at(-1);
+    if(!found)throw Error('无法追溯目标版本：不支持的历史文件格式或超过上限');
+    if(a.high&&a.low>a.high)throw Error('起始行须小于或等于结束行');
+    const {target,rows,chain,boundary}=found[1];
+    const fold=s=>Array.from(s,c=>d.textSearch.fold[c]??c.toLowerCase()).join('');
+    const transform=a.sensitive?s=>s:fold;
+    const needle=transform(a.q||'');
+    const counts={moved:0},stats=new Map(),selected=[];
+    for(const r of rows){
+      const origin=r.origin.id;
+      counts[r.kind]=(counts[r.kind]||0)+1;counts.moved+=Number(r.moves>0);
+      if(!stats.has(origin))stats.set(origin,{lines:0,unknown:0,moved:0});
+      const s=stats.get(origin);s.lines++;s.unknown+=Number(r.kind==='unknown');s.moved+=Number(r.moves>0);
+      if(a.origin&&a.origin!==origin||a.low&&r.line<a.low||a.high&&r.line>a.high)continue;
+      const matches={target:r.kind==='introduced'&&origin===target.id,earlier:r.kind!=='unknown'&&origin!==target.id,
+        initial:r.kind==='initial',unknown:r.kind==='unknown',moved:r.moves>0};
+      if(a.kind&&!matches[a.kind])continue;
+      const text=transform(r.text);
+      if(needle&&(a.exact?text!==needle:!text.includes(needle)))continue;
+      selected.push(r);
+    }
+    if(cmd.endsWith('_csv')){
+      if(!selected.length)throw Error('当前条件没有可导出的行');
+      const labels={initial:'首次建档可见',unknown:'来源未确认',introduced:'此保存中出现'};
+      return csvText([bundle.header,...selected.map(r=>[target.rel,target.num,target.stamp,r.line,labels[r.kind],r.origin.num,
+        r.origin.stamp,r.source_line,r.moves,r.text])]);
+    }
+    const page=paginate(selected,a.size||50);
+    page.items=page.items.map(row=>{
+      const chars=Array.from(row.text);
+      return {...row,text:chars.slice(0,bundle.width).join(''),truncated:chars.length>bundle.width};
+    });
+    return {...page,target,chain,boundary,counts,sources:chain.filter(v=>stats.has(v.id)).map(v=>({...v,...stats.get(v.id)})),
+      lines:rows.length,pages:Math.max(1,Math.ceil(page.total/page.size))};
+  }
+  if(['content_groups','content_refs','content_groups_csv','content_refs_csv','content_verify'].includes(cmd)){
+    const c=d.contentCatalog;
+    const sha=String(a.sha||'').trim().toLowerCase();
+    const refs=cmd.startsWith('content_refs');
+    if((sha||refs||cmd==='content_verify')&&!(/^[a-f0-9]{6,64}$/.test(sha))||
+       ((refs||cmd==='content_verify')&&sha.length!==64))throw Error('请输入有效的 SHA-256 或前缀');
+    if(cmd==='content_verify'){
+      if(!c.checks[sha])throw Error('没有引用该摘要的版本');
+      return {...c.checks[sha],checked:d.summary.stamp};
+    }
+    if(refs&&!c.checks[sha])throw Error('没有引用该摘要的版本');
+    if(a.start&&a.end&&a.start>a.end)throw Error('开始日期须早于或等于结束日期');
+    const min=a.minimum===''||a.minimum==null?0:Number(a.minimum);
+    const max=a.maximum===''||a.maximum==null?Number.MAX_SAFE_INTEGER:Number(a.maximum);
+    if(!Number.isSafeInteger(min)||!Number.isSafeInteger(max)||min<0||max<min)
+      throw Error('最小字节数须小于或等于最大字节数');
+    const fold=text=>Array.from(text,ch=>d.textSearch.fold[ch]??ch.toLowerCase()).join('');
+    const keyword=fold(String(a.q||'').trim().replaceAll('\\','/'));
+    const exts=new Set(String(a.ext||'').toLowerCase().split(/[,，;；\s]+/).filter(e=>e.replace(/^\.+/,'')).map(e=>'.'+e.replace(/^\.+/,'')));
+    if(exts.size>32)throw Error('一次最多筛选 32 种历史后缀');
+    const items=[];
+    for(const f of d.files){
+      if((a.root&&f.root_id!==a.root)||(a.starred&&!f.starred)||(a.state&&f.file_state!==a.state)||
+         (keyword&&!fold(f.rel).includes(keyword)))continue;
+      const versions=d.history[f.id]||[];
+      for(const v of versions){
+        const latest=v.id===versions[0]?.id;
+        if((a.latest&&!latest)||!inRange(v.stamp)||(sha&&!v.sha.startsWith(sha))||
+           (exts.size&&!exts.has(v.ext))||(!(a.empty??refs)&&v.size===0)||v.size<min||v.size>max)continue;
+        items.push({...v,latest,root:f.root,root_id:f.root_id,rel:f.rel,state:f.file_state});
+      }
+    }
+    const cmp=(x,y)=>x<y?-1:x>y?1:0;
+    const recent=(x,y)=>cmp(y.stamp,x.stamp)||y.id-x.id;
+    let ordered,summary={};
+    if(refs){
+      const by={recent,oldest:(x,y)=>recent(y,x),path:(x,y)=>cmp(fold(x.rel),fold(y.rel))||x.file_id-y.file_id||y.num-x.num||y.id-x.id};
+      ordered=items.sort(by[a.sort||'recent']);
+    }else{
+      const grouped=new Map();
+      for(const v of items){
+        if(!grouped.has(v.sha))grouped.set(v.sha,[]);
+        grouped.get(v.sha).push(v);
+      }
+      ordered=[...grouped].map(([sha,rows])=>{
+        const sizes=new Set(rows.map(v=>v.size));
+        const size=rows[0].size;
+        const conflict=sizes.size!==1||size<0;
+        const days=rows.map(v=>v.stamp).sort();
+        return {sha,conflict,size:conflict?null:size,versions:rows.length,
+          files:new Set(rows.map(v=>v.file_id)).size,roots:new Set(rows.map(v=>v.root_id)).size,
+          formats:new Set(rows.map(v=>v.ext)).size,latest:rows.filter(v=>v.latest).length,
+          first_stamp:days[0],last_stamp:days.at(-1),logical:conflict?null:size*rows.length,
+          saved:conflict?null:size*(rows.length-1)};
+      });
+      const modes={cross:x=>x.files>1,repeat:x=>x.versions>x.files,shared:x=>x.versions>1,all:()=>true};
+      const by={saved:(x,y)=>(y.saved??-1)-(x.saved??-1)||y.versions-x.versions,
+        versions:(x,y)=>y.versions-x.versions||y.files-x.files,files:(x,y)=>y.files-x.files||y.versions-x.versions,
+        bytes:(x,y)=>(y.size??-1)-(x.size??-1),recent:(x,y)=>cmp(y.last_stamp,x.last_stamp)};
+      const order=by[a.sort||'saved'];
+      ordered=ordered.filter(modes[a.mode||'cross']).sort((x,y)=>order(x,y)||cmp(x.sha,y.sha));
+      summary={total:ordered.length,versions:0,unique_bytes:0,logical:0,saved:0,conflicts:0};
+      for(const r of ordered){
+        summary.versions+=r.versions;summary.unique_bytes+=r.size??0;
+        summary.logical+=r.logical??0;summary.saved+=r.saved??0;summary.conflicts+=Number(r.conflict);
+      }
+    }
+    if(cmd.endsWith('_csv')){
+      if(!ordered.length)throw Error('当前范围没有可导出的结果');
+      const [header,fields,marker]=refs?[c.ref_header,c.ref_fields,'latest']:[c.group_header,c.group_fields,'conflict'];
+      return csvText([header,...ordered.map(r=>fields.map(k=>k===marker?(r[k]?'是':'否'):r[k]))]);
+    }
+    const p=paginate(ordered,a.size||25);
+    return {...p,pages:Math.max(1,Math.ceil(p.total/p.size)),summary};
+  }
+  if(cmd==='text_search'||cmd==='text_search_csv'){
+    const data=d.textSearch;
+    const [versionLimit,resultLimit,fileLimit,byteLimit,previewLimit,width]=data.limits;
+    const fold=text=>Array.from(text,c=>data.fold[c]??c.toLowerCase()).join('');
+    const keyword=String(a.q??'');
+    if(!keyword.trim()||Array.from(keyword).length>160||/[\r\n\0]/.test(keyword))
+      throw Error('请输入 1 至 160 字的单行检索内容');
+    if(a.start&&a.end&&a.start>a.end)throw Error('开始日期须早于或等于结束日期');
+    const exts=String(a.ext||'').toLowerCase().split(/[,，;；\s]+/).filter(Boolean).map(ext=>'.'+ext.replace(/^\.+/,''));
+    if(exts.some(ext=>!data.extensions.includes(ext)))throw Error('扩展名中含有不支持的文本格式');
+    const cap=a.cap||data.cap;
+    const before=a.before||0;
+    const path=fold(String(a.filename||'').trim().replaceAll('\\','/'));
+    const byFile=new Map(d.files.map(f=>[f.id,f]));
+    const previous=new Map();
+    const states={live:['当前在册','目录已暂停'],history:['已删除','规则已排除','目录已移除'],
+      deleted:['已删除'],removed:['目录已移除'],excluded:['规则已排除']};
+    for(const row of data.versions){
+      if(row.id>cap||previous.has(row.file_id))continue;
+      const latest=d.history[row.file_id]?.find(v=>v.id<=cap);
+      previous.set(row.file_id,latest?.id);
+    }
+    const candidates=data.versions.filter(v=>{
+      const file=byFile.get(v.file_id);
+      return v.id<=cap&&(!before||v.id<before)&&(!a.file||v.file_id===a.file)&&(!a.root||v.root_id===a.root)&&
+        (!path||fold(v.rel).includes(path))&&(!exts.length||exts.includes(v.ext))&&inRange(v.stamp)&&
+        (!a.scope||states[a.scope]?.includes(v.state))&&(!a.starred||file?.starred)&&(!a.skip_initial||v.parent_id)&&
+        (a.latest===false||previous.get(v.file_id)===v.id);
+    });
+    const items=[],skipped={};
+    const transform=a.sensitive?x=>x:fold;
+    const needle=transform(keyword);
+    const context=a.context||0;
+    let scanned=0,checked=0,bytes=0;
+    for(const {text,problem,...row} of candidates){
+      if(scanned===versionLimit||items.length===resultLimit||row.size<=fileLimit&&bytes+row.size>byteLimit)break;
+      scanned++;
+      if(row.size<=fileLimit)bytes+=row.size;
+      if(problem){skipped[problem]=(skipped[problem]||0)+1;continue;}
+      checked++;
+      const lines=text.replaceAll('\r\n','\n').replaceAll('\r','\n').replace(/\n$/,'').split('\n');
+      const previews=[];
+      let matches=0;
+      for(let i=0;i<lines.length;i++){
+        const value=transform(lines[i]);
+        const start=a.exact?(value===needle?0:-1):value.indexOf(needle);
+        if(start<0)continue;
+        matches++;
+        if(previews.length===previewLimit)continue;
+        let offset=0,left=null,right=null;
+        for(const [index,char] of Array.from(lines[i]).entries()){
+          offset+=transform(char).length;
+          if(left===null&&offset>start)left=index;
+          if(offset>=start+needle.length){right=index+1;break;}
+        }
+        const rows=[];
+        for(let j=Math.max(0,i-context);j<Math.min(lines.length,i+context+1);j++){
+          const chars=Array.from(lines[j]);
+          const hit=j===i;
+          const from=hit?Math.max(0,Math.min(left-64,chars.length-width)):0;
+          const until=from+width;
+          rows.push({line:j+1,column:hit?left+1:null,head:from>0,tail:chars.length>until,
+            prefix:hit?chars.slice(from,left).join(''):'',match:hit?chars.slice(left,Math.min(right,until)).join(''):'',
+            suffix:chars.slice(hit?right:from,until).join('')});
+        }
+        previews.push({line:i+1,rows});
+      }
+      if(matches)items.push({...row,matches,previews});
+    }
+    if(cmd==='text_search_csv'){
+      if(!items.length)throw Error('此批没有可导出的命中');
+      return csvText([data.header,...items.flatMap(item=>item.previews.map(hit=>{
+        const row=hit.rows.find(r=>r.column!==null);
+        return [item.root,item.rel,item.ext,item.state,item.num,item.stamp,item.encoding,
+          item.matches,row.line,row.column,row.prefix+row.match+row.suffix,row.head?'是':'',row.tail?'是':''];
+      }))]);
+    }
+    return {items,checked,skipped,scanned,cap,next:scanned<candidates.length?candidates[scanned-1].id:null};
+  }
   if(cmd==='period_report'||cmd==='period_csv'){
     const iso=x=>new Date(x).toISOString().slice(0,10);
     const end=a.end||d.summary.stamp.slice(0,10),last=Date.parse(end+'T00:00:00Z');
@@ -193,6 +562,38 @@ window.exampleRequest=async function(cmd,a={}){
   }
   if(cmd==='runtime')return {pid:3048,started:d.summary.stamp,uptime:0,watch:d.summary.watch,queued:0,parsing:0,waiting:0,due_in:null,beats:{扫描:d.summary.stamp,解析:d.summary.stamp},faults:{}};
   if(cmd==='checkpoints')return d.checkpoints[a.root]||[];
+  if(cmd==='checkpoint_three'||cmd==='checkpoint_three_csv'){
+    if(new Set([a.base,a.left,a.right]).size!==3)throw Error('请选择三份不同的目录清单');
+    if(a.base>=Math.min(a.left,a.right))throw Error('基准清单须早于左右两份清单');
+    const report=d.cpThree[a.base+'-'+a.left+'-'+a.right];
+    if(!report)throw Error('请选择同一监控目录的三份清单');
+    const sides=['base','left','right'],fold=s=>Array.from(s,c=>d.textSearch.fold[c]??c.toLowerCase()).join('');
+    const q=fold((a.q||'').trim().replaceAll('\\','/'));
+    const exts=new Set((a.ext||'').trim().toLowerCase().split(/[,，;；\s]+/).filter(e=>e.replace(/^\.+/,'')).map(e=>'.'+e.replace(/^\.+/,'')));
+    if(exts.size>32)throw Error('一次最多选择 32 种后缀');
+    const paths=r=>sides.map(s=>r[s]?.rel).filter(Boolean);
+    const extOf=path=>path.slice(path.lastIndexOf('/')+1).match(/.(\.[^.]+)$/)?.[1].toLowerCase();
+    const selected=report.items.filter(r=>(!q||paths(r).some(p=>fold(p).includes(q)))&&
+      (!exts.size||paths(r).some(p=>exts.has(extOf(p))))&&(a.kind?r.kind===a.kind:a.unchanged||r.kind!=='相同'||r.review)&&
+      (!a.issues||r.review)&&(!a.collision||r.collision));
+    const sortPath=r=>fold((r.candidate_path||paths(r).at(-1)).normalize('NFC'));
+    const bytes=r=>a.sort==='left'?Math.abs(r.left_delta):a.sort==='right'?Math.abs(r.right_delta):
+      a.sort==='impact'?Math.max(Math.abs(r.left_delta),Math.abs(r.right_delta)):a.sort==='path'?0:Number(r.review);
+    selected.sort((x,y)=>bytes(y)-bytes(x)||(sortPath(x)<sortPath(y)?-1:sortPath(x)>sortPath(y)?1:x.file_id-y.file_id));
+    if(cmd==='checkpoint_three_csv'){
+      if(!selected.length)throw Error('当前范围没有可导出的项目');
+      return csvText([d.cpThreeHeader,...selected.map(r=>[
+        ...sides.map(s=>report.meta[s].label),r.file_id,r.kind,r.review?'是':'否',r.collision,r.other_count,
+        ...sides.flatMap(s=>['rel','num','size','sha'].map(k=>r[s]?.[k])),
+        r.left_kind,r.right_kind,r.left_delta,r.right_delta,r.candidate_path,r.candidate_sha])]);
+    }
+    const counts={};
+    for(const r of selected)counts[r.kind]=(counts[r.kind]||0)+1;
+    const p=paginate(selected,a.size||25);
+    return {...p,meta:report.meta,counts,pages:Math.max(1,Math.ceil(p.total/p.size)),
+      review:selected.filter(r=>r.review).length,collisions:selected.filter(r=>r.collision).length,
+      left_delta:selected.reduce((sum,r)=>sum+r.left_delta,0),right_delta:selected.reduce((sum,r)=>sum+r.right_delta,0)};
+  }
   if(cmd==='rule_history')return d.rules[a.root]||[];
   if(cmd==='checkpoint_diff'||cmd==='checkpoint_export'){
     const rows=d.cpDiff[a.old+'-'+a.new];
@@ -281,6 +682,50 @@ window.exampleRequest=async function(cmd,a={}){
     if(v.revision!==a.revision)throw Error('复核记录已更新，请刷新');
     Object.assign(v,{review:a.state,note,revision:v.revision+1,reviewed_at:d.summary.stamp});
     auditExample('更新版本复核','版本 #'+v.id+' · '+a.state+' · '+note);return '复核记录已保存';
+  }
+  if(cmd==='review_batch_preview'||cmd==='review_batch_apply'){
+    const states=['','待复核','需跟进','已复核'];
+    const {targets,state='',mode='keep'}=a;
+    const reason=String(a.reason||'').trim();
+    const note=mode==='keep'?'':String(a.note||'').trim();
+    if(!Array.isArray(targets)||!targets.length||targets.length>100)throw Error('请选择 1 至 100 个版本');
+    if(new Set(targets.map(t=>t.id)).size!==targets.length)throw Error('批次中有重复的版本');
+    if(!states.includes(state)||!['keep','replace','append'].includes(mode))throw Error('无效的批量复核方式');
+    if(!state&&mode==='keep')throw Error('请选择结论或备注变更');
+    if(mode==='append'&&!note)throw Error('请输入追加的备注');
+    const records=new Map(d.files.flatMap(f=>(d.history[f.id]||[]).map(v=>[v.id,[v,f]])));
+    const counts={change:0,same:0,conflict:0,missing:0,invalid:0},items=[];
+    for(const {id,revision:expected} of [...targets].sort((a,b)=>a.id-b.id)){
+      const record=records.get(id);
+      if(!record){
+        items.push({id,expected,issue:'版本不存在',status:'missing'});counts.missing++;continue;
+      }
+      const [v,f]=record;
+      const new_state=state||v.review;
+      const new_note=mode==='keep'?v.note:mode==='replace'||!v.note?note:v.note+'\n'+note;
+      let status='same',issue='';
+      if(v.revision!==expected){status='conflict';issue='复核修订已更新';}
+      else if(Array.from(new_note).length>2000){status='invalid';issue='合并后的备注超过 2000 字';}
+      else if(new_state==='需跟进'&&!new_note.trim()){status='invalid';issue='需跟进版本须有备注';}
+      else if(new_state!==v.review||new_note!==v.note)status='change';
+      items.push({id,expected,file_id:f.id,rel:f.rel,root:f.root,num:v.num,stamp:v.stamp,review:v.review,note:v.note,
+        revision:v.revision,new_state,new_note,status,issue});
+      counts[status]++;
+    }
+    const token=counts.change&&!counts.conflict&&!counts.invalid&&!counts.missing?JSON.stringify([state,mode,note,reason,items]):'';
+    const preview={items,counts,total:items.length,token};
+    if(cmd==='review_batch_preview')return preview;
+    if(!token||a.token!==token)return {applied:false,preview};
+    d.reviewBatchCounter=(d.reviewBatchCounter||0)+1;
+    const batch='example-'+d.reviewBatchCounter;
+    for(const row of items.filter(r=>r.status==='change')){
+      const [v,f]=records.get(row.id);
+      Object.assign(v,{review:row.new_state,note:row.new_note,revision:v.revision+1,reviewed_at:d.summary.stamp});
+      auditExample('更新版本复核','批次 '+batch+'\n'+f.rel+' · V'+row.num+' · '+row.review+' → '+row.new_state+
+        '\n此前意见：'+(row.note||'（空）')+'\n本次意见：'+(row.new_note||'（空）'));
+    }
+    auditExample('批量更新版本复核','批次 '+batch+' · 已更新 '+counts.change+' 项 · 无变化 '+counts.same+' 项'+(reason?'\n批次说明：'+reason:''));
+    return {applied:true,batch,changed:counts.change,unchanged:counts.same,stamp:d.summary.stamp};
   }
   if(cmd==='review_queue'||cmd==='export_review'){
     if(a.start&&a.end&&a.start>a.end)throw Error('结束日期不能早于开始日期');

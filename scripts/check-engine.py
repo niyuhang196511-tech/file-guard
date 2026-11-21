@@ -131,6 +131,64 @@ def verify(command):
             word_result=call('compare',old=first['id'],new=second['id'])
             if word_result['total']!=2 or not any('页脚' in r['sheet'] for r in word_result['items']):
                 raise ValueError('独立引擎的 Word 段落与页脚对比异常')
+            text=root/'签收.txt'
+            text.write_text('第一行\n物料已签收\n备注',encoding='utf-8-sig')
+            call('scan',id=rid)
+            hit=wait_for(lambda:call('text_search',q='已签收',ext='txt',root=rid,context=1)['items'])[0]
+            if hit['encoding']!='UTF-8 BOM' or hit['previews'][0]['rows'][1]['match']!='已签收':
+                raise ValueError('独立引擎的历史正文检索异常')
+            (root/'签收备存.md').write_bytes(text.read_bytes())
+            call('scan',id=rid)
+            same=wait_for(lambda:call('content_groups',root=rid,ext='txt, md')['items'])[0]
+            references=call('content_refs',sha=same['sha'])['items']
+            if {r['rel'] for r in references}!={'签收.txt','签收备存.md'} or call('content_verify',sha=same['sha'])['status']!='通过':
+                raise ValueError('独立引擎的相同内容追溯异常')
+            text.write_text('前置说明\n第一行\n物料已签收\n补充备注',encoding='utf-8-sig')
+            call('scan',id=rid)
+            newer=wait_for(lambda:next((v for v in call('history',id=hit['file_id']) if v['num']==2),None))
+            report=call('line_origins',id=newer['id'])
+            if [(r['origin']['num'],r['source_line']) for r in report['items']]!=[(2,1),(1,1),(1,2),(2,4)]:
+                raise ValueError('独立引擎的逐行来源异常')
+            batch=dict(targets=[dict(id=row['id'],revision=row['revision']) for row in
+                                call('history',id=hit['file_id'])],state='已复核',mode='append',note='协议检查')
+            preview=call('review_batch_preview',**batch)
+            if preview['counts']['change']!=2 or not preview['token']:
+                raise ValueError('独立引擎的批量复核预览异常')
+            receipt=call('review_batch_apply',**batch,token=preview['token'])
+            if not receipt['applied'] or receipt['changed']!=2 or not all(
+                    v['note']=='协议检查' and v['review']=='已复核' for v in call('history',id=hit['file_id'])):
+                raise ValueError('独立引擎的批量复核写入异常')
+            ids=[v['id'] for v in call('history',id=hit['file_id'])]
+            proposal=call('version_bundle_preview',ids=ids)
+            bundle=location/'指定版本.zip'
+            call('version_bundle_create',ids=ids,token=proposal['token'],path=str(bundle))
+            verified=call('version_bundle_verify',ids=ids,path=str(bundle))
+            if not verified['ok'] or verified['verified']!=2 or not verified['compared']:
+                raise ValueError('独立引擎的历史版本交付核查异常')
+            text.rename(root/'分拣签收.txt')
+            call('scan',id=rid)
+            departures=wait_for(lambda:call('path_history',rel=text.name,root=rid,direction='移出范围')['items'])
+            arrivals=call('path_history',rel='分拣签收.txt',root=rid,direction='移入范围')['items']
+            if len(arrivals)!=1 or arrivals[0]['id']!=departures[0]['id'] or arrivals[0]['file_id']!=hit['file_id']:
+                raise ValueError('独立引擎的路径沿革异常')
+            common=root/'三方.txt'
+            checkpoints=[]
+            for index,body in enumerate(('初始正文','左侧正文','右侧正文')):
+                common.write_text(body,encoding='utf-8')
+                call('scan',id=rid)
+                wait_for(lambda:call('text_search',q=body,filename=common.name,root=rid)['items'])
+                checkpoints.append(call('checkpoint_create',root=rid,label='三方协议 '+str(index)))
+            base,left,right=checkpoints
+            tri=call('checkpoint_three',base=base,left=left,right=right,q=common.name)
+            if tri['total']!=1 or tri['review']!=1 or tri['items'][0]['kind']!='两侧内容冲突':
+                raise ValueError('独立引擎的清单三方对照异常')
+            current=tri['items'][0]['right']['id']
+            preview=call('snapshot_preview',id=current,q='右侧')
+            if preview['mode']!='text' or preview['items'][0]['hit']!='右侧':
+                raise ValueError('独立引擎的历史原件文本预览异常')
+            hex_preview=call('snapshot_preview',id=current,mode='hex',low=0,high=2)
+            if hex_preview['items'][0]['cells']!=[f'{b:02X}' for b in '右'.encode('utf-8')]:
+                raise ValueError('独立引擎的历史原件字节预览异常')
         finally:
             process.stdin.close()
             try:
@@ -142,7 +200,7 @@ def verify(command):
             process.stdout.close()
         if process.returncode:
             raise RuntimeError(f'引擎退出码 {process.returncode}')
-    print('引擎已通过保存核对、台账版本读取、期间对照、字段变动轨迹、建档、Excel 编号对齐与定位、跨文件检索、扫描记录、Word 段落与页脚比较、交付包、现场核对、预览后恢复与退出检查。')
+    print('引擎已通过历史原件预览、清单三方对照、路径沿革、历史版本交付篮、批量版本复核、逐行来源、相同内容追溯、历史正文检索、保存核对、台账版本读取、期间对照、字段变动轨迹、建档、Excel 编号对齐与定位、跨文件检索、扫描记录、Word 段落与页脚比较、交付包、现场核对、预览后恢复与退出检查。')
 
 
 if __name__=='__main__':

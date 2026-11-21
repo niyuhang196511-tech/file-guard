@@ -17,7 +17,7 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from engine.store import Store
 from engine.service import Service
-from engine import finder,scan_log,health,handoff,variance,work_reports,exchange_formats,table_source
+from engine import finder,scan_log,health,handoff,variance,work_reports,exchange_formats,table_source,text_history,content_catalog,line_origins,version_bundle,path_history,checkpoint_three,snapshot_preview
 import base64
 import hashlib
 
@@ -142,6 +142,10 @@ def generate(tmp):
     examples.extend(dirs[2][0]/name for name in ['供应联系人.vcf','质量复核日历.ics','配送站点.geojson','培训讲解.vtt','提示音.wav','交付目录.tar'])
     returns=dirs[0][0]/'退货轨迹.csv'
     write(returns,100)
+    approved='月末交接\n领料与退货已复核\n'.encode()
+    catalog_source=dirs[0][0]/'月末交接签收.txt'
+    catalog_source.write_bytes(approved)
+    (dirs[1][0]/'质检交接备存.md').write_bytes(approved)
     for path in examples:write(path,100)
     day=dt.date.today()
     def clock(days,hour=9,minute=15):
@@ -164,6 +168,8 @@ def generate(tmp):
     reference_backup=tmp/'月初样例备份.zip';store.backup(reference_backup)
     for j,changes in enumerate([2,4,3,6,4,2,7,5,8,3,6,4,3,7]):
         if j in (0,7):write(returns,120 if j==0 else 100)
+        if j==0:catalog_source.write_bytes('月末交接\n仍待复核\n'.encode())
+        if j==7:catalog_source.write_bytes(approved)
         write(checklist,j+1)
         age=13-j
         for k in range(changes):
@@ -172,6 +178,7 @@ def generate(tmp):
         if j%3!=1:
             write(dirs[j%3][0]/f'第{j+1:02}批核对.xlsx',35+j)
         run(clock(age,10+j%6,8+j*2))
+        if j==6:snapshot('月中复核',clock(age,10+j%6,8+j*2))
     batch_ledgers(dirs[0][0],True)
     for path in examples:write(path,120)
     run(clock(0,15,8))
@@ -272,10 +279,19 @@ def generate(tmp):
                 d['healthRefs'][row['object_key']]=all_rows('health_references',id=row['report_id'],key=row['object_key'])
     d['checkpoints']={rid:api.dispatch('checkpoints',dict(root=rid)) for _,rid in dirs}
     d['cpDiff']={}
+    d['cpThree']={}
+    d['cpThreeHeader']=checkpoint_three.CSV_HEADER
     for items in d['checkpoints'].values():
-        for left,right in ((items[1],items[0]),(items[0],items[1])):
-            key=f"{left['id']}-{right['id']}"
-            d['cpDiff'][key]=all_rows('checkpoint_diff',old=left['id'],new=right['id'],unchanged=True)
+        for left in items:
+            for right in items:
+                if left['id']!=right['id']:
+                    key=f"{left['id']}-{right['id']}"
+                    d['cpDiff'][key]=all_rows('checkpoint_diff',old=left['id'],new=right['id'],unchanged=True)
+                    for base in items:
+                        if base['id']<min(left['id'],right['id']):
+                            with store.db() as db:
+                                meta,rows=checkpoint_three.assemble(db,dict(base=base['id'],left=left['id'],right=right['id']))
+                            d['cpThree'][f"{base['id']}-{key}"]=dict(meta=meta,items=rows)
     d['finder']=all_rows('finder')
     with store.db() as db:
         for hit in d['finder']:
@@ -285,6 +301,36 @@ def generate(tmp):
                 hit['new_value']=details[hit['ordinal']].get('new')
             hit['direction']=finder.movement(hit['old_value'],hit['new_value'])
     d['finderColumns']=finder.EXPORT
+    with store.db() as db:
+        cap=db.execute('SELECT max(id) FROM versions').fetchone()[0]
+        before=0
+        snapshots=[]
+        while True:
+            batch=text_history.candidates(db,text_history.options(dict(q='样例',latest=False,before=before,cap=cap)),cap)
+            for version in batch[:text_history.BATCH_VERSIONS]:
+                row=dict(version)
+                if row['size']<=text_history.FILE_BYTES:
+                    decoded,problem=text_history.snapshot(store,row)
+                else:
+                    decoded,problem=None,text_history.SKIPS[0]
+                del row['sha']
+                text,encoding=decoded or ('','')
+                snapshots.append(dict(row,text=text,encoding=encoding,problem=problem))
+            if len(batch)<=text_history.BATCH_VERSIONS:
+                break
+            before=batch[text_history.BATCH_VERSIONS-1]['id']
+    d['textSearch'] = dict(
+        cap=cap, versions=snapshots, extensions=sorted(text_history.EXTENSIONS),
+        limits=[text_history.BATCH_VERSIONS,text_history.BATCH_RESULTS,text_history.FILE_BYTES,
+                text_history.BATCH_BYTES,text_history.MATCH_PREVIEWS,text_history.PREVIEW_CHARS],
+        header=text_history.CSV_HEADER,
+        fold={c:c.casefold() for c in map(chr,range(0x110000)) if c.casefold()!=c.lower()},
+    )
+    with store.db() as db:
+        checks={sha:content_catalog.verify(db,store,dict(sha=sha)) for sha, in db.execute('SELECT DISTINCT sha FROM versions')}
+    d['contentCatalog']=dict(checks=checks,group_fields=content_catalog.GROUP_FIELDS,
+                             group_header=content_catalog.GROUP_HEADER,ref_fields=content_catalog.REF_FIELDS,
+                             ref_header=content_catalog.REF_HEADER,example=hashlib.sha256(approved).hexdigest())
     d['scanColumns']=scan_log.COLUMNS
     d['waits']={rid:all_rows('waiting_files',root=rid) for _,rid in dirs}
     d['scanRuns']={rid:all_rows('scan_log',root=rid) for _,rid in dirs}
@@ -335,6 +381,68 @@ def generate(tmp):
                                             pages[json.dumps([sheet,expand,rp,cp],ensure_ascii=False,separators=(',',':'))]=api.dispatch(
                                                 'sheet_rows',{**params,'page':rp,'col_page':cp})
                             d['grids'][f"{u['id']}-{v['id']}-{mode}"]={'first':initial['sheet'],'pages':pages,'cells':cells}
+    line_reports={}
+    line_example=None
+    for f in d['files']:
+        history=d['history'][f['id']]
+        for v in history:
+            if v['ext'] not in line_origins.EXTENSIONS or v['size']>line_origins.FILE_BYTES:
+                continue
+            modes={}
+            for moves in (False,True):
+                reports=[]
+                for depth in line_origins.DEPTHS:
+                    try:
+                        with store.db() as db:
+                            report=line_origins.trace(db,store,dict(id=v['id'],depth=depth,moves=moves))
+                    except ValueError:
+                        break
+                    reports.append([depth,report])
+                    if report['boundary']['reason']!='达到所选追溯深度':
+                        break
+                modes[int(moves)]=reports
+            line_reports[v['id']]=modes
+        if f['rel']=='退货轨迹.csv':
+            line_example={**history[0],'root':f['root'],'rel':f['rel']}
+    d['lineOrigins']=dict(reports=line_reports,example=line_example,header=line_origins.COLUMNS,width=line_origins.WIDTH)
+    package_rows={}
+    version_ids=sorted(v['id'] for history in d['history'].values() for v in history)
+    for first in range(0,len(version_ids),version_bundle.LIMIT):
+        batch=api.dispatch('version_bundle_preview',dict(ids=version_ids[first:first+version_bundle.LIMIT]))
+        package_rows.update((row['version_id'],row) for row in batch['items'])
+    files={f['rel']:f for f in d['files']}
+    returns=d['history'][files['退货轨迹.csv']['id']]
+    reference=d['history'][files['检验作业指导书.docx']['id']][0]
+    ids=sorted([returns[0]['id'],returns[-1]['id'],reference['id']])
+    draft=api.dispatch('version_bundle_preview',dict(ids=ids))
+    archive=tmp/'示例历史版本交付.zip'
+    api.dispatch('version_bundle_create',dict(ids=ids,token=draft['token'],path=str(archive)))
+    receipt=api.dispatch('version_bundle_verify',dict(ids=ids,path=str(archive)))
+    example=[dict(id=i,num=package_rows[i]['num'],rel=package_rows[i]['source_rel'],root=package_rows[i]['root']) for i in ids]
+    d['versionBundle']=dict(rows=package_rows,example=example,zip=base64.b64encode(archive.read_bytes()).decode('ascii'),
+                            receipt=receipt,header=version_bundle.CSV_HEADER,fields=version_bundle.CSV_FIELDS)
+    d['pathHistoryHeader']=path_history.CSV_HEADER
+    d['pathHistoryFields']=path_history.CSV_FIELDS
+    binary_file=next(f for f in d['files'] if f['rel']=='库存台账.xlsx')
+    hex_id=d['history'][binary_file['id']][0]['id']
+    text_id=returns[0]['id']
+    samples={}
+    with store.db() as db:
+        for v in (v for versions in d['history'].values() for v in versions):
+            if (v['ext'] not in snapshot_preview.EXTENSIONS and v['id']!=hex_id) or v['size']>snapshot_preview.MAX_BYTES:
+                continue
+            meta,raw=snapshot_preview.load(db,store,v['id'])
+            decoded=None
+            error=''
+            try:
+                rows,encoding,endings=snapshot_preview.text_info(raw)
+                decoded=dict(rows=rows,encoding=encoding,endings=endings)
+            except ValueError as exc:
+                error=str(exc)
+            samples[v['id']]=dict(meta=meta,raw=base64.b64encode(raw).decode('ascii'),text=decoded,error=error,
+                                  auto_text=v['ext'] in snapshot_preview.EXTENSIONS)
+    d['snapshotPreview']=dict(samples=samples,examples=dict(text=samples[text_id]['meta'],hex=samples[hex_id]['meta']),
+                              text_header=snapshot_preview.TEXT_HEADER,hex_header=snapshot_preview.HEX_HEADER,screen=snapshot_preview.SCREEN)
     return d
 
 

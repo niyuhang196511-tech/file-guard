@@ -9,7 +9,10 @@ from PIL import Image, ExifTags
 
 
 def decode_text(path):
-    raw = path.read_bytes()
+    return decode_text_bytes(path.read_bytes())
+
+
+def decode_text_bytes(raw):
     signatures = (
         (codecs.BOM_UTF32_LE,'utf-32','UTF-32 LE'),(codecs.BOM_UTF32_BE,'utf-32','UTF-32 BE'),
         (codecs.BOM_UTF16_LE,'utf-16','UTF-16 LE'),(codecs.BOM_UTF16_BE,'utf-16','UTF-16 BE'),

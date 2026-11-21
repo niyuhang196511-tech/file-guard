@@ -7,7 +7,7 @@ import threading
 import time
 from pathlib import Path
 
-from . import formats, review, record_admin, backup_check, rules, checkpoints, finder, scan_log, handoff, health, variance, work_reports, save_receipt, table_source
+from . import formats, review, record_admin, backup_check, rules, checkpoints, finder, scan_log, handoff, health, variance, work_reports, save_receipt, table_source, text_history, content_catalog, line_origins, review_batch, version_bundle, path_history, checkpoint_three, snapshot_preview
 from .sheet_view import WorkbookView
 from .comparison import Comparison, HEADER, EXCEL_HEADER, csv_cell, new_csv
 from .store import now, within
@@ -238,7 +238,7 @@ class Service:
                     pending=one("SELECT count(*) FROM versions WHERE status='待解析'")+one('SELECT count(*) FROM tasks')+len(self.s.progress),
                     failures=one("SELECT count(*) FROM versions WHERE status='解析失败'"),trend=trend,
                     groups=sorted(groups.items(),key=lambda x:-x[1]),recent=self.page(db,'events',{'size':6})['items'],
-                    recovery=one('SELECT count(*) FROM restores'),
+                    recovery=one('SELECT count(*) FROM restores'),line_origin_exts=sorted(line_origins.EXTENSIONS),
                     record_admin_ready=bool(one('SELECT count(*) FROM record_admin')),watch=self.watch_status,settings=settings(db),home=str(self.s.home),stamp=now())
 
     def page(self,db,table,a):
@@ -472,6 +472,19 @@ class Service:
 
     def dispatch(self,cmd,a):
         with self.s.db() as db:
+            if cmd in ('snapshot_preview','snapshot_preview_csv'):
+                return snapshot_preview.view(db,self.s,a,cmd=='snapshot_preview_csv')
+            if cmd in ('path_history','path_history_csv'):
+                return path_history.result(db,self.s,a,cmd=='path_history_csv')
+            if cmd in ('version_bundle_preview','version_bundle_create','version_bundle_csv','version_bundle_verify'):
+                return version_bundle.run(db,self.s,cmd,a)
+            if cmd in ('line_origins','line_origins_csv'):
+                return line_origins.query(db,self.s,a,cmd=='line_origins_csv')
+            if cmd in ('content_groups','content_refs','content_groups_csv','content_refs_csv'):
+                return content_catalog.catalog(db,self.s,cmd,a)
+            if cmd=='content_verify':return content_catalog.verify(db,self.s,a)
+            if cmd=='text_search':return text_history.search(db,self.s,a)
+            if cmd=='text_search_csv':return text_history.export(db,self.s,a)
             if cmd=='save_receipt':return save_receipt.receipt(db,self.s,a)
             if cmd=='table_source':return table_source.read(db,self.s,a)
             if cmd in ('ledger_templates','ledger_save','ledger_remove'):return table_source.templates(db,self.s,cmd,a)
@@ -502,6 +515,8 @@ class Service:
                 with self.s.lock:
                     return checkpoints.create(db,self.s,a)
             if cmd=='checkpoints': return checkpoints.listing(db,a['root'])
+            if cmd in ('checkpoint_three','checkpoint_three_csv'):
+                return checkpoint_three.report(db,self.s,a,cmd=='checkpoint_three_csv')
             if cmd in ('checkpoint_diff','checkpoint_export'): return checkpoints.compare(db,self.s,a,cmd=='checkpoint_export')
             if cmd=='rule_preview': return rules.preview(a)
             if cmd=='rule_history': return rows(db.execute('SELECT id,stamp,patterns,max_mb FROM rule_changes WHERE root_id=? ORDER BY id DESC LIMIT 100',(a['root'],)))
@@ -519,6 +534,8 @@ class Service:
             if cmd=='review_queue':
                 db.execute('BEGIN')
                 return review.query(db,a)
+            if cmd in ('review_batch_preview','review_batch_apply'):
+                return review_batch.run(db,self.s,a,now(),cmd=='review_batch_apply')
             if cmd=='save_review':return review.save(db,self.s,a,now())
             if cmd=='star_file':return review.star(db,self.s,a)
             if cmd=='inspect_backup':return backup_check.inspect(a['path'],db)

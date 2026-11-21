@@ -1,22 +1,27 @@
 // 从 frontend/app.ts 生成。
 'use strict';
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
-                                         
-                  
-                       
-                                                                                   
-                              
-                                       
-                                                               
-                                                                            
- 
-                    
-                                   
-                                                                      
-                                
-  
 
-                                                                                                                                                                                                                                                                                                                                                  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 const { createApp, h, nextTick } = Vue;
 const Ledger=window.FileGuardLedger;
@@ -62,6 +67,13 @@ const columns = [
     '复核工作台',
     '目录清单',
     '差异检索',
+    '历史正文检索',
+    '相同内容追溯',
+    '逐行来源',
+    '历史版本交付篮',
+    '路径沿革',
+    '清单三方对照',
+    '历史原件预览',
     '审计中心',
     '系统设置'
 ];
@@ -75,6 +87,13 @@ const navIcons = [
     'list-checks',
     'files',
     'search',
+    'search',
+    'files',
+    'history',
+    'files',
+    'folder-search',
+    'columns-2',
+    'files',
     'clipboard-list',
     'settings'
 ];
@@ -93,6 +112,17 @@ const freshFilter = ()             =>({
         prefix: ''
     });
 const freshFinder=()=>({q:'',filename:'',ext:'',root:'',kind:'',sheet:'',field:'',record:'',start:'',end:'',side:'',sort:'',direction:'',starred:false,exact:false,sensitive:false});
+const freshPath=()=>({mode:'path',rel:'',root:0,file:0,start:'',end:'',source:'',kind:'',direction:'',
+    sort:'newest',size:25,fold:false,structural:false});
+const freshTri=()=>({base:0,left:0,right:0,q:'',ext:'',kind:'',sort:'review',size:25,unchanged:false,issues:false,collision:false});
+const freshSnapshot=()=>({id:0,mode:'auto',q:'',size:50,width:16,low:null,high:null,at:null,exact:false,sensitive:false});
+const freshLineage=()=>({id:0,depth:20,moves:false,q:'',kind:'',origin:0,low:0,high:0,exact:false,sensitive:false,size:50});
+const freshContent=()=>({mode:'cross',sha:'',q:'',root:0,ext:'',state:'',start:'',end:'',
+    minimum:'',maximum:'',latest:false,starred:false,empty:false,sort:'saved',size:25});
+const freshTextHistory=()                    => ({
+    q:'',filename:'',ext:'',root:0,file:0,scope:'',start:'',end:'',context:1,
+    latest:true,starred:false,exact:false,sensitive:false,skip_initial:false
+});
 const freshCellSearch=()=>({q:'',side:'',type:'',field:'',changed:false,exact:false,sensitive:false});
 const freshReview=()=>({state:'',q:'',root:'',ext:'',status:'',baseline:false,starred:false,latest:false,start:'',end:'',sort:'',page:1,size:25});
 const emptyList = ()=>({
@@ -121,7 +151,8 @@ const blank = {
     breakdown: {},
     watch: '正在连接',
     stamp: '',
-    home: ''
+    home: '',
+    line_origin_exts: []
 };
 const descs = {
     '目录监控': '管理监控范围、排除规则和目录运行状态。',
@@ -131,6 +162,13 @@ const descs = {
     '版本对比': '选择同一文件的两个版本，定位内容变化。',
     '复核工作台':'逐个版本登记复核结论，集中查看需要跟进的问题。',
     '差异检索':'跨文件查询可见事件的已解析差异，打开原始版本对复核。',
+    '历史正文检索':'在已保存的文本版本中查找字词、编号或整行内容。',
+    '相同内容追溯':'按已保存的 SHA-256 查找跨文件副本、正文回退和共享对象的版本引用。',
+    '逐行来源':'从目标文本版本逐版向前追溯，定位每行的保存来源。',
+    '历史版本交付篮':'集中选择各文件的具体历史副本，打包交付并核查约定版本。',
+    '路径沿革':'追踪路径侧的进入、移出和删除记录，区分同名文件的保存身份。',
+    '清单三方对照':'以较早清单为参照，比较两份后续结果并定位冲突或路径争用。',
+    '历史原件预览':'按文本行或十六进制字节核对已保存的原件。',
     '目录清单':'保存最近一次完成扫描的文件清单，对照两个时点的路径、版本和大小。',
     '审计中心': '查看目录配置、数据导出、历史恢复等管理操作。',
     '系统设置': '配置本机监控、界面外观与版本仓库。'
@@ -140,6 +178,10 @@ const app = createApp({
     data: ()=>({
             s: structuredClone(blank),
             demo: demoMode,
+            demoContentSha: window.FILEGUARD_EXAMPLE?.contentCatalog?.example || '',
+            demoLineage: window.FILEGUARD_EXAMPLE?.lineOrigins?.example || null,
+            demoBundle: window.FILEGUARD_EXAMPLE?.versionBundle?.example || [],
+            demoSnapshots: window.FILEGUARD_EXAMPLE?.snapshotPreview?.examples || {},
             native: nativeMode,
             nav: columns.map((v, i)=>[
                     v,
@@ -161,8 +203,25 @@ const app = createApp({
             ],
             list: emptyList(),
             findForm:freshFinder(),findApplied:null,found:null,finderBusy:false,presets:[],presetName:'',presetId:0,
+            textForm:freshTextHistory(),textApplied:null,textFileLabel:'',textResult:null,textCursors:[],
+            textBusy:false,textError:'',textReturn:false,
+            contentForm:freshContent(),contentApplied:null,contentGroups:null,contentBusy:false,contentError:'',
+            contentSelected:null,contentRefs:null,contentRefsBusy:false,contentRefsError:'',
+            contentScoped:false,contentRefSort:'recent',contentRefSize:25,contentReturn:false,
+            contentCheck:null,contentCheckBusy:false,contentCheckError:'',
+            lineageForm:freshLineage(),lineageApplied:null,lineageData:null,lineageVersions:[],
+            lineageFile:null,lineageBusy:false,lineageError:'',lineageReturn:false,lineageBack:'',
             cellSearch:freshCellSearch(),cellHits:null,cellSig:'',cellBusy:false,
             reviewFilter:freshReview(),reviews:{...emptyList(),pages:1,counts:{}},reviewBusy:false,reviewReturn:false,
+            reviewSelected:[],
+            bundleRows:[],bundleLabel:'',bundlePaths:false,bundleData:null,bundleActive:null,bundleBusy:false,bundleError:'',
+            pathForm:freshPath(),pathResult:null,pathApplied:null,pathBusy:false,pathError:'',pathReturn:false,pathPrevious:null,
+            pathRelations:['新占用记录','删除记录','移入范围','移出范围','范围内路径变化','重命名','移动','原位置记录'],
+            triRoot:0,triList:[],triForm:freshTri(),triApplied:null,triData:null,triError:'',
+            triBusy:false,triReturn:false,
+            triKinds:['相同','仅左侧变动','仅右侧变动','两侧结果相同','两侧互补','两侧内容冲突','两侧路径冲突','两侧路径与内容冲突','移出与变动冲突'],
+            snapshotFile:null,snapshotVersions:[],snapshotForm:freshSnapshot(),snapshotData:null,
+            snapshotApplied:null,snapshotBusy:false,snapshotError:'',snapshotBack:'',
             reviewStates:['待复核','需跟进','已复核'],historyReview:'',storageData:null,
             gridFilter:'',gridTarget:'',gridLocate:'new',
             cpRoot:0,cpOld:0,cpNew:0,checkpoints:[],cpLabel:'',cpKind:'',cpQ:'',cpSort:'',cpSame:false,cpData:null,cpPage:1,cpBusy:false,
@@ -219,6 +278,8 @@ const app = createApp({
             ]
         }),
     computed: {
+        activeContentVersion () {return this.versions.find(v=>v.id===this.right);},
+        snapshotShowsHex () {return this.snapshotForm.mode==='hex'||(this.snapshotForm.mode==='auto'&&this.snapshotData?.mode==='hex');},
         ledgerEnabled () {return this.versions.some(v=>ledgerExt.includes(v.ext));},
         ledgerSlice () {return this.dialog?.type==='ledger'?Ledger.paginate(this.ledgerData(),this.dialog.page):Ledger.paginate([],1);},
         matchedVersions () {
@@ -505,14 +566,29 @@ const app = createApp({
                 }
             });
         },
-        async go (page, filters = {}) {
+        async go (page, filters                     = {}) {
             if (page==='目录监控') this.clearRootFilter();
             clearTimeout(this._timer);
             this.flags.list=(this.flags.list || 0)+1;
             this.flags.history=(this.flags.history || 0)+1;
             this.eventReturn=null;
             this.reviewReturn=false;
+            this.textReturn=false;
+            this.contentReturn=false;
+            this.lineageReturn=false;
+            this.pathReturn=false;
+            this.triReturn=false;
             this.page = page;
+            if(page==='相同内容追溯'){
+                if(filters.sha){
+                    this.resetContent();
+                    Object.assign(this.contentForm,{sha:filters.sha,mode:'all',empty:true});
+                    await this.loadContentGroups();
+                    if(this.page===page&&this.contentGroups?.items[0]?.sha===filters.sha)
+                        await this.selectContent(this.contentGroups.items[0]);
+                } else if(!this.contentGroups&&!this.contentBusy)await this.loadContentGroups();
+                if(this.page!==page)return;
+            }
             if(page==='差异检索'){
                 await this.loadPresets();
                 await this.findChanges();
@@ -523,6 +599,11 @@ const app = createApp({
             }
             if(page==='系统设置')await this.loadRuntime();
             if(page==='复核工作台')await this.loadReview();
+            if(page==='清单三方对照'&&!this.triList.length){
+                this.triRoot=this.triRoot||this.s.roots[0]?.id||0;
+                await this.loadTriList();
+            }
+            if(page==='历史版本交付篮'&&this.bundleRows.length&&!this.bundleData)await this.previewBundle();
             this.notifications = false;
             this.dialog = null;
             this.f = {...freshFilter(),...filters};
@@ -712,7 +793,464 @@ const app = createApp({
             if(!v)return;
             this.dialog={type:'review',title:'复核 V'+v.num,id:v.id,state:v.review||'待复核',note:v.note||'',revision:v.revision||0};
         },
+        reviewIsSelected (id) {return this.reviewSelected.some(v=>v.id===id);},
+        selectReviewRows () {
+            const unselected=this.reviews.items.filter(v=>!this.reviewIsSelected(v.id));
+            if(this.reviewSelected.length+unselected.length>100){
+                this.toast('每批最多选 100 个版本，请先取消部分选择');
+                return;
+            }
+            for(const row of unselected)this.addReviewSelection(row);
+        },
+        addReviewSelection (row) {
+            const {id,revision,rel,root,num}=row;
+            this.reviewSelected.push({id,revision,rel,root,num});
+        },
+        hasBundleVersion (id) {return this.bundleRows.some(v=>v.id===id);},
+        invalidateBundle () {
+            this.flags.bundle=(this.flags.bundle||0)+1;
+            this.bundleData=null;this.bundleActive=null;this.bundleBusy=false;this.bundleError='';
+        },
+        addBundleVersion (v) {
+            if(this.hasBundleVersion(v.id)){
+                this.toast('此版本已在交付篮');
+                return;
+            }
+            if(this.bundleRows.length===100){
+                this.toast('交付篮最多容纳 100 个版本');
+                return;
+            }
+            this.bundleRows.push({id:v.id,num:v.num,rel:v.rel||this.file?.rel,root:v.root||this.file?.root});
+            this.invalidateBundle();
+            this.toast('V'+v.num+' 已加入交付篮');
+        },
+        removeBundleVersion (id) {
+            this.bundleRows=this.bundleRows.filter(v=>v.id!==id);
+            this.invalidateBundle();
+        },
+        clearBundle () {
+            this.bundleRows=[];
+            this.invalidateBundle();
+        },
+        async loadDemoBundle () {
+            this.bundleRows=this.demoBundle.map(v=>({...v}));
+            this.bundleLabel='';this.bundlePaths=false;
+            await this.previewBundle();
+        },
+        async previewBundle () {
+            if(!this.bundleRows.length)return;
+            this.invalidateBundle();
+            const seq=this.flags.bundle;
+            const args={ids:this.bundleRows.map(v=>v.id),label:this.bundleLabel,include_paths:this.bundlePaths};
+            this.bundleBusy=true;
+            try {
+                const result=await request('version_bundle_preview',args);
+                if(seq===this.flags.bundle){this.bundleData=result;this.bundleActive={...args,token:result.token};}
+            } catch (error) {
+                if(seq===this.flags.bundle)this.bundleError=String(error.message||error);
+            } finally {
+                if(seq===this.flags.bundle)this.bundleBusy=false;
+            }
+        },
+        async exportBundle (zip=false) {
+            if(!this.bundleData?.complete||!this.bundleActive||this.bundleBusy||(zip&&!this.bundleData.ready))return;
+            const args=this.bundleActive;
+            const cmd=zip?'version_bundle_create':'version_bundle_csv';
+            if(!this.demo){
+                await this.saveFile(cmd,zip?'历史版本交付.zip':'历史版本交付明细.csv',null,args);
+                return;
+            }
+            if(!zip){await this.downloadCsv(cmd,args,'历史版本交付明细.csv');return;}
+            const encoded=await this.safe(()=>request(cmd,args));
+            if(encoded)this.downloadBlob(new Blob([Uint8Array.from(atob(encoded),c=>c.charCodeAt(0))],{type:'application/zip'}),'示例历史版本交付.zip');
+        },
+        removeReviewSelection (id) {this.reviewSelected=this.reviewSelected.filter(v=>v.id!==id);},
+        toggleReviewSelection (row) {
+            if(this.reviewIsSelected(row.id))this.removeReviewSelection(row.id);
+            else if(this.reviewSelected.length<100)this.addReviewSelection(row);
+            else this.toast('每批最多选 100 个版本');
+        },
+        clearReviewPage () {
+            const ids=new Set(this.reviews.items.map(v=>v.id));
+            this.reviewSelected=this.reviewSelected.filter(v=>!ids.has(v.id));
+        },
+        openReviewBatch () {
+            if(!this.reviewSelected.length)return;
+            this.dialog={type:'review_batch',title:'批量版本复核',state:'',mode:'keep',note:'',reason:'',
+                preview:null,loading:false,error:'',snapshot:'',result:null,onlyIssues:false};
+        },
+        reviewBatchArgs (dialog) {
+            return {targets:this.reviewSelected.map(({id,revision})=>({id,revision})),
+                state:dialog.state,mode:dialog.mode,note:dialog.mode==='keep'?'':dialog.note,reason:dialog.reason};
+        },
+        invalidateReviewBatch () {
+            const dialog=this.dialog;
+            dialog.preview=null;dialog.snapshot='';dialog.error='';dialog.onlyIssues=false;
+        },
+        async previewReviewBatch (refresh=false) {
+            const dialog=this.dialog;
+            if(dialog.loading||!this.reviewSelected.length)return;
+            if(refresh){
+                const revisions=new Map(dialog.preview.items.filter(v=>v.status==='conflict').map(v=>[v.id,v.revision]));
+                for(const row of this.reviewSelected)if(revisions.has(row.id))row.revision=revisions.get(row.id);
+            }
+            this.invalidateReviewBatch();
+            dialog.loading=true;
+            const args=this.reviewBatchArgs(dialog);
+            const snapshot=JSON.stringify(args);
+            try {
+                const result=await request('review_batch_preview',args);
+                if(this.dialog===dialog&&snapshot===JSON.stringify(this.reviewBatchArgs(dialog))){
+                    dialog.preview=result;dialog.snapshot=snapshot;
+                }
+            } catch (error) {
+                if(this.dialog===dialog)dialog.error=String(error.message||error);
+            } finally {
+                if(this.dialog===dialog)dialog.loading=false;
+            }
+        },
+        dropReviewBatchRow (id) {
+            this.removeReviewSelection(id);
+            this.invalidateReviewBatch();
+        },
+        async commitReviewBatch () {
+            const dialog=this.dialog;
+            const args=this.reviewBatchArgs(dialog);
+            if(!dialog.preview?.token||JSON.stringify(args)!==dialog.snapshot||this.busy||dialog.loading)return;
+            this.busy=true;dialog.error='';
+            try {
+                const result=await request('review_batch_apply',{...args,token:dialog.preview.token});
+                if(this.dialog!==dialog)return;
+                if(!result.applied){
+                    dialog.preview=result.preview;dialog.onlyIssues=false;
+                    dialog.error='批次未写入。请核对最新预览，再确认或调整选择。';
+                    return;
+                }
+                dialog.result=result;dialog.preview=null;
+                this.reviewSelected=[];
+                await this.loadReview();
+            } catch (error) {
+                if(this.dialog===dialog)dialog.error=String(error.message||error);
+            } finally {
+                this.busy=false;
+            }
+        },
         freshFind:freshFinder,
+        async openSnapshot (row,at=null) {
+            const back=this.page;
+            const current=this.file?.id===row.file_id?this.file:null;
+            const file={id:row.file_id,rel:row.rel||current?.rel,root:row.root||current?.root};
+            await this.go('历史原件预览');
+            if(this.page!=='历史原件预览')return;
+            const seq=(this.flags.snapshot||0)+1;
+            this.flags.snapshot=seq;this.snapshotBusy=true;this.snapshotError='';
+            this.snapshotBack=['历史版本','版本对比','历史正文检索','逐行来源'].includes(back)?back:'';
+            this.snapshotFile=file;this.snapshotVersions=[];this.snapshotData=null;this.snapshotApplied=null;
+            this.snapshotForm={...freshSnapshot(),id:row.id,at,mode:at===null?'auto':'text'};
+            try {
+                const versions=await request('history',{id:file.id});
+                if(seq!==this.flags.snapshot)return;
+                this.snapshotVersions=versions;
+                await this.loadSnapshot();
+            } catch (error) {
+                if(seq===this.flags.snapshot)this.snapshotError=String(error.message||error);
+            } finally {
+                if(seq===this.flags.snapshot)this.snapshotBusy=false;
+            }
+        },
+        async loadSnapshot (page=1,reuse=false) {
+            const seq=(this.flags.snapshot||0)+1;
+            this.flags.snapshot=seq;this.snapshotBusy=true;this.snapshotError='';
+            const opts={...(reuse?this.snapshotApplied:this.snapshotForm)};
+            for(const key of ['at','low','high'])if(opts[key]==='')opts[key]=null;
+            if(reuse)opts.at=null;
+            else {this.snapshotData=null;this.snapshotApplied=null;}
+            try {
+                const data=await request('snapshot_preview',{...opts,page});
+                if(seq===this.flags.snapshot){this.snapshotData=data;this.snapshotApplied=opts;}
+            } catch (error) {
+                if(seq===this.flags.snapshot)this.snapshotError=String(error.message||error);
+            } finally {
+                if(seq===this.flags.snapshot)this.snapshotBusy=false;
+            }
+        },
+        async resetSnapshotView () {
+            const {id,mode,width,size}=this.snapshotForm;
+            this.snapshotForm={...freshSnapshot(),id,mode,width,size};
+            await this.loadSnapshot();
+        },
+        async exportSnapshot () {
+            if(this.snapshotBusy||!this.snapshotData?.total)return;
+            if(this.demo)await this.downloadCsv('snapshot_preview_csv',this.snapshotApplied,'历史原件预览.csv');
+            else await this.saveFile('snapshot_preview_csv','历史原件预览.csv',null,this.snapshotApplied);
+        },
+        async saveSnapshotOriginal () {
+            const id=this.snapshotForm.id;
+            if(!id||this.demo)return;
+            const chosen=this.snapshotVersions.find(v=>v.id===id);
+            if(!chosen)return;
+            const rel=this.snapshotFile.rel||'历史副本';
+            const name=this.base(rel);
+            const stem=name.replace(/\.[^.]+$/,'');
+            await this.saveFile('copy',stem+'-V'+chosen.num+chosen.ext,id);
+        },
+        resetPath () {
+            this.flags.path=(this.flags.path||0)+1;
+            this.pathForm=freshPath();this.pathResult=null;this.pathApplied=null;
+            this.pathBusy=false;this.pathError='';this.pathPrevious=null;
+        },
+        async openPath (row,mode='path') {
+            const previous=this.page==='路径沿革'&&mode==='identity'&&this.pathResult?.mode!=='identity'?this.pathApplied:null;
+            await this.go('路径沿革');
+            if(this.page!=='路径沿革')return;
+            this.resetPath();
+            this.pathPrevious=previous;
+            this.pathForm.mode=mode;
+            this.pathForm.root=row.root_id||this.s.roots.find(r=>r.path===row.root)?.id||0;
+            if(mode==='identity')this.pathForm.file=row.file_id||row.id;
+            else this.pathForm.rel=row.rel||'';
+            if(this.pathForm.file||this.pathForm.rel)await this.loadPath();
+        },
+        async restorePathScope () {
+            if(!this.pathPrevious)return;
+            const previous=this.pathPrevious;
+            this.resetPath();
+            this.pathForm={...previous};
+            await this.loadPath();
+        },
+        async loadPath (page=1,identityPage=1,reuse=false) {
+            const seq=(this.flags.path||0)+1;
+            this.flags.path=seq;this.pathBusy=true;this.pathError='';
+            const args={...(reuse?this.pathApplied:this.pathForm)};
+            args.file ||= 0;
+            if(!reuse){this.pathResult=null;this.pathApplied=null;}
+            try {
+                const result=await request('path_history',{...args,page,identity_page:identityPage});
+                if(seq===this.flags.path){this.pathResult=result;this.pathApplied=args;}
+            } catch (error) {
+                if(seq===this.flags.path)this.pathError=String(error.message||error);
+            } finally {
+                if(seq===this.flags.path)this.pathBusy=false;
+            }
+        },
+        async filterPathRelation (direction) {
+            this.pathForm={...this.pathApplied,direction:this.pathApplied.direction===direction?'':direction};
+            await this.loadPath();
+        },
+        async openPathEvent (row) {
+            const seq=(this.flags.pathEvent||0)+1;
+            this.flags.pathEvent=seq;
+            const filters=this.flags.path;
+            const result=await this.safe(()=>request('events',{event_id:row.id,size:1}));
+            if(this.page!=='路径沿革'||!result||seq!==this.flags.pathEvent||filters!==this.flags.path)return;
+            const event=result.items[0];
+            if(!event?.file_id){this.toast('此记录已不在可见范围，请重新查询');return;}
+            await this.fromEvent(event);
+            if(['历史版本','版本对比'].includes(this.page))this.pathReturn=true;
+        },
+        async exportPath () {
+            if(!this.pathResult?.total||this.pathBusy)return;
+            if(this.demo)await this.downloadCsv('path_history_csv',this.pathApplied,'路径沿革.csv');
+            else await this.saveFile('path_history_csv','路径沿革.csv',null,this.pathApplied);
+        },
+        canTraceLines (row) {
+            return !!row&&this.s.line_origin_exts.includes(row.ext);
+        },
+        async openLineage (row,line=0) {
+            const source=this.page;
+            const file=this.file?.id===row.file_id?this.file:{id:row.file_id,rel:row.rel,root:row.root,ext:row.ext};
+            await this.go('逐行来源');
+            if(this.page!=='逐行来源')return;
+            const seq=(this.flags.lineage||0)+1;
+            this.flags.lineage=seq;
+            this.lineageFile=file;
+            this.lineageBack=['历史版本','版本对比','历史正文检索','历史原件预览'].includes(source)?source:'';
+            this.lineageForm={...freshLineage(),id:row.id,low:line,high:line};
+            this.lineageApplied=null;this.lineageData=null;this.lineageVersions=[];
+            this.lineageBusy=true;this.lineageError='';
+            try {
+                const versions=await request('history',{id:file.id});
+                if(seq!==this.flags.lineage)return;
+                this.lineageVersions=versions.filter(v=>this.canTraceLines(v));
+                await this.loadLineage();
+            } catch (error) {
+                if(seq===this.flags.lineage)this.lineageError=String(error.message||error);
+            } finally {
+                if(seq===this.flags.lineage)this.lineageBusy=false;
+            }
+        },
+        async loadLineage (page=1,reuse=false) {
+            const seq=(this.flags.lineage||0)+1;
+            this.flags.lineage=seq;this.lineageBusy=true;this.lineageError='';
+            const opts={...(reuse?this.lineageApplied:this.lineageForm)};
+            for(const key of ['low','high'])opts[key] ||= 0;
+            if(!reuse){this.lineageData=null;this.lineageApplied=null;}
+            try {
+                const report=await request('line_origins',{...opts,page});
+                if(seq===this.flags.lineage){
+                    this.lineageData=report;this.lineageApplied=opts;
+                }
+            } catch (error) {
+                if(seq===this.flags.lineage)this.lineageError=String(error.message||error);
+            } finally {
+                if(seq===this.flags.lineage)this.lineageBusy=false;
+            }
+        },
+        async changeLineageTarget () {
+            this.lineageForm.origin=0;
+            await this.loadLineage();
+        },
+        async resetLineageFilters () {
+            const {id,depth,moves,size}=this.lineageForm;
+            this.lineageForm={...freshLineage(),id,depth,moves,size};
+            await this.loadLineage();
+        },
+        async filterLineageSource (row) {
+            this.lineageForm={...this.lineageApplied,origin:row.id===this.lineageApplied?.origin?0:row.id};
+            await this.loadLineage();
+        },
+        async openLineageVersion (origin,compare=false) {
+            const target=this.lineageData.target;
+            if(!await this.selectFile(this.lineageFile))return;
+            this.lineageReturn=true;
+            this.versionQuery='V'+origin.num;
+            if(compare&&origin.id!==target.id)await this.pair(origin.id,target.id);
+        },
+        async exportLineage () {
+            if(this.lineageBusy||!this.lineageData?.total)return;
+            if(this.demo)await this.downloadCsv('line_origins_csv',this.lineageApplied,'逐行来源.csv');
+            else await this.saveFile('line_origins_csv','逐行来源.csv',null,this.lineageApplied);
+        },
+        clearContentSelection () {
+            this.flags.contentRefs=(this.flags.contentRefs||0)+1;
+            this.flags.contentVerify=(this.flags.contentVerify||0)+1;
+            this.contentSelected=null;this.contentRefs=null;this.contentRefsBusy=false;this.contentRefsError='';
+            this.contentCheck=null;this.contentCheckBusy=false;this.contentCheckError='';
+            this.contentScoped=false;this.contentRefSort='recent';this.contentRefSize=25;
+        },
+        resetContent () {
+            this.flags.content=(this.flags.content||0)+1;
+            this.clearContentSelection();
+            this.contentForm=freshContent();this.contentApplied=null;this.contentGroups=null;
+            this.contentBusy=false;this.contentError='';
+        },
+        async loadContentGroups (page=1,reuse=false) {
+            const seq=(this.flags.content||0)+1;
+            this.flags.content=seq;this.contentBusy=true;this.contentError='';
+            const filters={...(reuse?this.contentApplied:this.contentForm)};
+            if(!reuse){this.clearContentSelection();this.contentGroups=null;this.contentApplied=null;}
+            try {
+                const result=await request('content_groups',{...filters,page});
+                if(seq!==this.flags.content)return;
+                this.contentApplied=filters;this.contentGroups=result;
+            } catch (error) {
+                if(seq===this.flags.content)this.contentError=String(error.message||error);
+            } finally {
+                if(seq===this.flags.content)this.contentBusy=false;
+            }
+        },
+        async selectContent (group) {
+            this.clearContentSelection();
+            this.contentSelected=group;
+            await this.loadContentRefs();
+        },
+        contentRefArgs () {
+            return {...(this.contentScoped?this.contentApplied:{}),sha:this.contentSelected.sha,
+                sort:this.contentRefSort,size:this.contentRefSize};
+        },
+        async loadContentRefs (page=1) {
+            if(!this.contentSelected)return;
+            const seq=(this.flags.contentRefs||0)+1;
+            this.flags.contentRefs=seq;this.contentRefsBusy=true;this.contentRefsError='';this.contentRefs=null;
+            try {
+                const result=await request('content_refs',{...this.contentRefArgs(),page});
+                if(seq===this.flags.contentRefs)this.contentRefs=result;
+            } catch (error) {
+                if(seq===this.flags.contentRefs)this.contentRefsError=String(error.message||error);
+            } finally {
+                if(seq===this.flags.contentRefs)this.contentRefsBusy=false;
+            }
+        },
+        async verifyContent () {
+            const seq=(this.flags.contentVerify||0)+1;
+            this.flags.contentVerify=seq;this.contentCheckBusy=true;this.contentCheck=null;this.contentCheckError='';
+            try {
+                const result=await request('content_verify',{sha:this.contentSelected.sha});
+                if(seq===this.flags.contentVerify)this.contentCheck=result;
+            } catch (error) {
+                if(seq===this.flags.contentVerify)this.contentCheckError=String(error.message||error);
+            } finally {
+                if(seq===this.flags.contentVerify)this.contentCheckBusy=false;
+            }
+        },
+        async exportContent (refs=false) {
+            if(refs?this.contentRefsBusy||!this.contentRefs?.total:this.contentBusy||!this.contentGroups?.total)return;
+            const cmd=refs?'content_refs_csv':'content_groups_csv';
+            const name=refs?'正文引用明细.csv':'相同正文分组.csv';
+            const args=refs?this.contentRefArgs():this.contentApplied;
+            if(this.demo)await this.downloadCsv(cmd,args,name);
+            else await this.saveFile(cmd,name,null,args);
+        },
+        async openContentVersion (row,compare=false) {
+            const opened=await this.selectFile({id:row.file_id,rel:row.rel,root:row.root,ext:row.ext});
+            if(!opened)return;
+            this.versionQuery='V'+row.num;
+            this.contentReturn=true;
+            if(compare&&row.parent_id)await this.pair(row.parent_id,row.id);
+        },
+        resetTextSearch () {
+            this.flags.text=(this.flags.text||0)+1;
+            this.textForm=freshTextHistory();
+            this.textApplied=null;this.textFileLabel='';this.textResult=null;this.textCursors=[];
+            this.textBusy=false;this.textError='';
+        },
+        async searchThisFile () {
+            const {id,rel}=this.file;
+            await this.go('历史正文检索');
+            this.resetTextSearch();
+            this.textForm.file=id;this.textForm.latest=false;this.textFileLabel=rel;
+        },
+        async searchRootText (root) {
+            await this.go('历史正文检索');
+            this.resetTextSearch();
+            this.textForm.root=root.id;
+        },
+        async searchText (step=0) {
+            if((step>0&&!this.textResult?.next)||(step<0&&this.textCursors.length<2))return;
+            const seq=(this.flags.text||0)+1;
+            this.flags.text=seq;
+            this.textBusy=true;
+            this.textError='';
+            const filters={...(step?this.textApplied:this.textForm)};
+            const cursors=step>0?[...this.textCursors,this.textResult.next]:step<0?this.textCursors.slice(0,-1):[0];
+            const before=cursors[cursors.length-1];
+            const cap=step?this.textResult.cap:0;
+            if(!step){this.textResult=null;this.textApplied=null;this.textCursors=[];}
+            try {
+                const result=await request('text_search',{...filters,before,cap});
+                if(seq!==this.flags.text)return;
+                this.textResult=result;
+                this.textApplied=filters;
+                this.textCursors=cursors;
+            } catch (error) {
+                if(seq===this.flags.text)this.textError=String(error.message||error);
+            } finally {
+                if(seq===this.flags.text)this.textBusy=false;
+            }
+        },
+        async exportTextSearch () {
+            if(this.textBusy||!this.textResult?.items.length)return;
+            const args={...this.textApplied,cap:this.textResult.cap,before:this.textCursors[this.textCursors.length-1]};
+            if(this.demo)await this.downloadCsv('text_search_csv',args,'历史正文命中.csv');
+            else await this.saveFile('text_search_csv','历史正文命中.csv',null,args);
+        },
+        async openTextVersion (row, compare=false) {
+            const ok=await this.selectFile({id:row.file_id,rel:row.rel,root:row.root,ext:row.ext});
+            if(!ok)return;
+            this.textReturn=true;
+            this.versionQuery='V'+row.num;
+            if(compare&&row.parent_id)await this.pair(row.parent_id,row.id);
+        },
         async findChanges (page=1,filters=null) {
             const seq=(this.flags.find||0)+1;
             this.flags.find=seq;this.finderBusy=true;this.found=null;
@@ -826,6 +1364,70 @@ const app = createApp({
         async exportCheckpoints () {
             if(this.demo)await this.downloadCsv('checkpoint_export',this.cpArgs(),'目录清单对照.csv');
             else await this.saveFile('checkpoint_export','目录清单对照.csv',null,this.cpArgs());
+        },
+        async fromCheckpointThree () {
+            if(this.triRoot!==this.cpRoot){
+                this.triRoot=this.cpRoot;
+                this.triList=[];
+                this.triData=null;
+            }
+            await this.go('清单三方对照');
+        },
+        async loadTriList () {
+            const seq=(this.flags.tri||0)+1;
+            this.flags.tri=seq;this.triBusy=true;
+            this.triList=[];this.triForm=freshTri();this.triData=null;this.triApplied=null;this.triError='';
+            try {
+                const list=this.triRoot?await request('checkpoints',{root:this.triRoot}):[];
+                if(seq!==this.flags.tri)return;
+                this.triList=list;
+                if(list.length>=3){
+                    Object.assign(this.triForm,{base:list.at(-1).id,left:list[1].id,right:list[0].id});
+                    await this.loadTri();
+                }
+            } catch (error) {
+                if(seq===this.flags.tri)this.triError=String(error.message||error);
+            } finally {
+                if(seq===this.flags.tri)this.triBusy=false;
+            }
+        },
+        async loadTri (page=1,reuse=false) {
+            const seq=(this.flags.tri||0)+1;
+            this.flags.tri=seq;this.triBusy=true;this.triError='';
+            const args={...(reuse?this.triApplied:this.triForm)};
+            if(!reuse){this.triData=null;this.triApplied=null;}
+            try {
+                const data=await request('checkpoint_three',{...args,page});
+                if(seq===this.flags.tri){this.triData=data;this.triApplied=args;}
+            } catch (error) {
+                if(seq===this.flags.tri)this.triError=String(error.message||error);
+            } finally {
+                if(seq===this.flags.tri)this.triBusy=false;
+            }
+        },
+        async swapTri () {
+            const {left,right}=this.triForm;
+            Object.assign(this.triForm,{left:right,right:left,kind:'',
+                sort:this.triForm.sort==='left'?'right':this.triForm.sort==='right'?'left':this.triForm.sort});
+            await this.loadTri();
+        },
+        async resetTriFilters () {
+            const {base,left,right}=this.triForm;
+            this.triForm={...freshTri(),base,left,right};
+            await this.loadTri();
+        },
+        async openTriVersion (row,first,second=null) {
+            const version=second||first;
+            const root=this.s.roots.find(r=>r.id===this.triData.meta.base.root_id);
+            const rel=version.rel;
+            if(!await this.selectFile({id:row.file_id,root:root?.path||'',rel,ext:rel.includes('.')?'.'+rel.split('.').pop().toLowerCase():''}))return;
+            this.triReturn=true;this.versionQuery='V'+version.num;
+            if(second&&first.id!==second.id)await this.pair(first.id,second.id);
+        },
+        async exportTri () {
+            if(this.triBusy||!this.triData?.total)return;
+            if(this.demo)await this.downloadCsv('checkpoint_three_csv',this.triApplied,'目录清单三方对照.csv');
+            else await this.saveFile('checkpoint_three_csv','目录清单三方对照.csv',null,this.triApplied);
         },
         async showRuleHistory (r) {
             const entries=await this.safe(()=>request('rule_history',{root:r.id}));
@@ -1112,13 +1714,14 @@ const app = createApp({
             const url=URL.createObjectURL(blob),a=document.createElement('a');
             a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);
         },
-        async deliveryDialog (scope=null) {
+        async deliveryDialog (scope=null,versionBundle=false) {
             let path='';
             if(this.native){
                 path=await this.safe(()=>window.__TAURI__.core.invoke('pick_path',{kind:'delivery',name:''}));
                 if(!path)return;
             }
-            this.dialog={type:'delivery_check',title:scope?'按所选清单核查交付包':'核查交付包',scope,path,submit:'核查交付包'};
+            this.dialog={type:'delivery_check',title:versionBundle?'按交付篮核查 ZIP':scope?'按所选清单核查交付包':'核查交付包',
+                scope,path,versionBundle,submit:'核查交付包'};
             if(this.demo)await this.submitDialog();
         },
         async healthDialog () {
@@ -1194,6 +1797,10 @@ const app = createApp({
         async submitDialog () {
             if (this.busy) return;
             const d = this.dialog;
+            if(d?.type==='review_batch'){
+                if(!d.result&&!d.loading)await this.previewReviewBatch();
+                return;
+            }
             if (d && ['period','trace'].includes(d.type)){if(!d.loading)await this.runReport();return;}
             if (!d || ['receipt','ledger','inventory','health','variance','delivery_result','backup_result'].includes(d.type)) return;
             if (d.type==='restore_preview' && (this.demo || d.info.identical)) return;
@@ -1206,7 +1813,7 @@ const app = createApp({
                     this.dialog={type:'backup_result',title:'备份核查通过',result:b};
                     return;
                 }else if(d.type==='delivery_check'){
-                    const result=await request('handoff_verify',{...(d.scope||{}),path:d.path});
+                    const result=await request(d.versionBundle?'version_bundle_verify':'handoff_verify',{...(d.scope||{}),path:d.path});
                     this.dialog={type:'delivery_result',title:result.ok?'交付包核查通过':'交付包存在差异',result};
                     return;
                 }else if(d.type==='capture_policy'){
@@ -1330,6 +1937,7 @@ const app = createApp({
             }
             const file = {
                 id: e.file_id,
+                root_id:e.root_id,
                 rel: e.current_rel || e.rel,
                 root: e.root,
                 ext: e.current_ext ?? e.ext,
@@ -1347,6 +1955,11 @@ const app = createApp({
             }
         },
         async selectFile (file, page = '历史版本') {
+            this.textReturn=false;
+            this.contentReturn=false;
+            this.lineageReturn=false;
+            this.pathReturn=false;
+            this.triReturn=false;
             const marker=(this.flags.history || 0)+1;
             this.flags.history=marker;
             this.displayMode='auto';

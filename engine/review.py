@@ -80,10 +80,19 @@ def save(db,store,args,stamp):
     if (state,note)==(row['review'],row['note']):return '复核记录已保存'
     if int(args['revision'])!=row['revision']:
         raise ValueError('复核记录已更新，请关闭后刷新，再核对新意见')
-    db.execute('INSERT OR REPLACE INTO version_reviews VALUES (?,?,?,?,?)',
-               (vid,state,note,stamp,row['revision']+1))
-    store.audit(db,'更新版本复核',f"{row['rel']} · V{row['num']} · {row['review']} → {state}\n此前意见：{row['note'] or '（空）'}\n本次意见：{note or '（空）'}")
+    write_review(db,store,row,state,note,stamp)
     return '复核记录已保存'
+
+
+def write_review(db,store,row,state,note,stamp,batch=''):
+    db.execute("""INSERT INTO version_reviews VALUES (?,?,?,?,?)
+                  ON CONFLICT(version_id) DO UPDATE SET state=excluded.state,note=excluded.note,
+                  stamp=excluded.stamp,revision=excluded.revision""",
+               (row['id'],state,note,stamp,row['revision']+1))
+    note_text=f"{row['rel']} · V{row['num']} · {row['review']} → {state}\n此前意见：{row['note'] or '（空）'}\n本次意见：{note or '（空）'}"
+    if batch:
+        note_text=f'批次 {batch}\n'+note_text
+    store.audit(db,'更新版本复核',note_text)
 
 
 def star(db,store,args):
