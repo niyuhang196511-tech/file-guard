@@ -1,0 +1,14 @@
+{
+  "name": "fileguard-desktop",
+  "private": true,
+  "version": "1.14.0",
+  "scripts": {
+    "tauri": "tauri",
+    "build:ui": "node scripts/compile-app.cjs && node scripts/compile-view.cjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.0",
+    "typescript": "~5.8.3"
+  }
+}

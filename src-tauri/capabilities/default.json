@@ -1,0 +1,10 @@
+{
+  "identifier": "main-window",
+  "description": "本地工作台",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default"
+  ]
+}
