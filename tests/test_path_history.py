@@ -1,5 +1,6 @@
 import codecs
 import csv
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -131,6 +132,28 @@ class PathHistoryTests(unittest.TestCase):
         self.assertEqual((current['id'],current['rel'],current['version']),(original['id'],'note.txt',1))
         self.scan()
         self.assertEqual(self.path(rel='NOTE.txt',fold=True)['counts'],{'新占用记录':1,'范围内路径变化':1})
+
+    @unittest.skipUnless(os.name == 'nt', '依赖 Windows 路径别名')
+    def test_case_only_rename_with_edit_preserves_both_versions(self):
+        original_path = self.put('Note.txt', '初版')
+        if not (self.root / 'note.txt').exists():
+            self.skipTest('当前目录区分文件名大小写')
+        self.scan()
+        original, = self.service.dispatch('files', {})['items']
+
+        self.move('Note.txt', 'intermediate.txt')
+        self.move('intermediate.txt', 'note.txt')
+        self.put('note.txt', '修改后的版本')
+        self.assertTrue(original_path.exists())
+        self.scan()
+
+        current, = self.service.dispatch('files', {'scope': 'all'})['items']
+        self.assertEqual((current['id'], current['rel'], current['version'], current['live'], current['tracked']),
+                         (original['id'], 'note.txt', 2, 1, 1))
+        history = self.path(mode='identity', file=original['id'], sort='oldest')['items']
+        self.assertEqual([(row['kind'], row['rel'], row['old_rel'], row['prior'], row['version']) for row in history],
+                         [('初始建档', 'Note.txt', '', None, 1), ('重命名', 'note.txt', 'Note.txt', 1, 1),
+                          ('内容修改', 'note.txt', '', 1, 2)])
 
     def test_existing_case_variants_remain_distinct(self):
         first=self.put('Note.txt','第一份')

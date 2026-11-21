@@ -223,12 +223,20 @@ class EngineTest(unittest.TestCase):
         k=ctypes.WinDLL('kernel32',use_last_error=True)
         k.CreateFileW.argtypes=[wintypes.LPCWSTR,wintypes.DWORD,wintypes.DWORD,ctypes.c_void_p,wintypes.DWORD,wintypes.DWORD,wintypes.HANDLE]
         k.CreateFileW.restype=wintypes.HANDLE;k.CloseHandle.argtypes=[wintypes.HANDLE]
-        handle=k.CreateFileW(str(f),0x80000000,0,None,3,0x80,None)
-        self.assertNotEqual(handle,ctypes.c_void_p(-1).value)
-        try:
-            with self.assertRaises(OSError):self.store.restore(u['id'])
-        finally:k.CloseHandle(handle)
+        for label,access,sharing in (
+            ('exclusive reader',0x80000000,0),
+            ('shared writer',0x40000000,1|2|4),
+        ):
+            with self.subTest(handle=label):
+                handle=k.CreateFileW(str(f),access,sharing,None,3,0x80,None)
+                self.assertNotEqual(handle,ctypes.c_void_p(-1).value)
+                try:
+                    with self.assertRaisesRegex(OSError,'文件被占用'):
+                        self.store.restore(u['id'])
+                finally:
+                    k.CloseHandle(handle)
         self.assertEqual(digest(f),v['sha'])
+        self.assertEqual(len(self.versions()),2)
     @unittest.skipUnless(os.name=='nt','需要 Windows 独占句柄')
     def test_windows_restore_replaces_target_while_guard_remains_active(self):
         path=self.edit_file()
@@ -239,12 +247,13 @@ class EngineTest(unittest.TestCase):
             with self.assertRaises(PermissionError):
                 with target.open('r+b'):
                     pass
-            with open_snapshot_source(target) as old_reader:
-                replace_guarded_file(source,target)
-                self.assertEqual(old_reader.read(),prior_bytes)
+            replace_guarded_file(source,target)
 
-        with patch('engine.store.replace_guarded_file',side_effect=replace_while_guarded):
-            self.store.restore(initial['id'])
+        with open_snapshot_source(path) as old_reader:
+            preview=self.store.restore_info(initial['id'])
+            with patch('engine.store.replace_guarded_file',side_effect=replace_while_guarded):
+                self.store.restore(initial['id'],preview['preview'])
+            self.assertEqual(old_reader.read(),prior_bytes)
         self.assertEqual(digest(path),initial['sha'])
         self.assertEqual(self.versions()[1]['id'],latest['id'])
 

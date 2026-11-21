@@ -77,10 +77,7 @@ def protect_overwrite(path):
     op.argtypes = [wintypes.LPCWSTR,wintypes.DWORD,wintypes.DWORD,ctypes.c_void_p,wintypes.DWORD,wintypes.DWORD,wintypes.HANDLE]
     op.restype = wintypes.HANDLE
     kernel.CloseHandle.argtypes = [wintypes.HANDLE]
-    exclusive = op(str(path),0x80000000,0,None,3,0x80,None)
-    if exclusive == ctypes.c_void_p(-1).value:
-        raise OSError('文件被占用或权限不足，请关闭文件后重试')
-    kernel.CloseHandle(exclusive)
+    # Share reads and deletion for atomic replacement while excluding writers.
     handle = op(str(path),0x80000000,1|4,None,3,0x80,None)
     if handle == ctypes.c_void_p(-1).value:
         raise OSError('文件被占用或权限不足，请关闭文件后重试')
@@ -431,13 +428,13 @@ class Store:
                 if (not stat.S_ISREG(alias.st_mode) or self.fkey(alias)!=key
                     or alias.st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT):
                     continue
-            candidates[key]=row
+            candidates[key]=(row, not absent)
         initially_missing=set(missing)
         full=source not in ('文件监听',)
         for i,(rel,s) in enumerate(found.items(),1):
             self.progress[rid]=f'{source} · 正在核对第 {i} / {len(found)} 个文件'
             previous=old.get(rel)
-            moved=None if previous else candidates.get(self.fkey(s))
+            moved,case_alias=(None,False) if previous else candidates.get(self.fkey(s),(None,False))
             unchanged=previous and s.st_size==previous['size'] and s.st_mtime_ns==previous['mtime'] and self.fkey(s)==previous['fkey']
             if (watch_scan or rel in observed) and not unchanged and (root['all_types'] or Path(rel).suffix.lower() in formats.SETTLE_EXTENSIONS) and settling(rel,signature(s)):
                 waiting[rel]='等待保存稳定'
@@ -463,7 +460,8 @@ class Store:
                     stats['captured']+=1
                     stats['read_bytes']+=s.st_size
                 with self.db() as db:
-                    if moved and moved['sha']==sha and moved['fkey']==self.fkey(s):
+                    # A verified case alias still names the same file after a content edit.
+                    if moved and (case_alias or moved['sha']==sha) and moved['fkey']==self.fkey(s):
                         previous=moved
                         old_rel=moved['rel']
                         missing.pop(old_rel,None)
@@ -482,13 +480,16 @@ class Store:
                         latest=db.execute('SELECT max(id) FROM versions WHERE file_id=?',(previous['id'],)).fetchone()[0]
                         db.execute('UPDATE files SET mtime=?,fkey=?,updated=? WHERE id=?',(s.st_mtime_ns,self.fkey(s),now(),previous['id']))
                         self.record(db,previous['id'],rid,rel,'属性修改',latest,latest,source=source)
-            except (PermissionError,FileChanging,FileNotFoundError) as exc:
-                waiting[rel]='等待文件可读' if isinstance(exc,PermissionError) else '等待保存稳定'
             except (OSError,ValueError) as exc:
+                # Windows sharing violations are also classified as PermissionError.
                 if getattr(exc,'winerror',None) in (32,33):
                     waiting[rel]='等待文件解除占用'
-                    continue
-                errors.append(f'{rel}：{exc}')
+                elif isinstance(exc,PermissionError):
+                    waiting[rel]='等待文件可读'
+                elif isinstance(exc,(FileChanging,FileNotFoundError)):
+                    waiting[rel]='等待保存稳定'
+                else:
+                    errors.append(f'{rel}：{exc}')
         # An unavailable root must not turn every entry into a deletion.
         if not base.is_dir():
             raise OSError('扫描期间目录离线')

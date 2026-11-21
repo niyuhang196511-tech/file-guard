@@ -1,11 +1,13 @@
 import csv
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
 
 from engine import scan_log
 from engine.service import Service
+from engine.shared_read import _open_windows_file
 from engine.store import Store
 
 
@@ -174,6 +176,26 @@ class ScanDiagnosticsTests(unittest.TestCase):
         self.assertIn('等待路径替换完成', filtered['reasons'])
         self.assertNotIn('等待文件解除占用', filtered['reasons'])
         self.assertEqual(self.api.dispatch('waiting_files', dict(base, q='%'))['counts'], {})
+
+    @unittest.skipUnless(os.name == 'nt', '需要 Windows 独占句柄')
+    def test_exclusive_open_is_reported_and_retried(self):
+        path = self.base / '待监控' / '报告.txt'
+        path.write_text('初版', encoding='utf-8')
+        kernel, handle = _open_windows_file(path, 0x80000000, 0, 0x80)
+        try:
+            self.store.scan(self.root)
+            waiting = self.api.dispatch('waiting_files', {'root': self.root})
+            self.assertEqual(waiting['counts'], {'等待文件解除占用': 1})
+            self.assertEqual(waiting['items'][0]['rel'], path.name)
+            self.assertEqual(self.journal()['items'][0]['status'], '等待保存')
+        finally:
+            kernel.CloseHandle(handle)
+
+        self.store.scan(self.root, '保存复查')
+        self.assertEqual(self.api.dispatch('waiting_files', {'root': self.root})['total'], 0)
+        current, = self.api.dispatch('files', {'root': self.root})['items']
+        self.assertEqual((current['rel'], current['version']), (path.name, 1))
+        self.assertEqual(self.journal()['items'][0]['status'], '完成')
 
 
 if __name__ == '__main__':
