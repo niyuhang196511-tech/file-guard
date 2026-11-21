@@ -33,9 +33,11 @@ class Finder(Work):
         super().setUp()
         sub=self.directory/'业务';sub.mkdir()
         self.a=sub/'qty.csv';self.b=self.directory/'note.txt'
-        self.a.write_text('编号,数量\nP-1,2\nP-2,15');self.b.write_text('Straße')
+        self.a.write_text('编号,数量\nP-1,2\nP-2,15', encoding='utf-8')
+        self.b.write_text('Straße', encoding='utf-8')
         self.scan()
-        self.a.write_text('编号,数量\nP-1,10\nP-2,5');self.b.write_text('Résumé')
+        self.a.write_text('编号,数量\nP-1,10\nP-2,5', encoding='utf-8')
+        self.b.write_text('Résumé', encoding='utf-8')
         self.scan()
     def find(self,**args):return self.call('finder',**args)
     def test_columns_filters_scopes_and_stats(self):
