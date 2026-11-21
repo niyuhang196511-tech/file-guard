@@ -9317,6 +9317,9 @@ const app = createApp({
             });
         },
         async go (page, filters                     = {}) {
+            const navigation=(this.flags.navigation||0)+1;
+            this.flags.navigation=navigation;
+            const isCurrent=()=>this.flags.navigation===navigation&&this.page===page;
             if (page==='目录监控') this.clearRootFilter();
             clearTimeout(this._timer);
             this.flags.list=(this.flags.list || 0)+1;
@@ -9329,45 +9332,43 @@ const app = createApp({
             this.pathReturn=false;
             this.triReturn=false;
             this.page = page;
+            this.notifications = false;
+            this.dialog = null;
+            this.f = {...freshFilter(),...filters};
+            this.p = 1;
+            window.scrollTo(0, 0);
             if(page==='相同内容追溯'){
                 if(filters.sha){
                     this.resetContent();
                     Object.assign(this.contentForm,{sha:filters.sha,mode:'all',empty:true});
                     await this.loadContentGroups();
-                    if(this.page===page&&this.contentGroups?.items[0]?.sha===filters.sha)
+                    if(isCurrent()&&this.contentGroups?.items[0]?.sha===filters.sha)
                         await this.selectContent(this.contentGroups.items[0]);
                 } else if(!this.contentGroups&&!this.contentBusy)await this.loadContentGroups();
-                if(this.page!==page)return;
             }
             if(page==='差异检索'){
                 await this.loadPresets();
-                await this.findChanges();
+                if(isCurrent())await this.findChanges();
             }
             if(page==='目录清单'){
                 if(!this.s.roots.some(r=>r.id===this.cpRoot))this.cpRoot=this.s.roots[0]?.id||0;
                 await this.loadCheckpoints();
             }
-            if(page==='系统设置')await this.loadRuntime();
+            if(page==='系统设置'){
+                this.prefs = {...this.s.settings,theme:this.theme};
+                await this.loadRuntime();
+            }
             if(page==='复核工作台')await this.loadReview();
             if(page==='清单三方对照'&&!this.triList.length){
                 this.triRoot=this.triRoot||this.s.roots[0]?.id||0;
                 await this.loadTriList();
             }
             if(page==='历史版本交付篮'&&this.bundleRows.length&&!this.bundleData)await this.previewBundle();
-            this.notifications = false;
-            this.dialog = null;
-            this.f = {...freshFilter(),...filters};
-            this.p = 1;
-            window.scrollTo(0, 0);
             if ([
                 '文件管理',
                 '变更记录',
                 '审计中心'
             ].includes(page)) await this.loadList();
-            if (page === '系统设置') this.prefs = {
-                ...this.s.settings,
-                theme: this.theme
-            };
             if ([
                 '历史版本',
                 '版本对比'
@@ -9382,16 +9383,15 @@ const app = createApp({
                         size: 1,
                         history: true
                     });
-                    if (this.page===page && found.items.length) await this.selectFile(found.items[0], page);
+                    if (isCurrent() && found.items.length) await this.selectFile(found.items[0], page);
                 });
             }
         },
         async metricGo (m) {
-            await this.go(m.target);
             if (m.target === '变更记录') {
-                this.f.activity = true;
-                await this.recentDays(1);
-            }
+                const day=this.s.stamp.slice(0,10);
+                await this.go(m.target,{activity:true,start:day,end:day});
+            } else await this.go(m.target);
         },
         async treeFor (r) {
             await this.safe(async ()=>{

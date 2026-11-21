@@ -100,6 +100,16 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   await appVm.metricGo(appVm.metrics.find(m=>m.target==='变更记录'));
   assert.equal(appVm.f.start,today);assert.equal(appVm.f.end,today);assert(appVm.f.activity);
   assert.equal(appVm.list.total,appVm.s.today);
+  let finishRuntime;
+  ctx.exampleRequest=(cmd,args)=>cmd==='runtime'?new Promise(resolve=>{finishRuntime=resolve}):originalRequest(cmd,args);
+  const pendingSettings=appVm.go('系统设置');
+  await appVm.go('文件管理',{q:'仓库交接'});
+  await appVm.fileDialog();
+  const currentDialog=appVm.dialog;
+  finishRuntime(await originalRequest('runtime',{}));
+  await pendingSettings;ctx.exampleRequest=originalRequest;
+  assert.equal(appVm.page,'文件管理');assert.equal(appVm.f.q,'仓库交接');
+  assert.equal(appVm.list.total,1);assert.equal(appVm.dialog,currentDialog);
   for(const page of ['目录监控','文件管理','历史版本','版本对比','审计中心','系统设置','系统总览']){await appVm.go(page);await ctx.Vue.nextTick();assert(root.textContent.includes(page))}
   await appVm.treeFor(appVm.s.roots[0]);assert(appVm.dialog.folders.length>0);
   const folder=appVm.dialog.folders[0];appVm.dialog.query=folder.path;assert(appVm.visibleFolders.some(f=>f.path===folder.path));await appVm.treeSelect(appVm.s.roots[0],folder.path);assert.equal(appVm.list.total,folder.total);assert(appVm.list.items.every(x=>x.rel.startsWith(folder.path+'/')));
