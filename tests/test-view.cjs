@@ -1,7 +1,11 @@
 // 无图形显示环境下用 Vue 自定义渲染器验证实际模板和交互处理函数。
-const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const html=fs.readFileSync(process.argv[2],'utf8');
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
+const lf=text=>text.replaceAll('\r\n','\n');
+const html=lf(fs.readFileSync(process.argv[2],'utf8'));
 const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(x=>x[1]);
+const bundledScript=name=>lf(fs.readFileSync(path.join(__dirname,'..','web',name),'utf8')).replaceAll('</script','<\\/script');
+assert(scripts[3]===bundledScript('view.js'),'离线预览的 view.js 尚未同步');
+assert(scripts[4]?.endsWith(bundledScript('app.js')),'离线预览的 app.js 尚未同步');
 const faults=[];
 class Element {
   constructor(tag,text=''){this.tag=tag;this.tagName=tag.toUpperCase();this.type=tag;this.text=text;this.children=[];this.props={};this.style={};this.events={};this.selectedIndex=0;this.value='';this.multiple=false}
@@ -308,7 +312,45 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   appVm.dialog.direction='下降';await appVm.loadVariance();const impact=appVm.dialog.data.items.find(r=>r.old==='100'&&r.new==='80');assert(impact);
   assert.equal(impact.delta,'-20');assert.equal(impact.percent,'-20');await appVm.varianceExport();
   assert((await downloads.at(-1).text()).includes('变化率百分数'));await appVm.varianceSource(impact);assert.equal(appVm.loc,impact.location);
-  await appVm.restoreDialog(appVm.versions[0]);assert(appVm.dialog.info.sha);assert(root.textContent.includes('SHA-256'));
+  await appVm.navVersion('历史版本');
+  const [restoreFirst,restoreSecond]=appVm.versions;
+  const firstRestoreInfo=await originalRequest('restore_info',{id:restoreFirst.id});
+  let finishRestore, rejectRestore;
+  const restoreCalls=[];
+  ctx.exampleRequest=(cmd,args)=>{
+    if(cmd==='restore'){restoreCalls.push(args);return Promise.resolve('已恢复');}
+    if(cmd==='restore_info'&&args.id===restoreFirst.id)
+      return new Promise((resolve,reject)=>{finishRestore=resolve;rejectRestore=reject;});
+    return originalRequest(cmd,args);
+  };
+  appVm.demo=false;
+  const pendingRestore=appVm.restoreDialog(restoreFirst);
+  await ctx.Vue.nextTick();
+  assert(root.textContent.includes('正在核对恢复目标与历史原件'));
+  assert(!root.textContent.includes('确认恢复'));
+  await appVm.submitDialog();assert.equal(restoreCalls.length,0);
+  await appVm.restoreDialog(restoreSecond);
+  const secondPreview=appVm.dialog;
+  finishRestore(firstRestoreInfo);await pendingRestore;
+  assert.equal(appVm.dialog,secondPreview);
+  assert.equal(secondPreview.args.id,restoreSecond.id);
+  assert(secondPreview.info.sha);assert(root.textContent.includes('SHA-256'));
+  await appVm.submitDialog();
+  assert.equal(restoreCalls.length,1);
+  assert.equal(restoreCalls[0].id,restoreSecond.id);
+  assert.equal(restoreCalls[0].preview,secondPreview.info.preview);
+
+  const dismissedRestore=appVm.restoreDialog(restoreFirst);
+  appVm.dialog=null;
+  finishRestore(firstRestoreInfo);await dismissedRestore;
+  assert.equal(appVm.dialog,null);
+  const departedRestore=appVm.restoreDialog(restoreFirst);
+  await appVm.go('文件管理',{q:'仓库交接'});await appVm.fileDialog();
+  const selectedPicker=appVm.dialog;
+  rejectRestore(Error('恢复预览失败'));await departedRestore;
+  assert.equal(appVm.dialog,selectedPicker);assert.equal(selectedPicker.error,undefined);
+  assert.equal(restoreCalls.length,1);
+  appVm.demo=true;ctx.exampleRequest=originalRequest;
   appVm.dialog=null;await appVm.go('变更记录');await appVm.reportDialog('period');
   assert(appVm.dialog.data.after>0);appVm.dialog.form.group='ext';appVm.dialog.form.ext='xlsx';await appVm.runReport();
   assert.equal(appVm.dialog.data.items[0].label,'.xlsx');await appVm.exportReport();assert((await downloads.at(-1).text()).includes('上期次数'));

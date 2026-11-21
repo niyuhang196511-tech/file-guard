@@ -1319,103 +1319,106 @@ const _hoisted_990 = ["disabled", "onClick"]
 const _hoisted_991 = ["disabled", "onClick"]
 const _hoisted_992 = ["disabled", "onClick"]
 const _hoisted_993 = ["disabled", "onClick"]
-const _hoisted_994 = { class: "path" }
-const _hoisted_995 = { class: "hash" }
+const _hoisted_994 = {
+  key: 0,
+  role: "status"
+}
+const _hoisted_995 = { class: "path" }
 const _hoisted_996 = { class: "hash" }
-const _hoisted_997 = { key: 0 }
+const _hoisted_997 = { class: "hash" }
 const _hoisted_998 = { key: 0 }
-const _hoisted_999 = { key: 1 }
-const _hoisted_1000 = { class: "filters" }
-const _hoisted_1001 = ["onUpdate:modelValue"]
+const _hoisted_999 = { key: 0 }
+const _hoisted_1000 = { key: 1 }
+const _hoisted_1001 = { class: "filters" }
 const _hoisted_1002 = ["onUpdate:modelValue"]
 const _hoisted_1003 = ["onUpdate:modelValue"]
 const _hoisted_1004 = ["onUpdate:modelValue"]
 const _hoisted_1005 = ["onUpdate:modelValue"]
-const _hoisted_1006 = ["onClick"]
-const _hoisted_1007 = { class: "actions" }
-const _hoisted_1008 = ["disabled", "onClick"]
-const _hoisted_1009 = ["onClick"]
-const _hoisted_1010 = ["onUpdate:modelValue", "onChange"]
-const _hoisted_1011 = ["disabled", "onClick"]
-const _hoisted_1012 = ["onClick"]
-const _hoisted_1013 = {
+const _hoisted_1006 = ["onUpdate:modelValue"]
+const _hoisted_1007 = ["onClick"]
+const _hoisted_1008 = { class: "actions" }
+const _hoisted_1009 = ["disabled", "onClick"]
+const _hoisted_1010 = ["onClick"]
+const _hoisted_1011 = ["onUpdate:modelValue", "onChange"]
+const _hoisted_1012 = ["disabled", "onClick"]
+const _hoisted_1013 = ["onClick"]
+const _hoisted_1014 = {
   key: 0,
   open: ""
 }
-const _hoisted_1014 = { key: 0 }
-const _hoisted_1015 = { key: 1 }
-const _hoisted_1016 = { class: "scroll" }
-const _hoisted_1017 = { class: "hash" }
-const _hoisted_1018 = { class: "pager" }
-const _hoisted_1019 = ["disabled", "onClick"]
+const _hoisted_1015 = { key: 0 }
+const _hoisted_1016 = { key: 1 }
+const _hoisted_1017 = { class: "scroll" }
+const _hoisted_1018 = { class: "hash" }
+const _hoisted_1019 = { class: "pager" }
 const _hoisted_1020 = ["disabled", "onClick"]
-const _hoisted_1021 = ["onUpdate:modelValue"]
-const _hoisted_1022 = { key: 0 }
-const _hoisted_1023 = { class: "actions" }
-const _hoisted_1024 = ["disabled", "onClick"]
-const _hoisted_1025 = ["onClick"]
-const _hoisted_1026 = { role: "status" }
-const _hoisted_1027 = { key: 0 }
-const _hoisted_1028 = ["onUpdate:modelValue", "onChange"]
-const _hoisted_1029 = ["value"]
-const _hoisted_1030 = { class: "filters" }
-const _hoisted_1031 = ["onUpdate:modelValue"]
+const _hoisted_1021 = ["disabled", "onClick"]
+const _hoisted_1022 = ["onUpdate:modelValue"]
+const _hoisted_1023 = { key: 0 }
+const _hoisted_1024 = { class: "actions" }
+const _hoisted_1025 = ["disabled", "onClick"]
+const _hoisted_1026 = ["onClick"]
+const _hoisted_1027 = { role: "status" }
+const _hoisted_1028 = { key: 0 }
+const _hoisted_1029 = ["onUpdate:modelValue", "onChange"]
+const _hoisted_1030 = ["value"]
+const _hoisted_1031 = { class: "filters" }
 const _hoisted_1032 = ["onUpdate:modelValue"]
 const _hoisted_1033 = ["onUpdate:modelValue"]
-const _hoisted_1034 = ["onClick"]
+const _hoisted_1034 = ["onUpdate:modelValue"]
 const _hoisted_1035 = ["onClick"]
-const _hoisted_1036 = { class: "hash" }
-const _hoisted_1037 = ["onClick"]
-const _hoisted_1038 = { class: "pager" }
-const _hoisted_1039 = ["disabled", "onClick"]
+const _hoisted_1036 = ["onClick"]
+const _hoisted_1037 = { class: "hash" }
+const _hoisted_1038 = ["onClick"]
+const _hoisted_1039 = { class: "pager" }
 const _hoisted_1040 = ["disabled", "onClick"]
-const _hoisted_1041 = {
+const _hoisted_1041 = ["disabled", "onClick"]
+const _hoisted_1042 = {
   key: 0,
   open: ""
 }
-const _hoisted_1042 = ["disabled", "onClick"]
 const _hoisted_1043 = ["disabled", "onClick"]
-const _hoisted_1044 = { class: "filters" }
-const _hoisted_1045 = ["onUpdate:modelValue"]
+const _hoisted_1044 = ["disabled", "onClick"]
+const _hoisted_1045 = { class: "filters" }
 const _hoisted_1046 = ["onUpdate:modelValue"]
 const _hoisted_1047 = ["onUpdate:modelValue"]
 const _hoisted_1048 = ["onUpdate:modelValue"]
 const _hoisted_1049 = ["onUpdate:modelValue"]
 const _hoisted_1050 = ["onUpdate:modelValue"]
 const _hoisted_1051 = ["onUpdate:modelValue"]
-const _hoisted_1052 = ["onClick"]
-const _hoisted_1053 = { class: "scroll" }
-const _hoisted_1054 = ["onClick"]
+const _hoisted_1052 = ["onUpdate:modelValue"]
+const _hoisted_1053 = ["onClick"]
+const _hoisted_1054 = { class: "scroll" }
 const _hoisted_1055 = ["onClick"]
-const _hoisted_1056 = { class: "pager" }
-const _hoisted_1057 = ["disabled", "onClick"]
+const _hoisted_1056 = ["onClick"]
+const _hoisted_1057 = { class: "pager" }
 const _hoisted_1058 = ["disabled", "onClick"]
 const _hoisted_1059 = ["disabled", "onClick"]
-const _hoisted_1060 = {
+const _hoisted_1060 = ["disabled", "onClick"]
+const _hoisted_1061 = {
   key: 0,
   class: "report-controls"
 }
-const _hoisted_1061 = ["onUpdate:modelValue"]
 const _hoisted_1062 = ["onUpdate:modelValue"]
 const _hoisted_1063 = ["onUpdate:modelValue"]
-const _hoisted_1064 = ["value"]
-const _hoisted_1065 = ["onUpdate:modelValue"]
-const _hoisted_1066 = ["value"]
-const _hoisted_1067 = ["onUpdate:modelValue"]
+const _hoisted_1064 = ["onUpdate:modelValue"]
+const _hoisted_1065 = ["value"]
+const _hoisted_1066 = ["onUpdate:modelValue"]
+const _hoisted_1067 = ["value"]
 const _hoisted_1068 = ["onUpdate:modelValue"]
 const _hoisted_1069 = ["onUpdate:modelValue"]
 const _hoisted_1070 = ["onUpdate:modelValue"]
 const _hoisted_1071 = ["onUpdate:modelValue"]
-const _hoisted_1072 = ["value"]
-const _hoisted_1073 = ["onUpdate:modelValue"]
-const _hoisted_1074 = ["value"]
-const _hoisted_1075 = ["onUpdate:modelValue"]
-const _hoisted_1076 = { key: 1 }
-const _hoisted_1077 = {
+const _hoisted_1072 = ["onUpdate:modelValue"]
+const _hoisted_1073 = ["value"]
+const _hoisted_1074 = ["onUpdate:modelValue"]
+const _hoisted_1075 = ["value"]
+const _hoisted_1076 = ["onUpdate:modelValue"]
+const _hoisted_1077 = { key: 1 }
+const _hoisted_1078 = {
   key: 2,
   class: "report-controls"
 }
-const _hoisted_1078 = ["onUpdate:modelValue"]
 const _hoisted_1079 = ["onUpdate:modelValue"]
 const _hoisted_1080 = ["onUpdate:modelValue"]
 const _hoisted_1081 = ["onUpdate:modelValue"]
@@ -1426,215 +1429,216 @@ const _hoisted_1085 = ["onUpdate:modelValue"]
 const _hoisted_1086 = ["onUpdate:modelValue"]
 const _hoisted_1087 = ["onUpdate:modelValue"]
 const _hoisted_1088 = ["onUpdate:modelValue"]
-const _hoisted_1089 = { class: "actions" }
-const _hoisted_1090 = ["onClick"]
-const _hoisted_1091 = ["disabled", "onClick"]
-const _hoisted_1092 = {
+const _hoisted_1089 = ["onUpdate:modelValue"]
+const _hoisted_1090 = { class: "actions" }
+const _hoisted_1091 = ["onClick"]
+const _hoisted_1092 = ["disabled", "onClick"]
+const _hoisted_1093 = {
   key: 3,
   role: "status"
 }
-const _hoisted_1093 = { class: "scroll" }
-const _hoisted_1094 = ["onClick"]
-const _hoisted_1095 = { class: "scroll" }
-const _hoisted_1096 = ["onClick"]
-const _hoisted_1097 = { class: "trace-value" }
+const _hoisted_1094 = { class: "scroll" }
+const _hoisted_1095 = ["onClick"]
+const _hoisted_1096 = { class: "scroll" }
+const _hoisted_1097 = ["onClick"]
 const _hoisted_1098 = { class: "trace-value" }
-const _hoisted_1099 = { key: 0 }
-const _hoisted_1100 = { key: 2 }
-const _hoisted_1101 = { class: "actions" }
-const _hoisted_1102 = ["disabled", "onClick"]
+const _hoisted_1099 = { class: "trace-value" }
+const _hoisted_1100 = { key: 0 }
+const _hoisted_1101 = { key: 2 }
+const _hoisted_1102 = { class: "actions" }
 const _hoisted_1103 = ["disabled", "onClick"]
-const _hoisted_1104 = { class: "path" }
-const _hoisted_1105 = ["onUpdate:modelValue"]
-const _hoisted_1106 = ["value"]
-const _hoisted_1107 = ["onUpdate:modelValue"]
-const _hoisted_1108 = { class: "path" }
-const _hoisted_1109 = { class: "filters scan-filters" }
-const _hoisted_1110 = ["onUpdate:modelValue"]
+const _hoisted_1104 = ["disabled", "onClick"]
+const _hoisted_1105 = { class: "path" }
+const _hoisted_1106 = ["onUpdate:modelValue"]
+const _hoisted_1107 = ["value"]
+const _hoisted_1108 = ["onUpdate:modelValue"]
+const _hoisted_1109 = { class: "path" }
+const _hoisted_1110 = { class: "filters scan-filters" }
 const _hoisted_1111 = ["onUpdate:modelValue"]
 const _hoisted_1112 = ["onUpdate:modelValue"]
-const _hoisted_1113 = { class: "actions scan-actions" }
-const _hoisted_1114 = ["onClick"]
+const _hoisted_1113 = ["onUpdate:modelValue"]
+const _hoisted_1114 = { class: "actions scan-actions" }
 const _hoisted_1115 = ["onClick"]
-const _hoisted_1116 = {
+const _hoisted_1116 = ["onClick"]
+const _hoisted_1117 = {
   key: 0,
   role: "status"
 }
-const _hoisted_1117 = {
+const _hoisted_1118 = {
   key: 0,
   class: "quiet"
 }
-const _hoisted_1118 = { role: "status" }
-const _hoisted_1119 = {
+const _hoisted_1119 = { role: "status" }
+const _hoisted_1120 = {
   key: 1,
   class: "actions scan-chips",
   role: "group",
   "aria-label": "按当前路径查询的等待原因筛选"
 }
-const _hoisted_1120 = ["aria-pressed", "onClick"]
-const _hoisted_1121 = {
+const _hoisted_1121 = ["aria-pressed", "onClick"]
+const _hoisted_1122 = {
   key: 2,
   class: "scroll scan-scroll",
   tabindex: "0",
   role: "region",
   "aria-label": "等待文件表"
 }
-const _hoisted_1122 = { key: 3 }
-const _hoisted_1123 = {
+const _hoisted_1123 = { key: 3 }
+const _hoisted_1124 = {
   key: 4,
   class: "pager scan-pager"
 }
-const _hoisted_1124 = ["disabled", "onClick"]
 const _hoisted_1125 = ["disabled", "onClick"]
-const _hoisted_1126 = { class: "path" }
-const _hoisted_1127 = { class: "filters scan-filters" }
-const _hoisted_1128 = ["onUpdate:modelValue"]
+const _hoisted_1126 = ["disabled", "onClick"]
+const _hoisted_1127 = { class: "path" }
+const _hoisted_1128 = { class: "filters scan-filters" }
 const _hoisted_1129 = ["onUpdate:modelValue"]
 const _hoisted_1130 = ["onUpdate:modelValue"]
 const _hoisted_1131 = ["onUpdate:modelValue"]
-const _hoisted_1132 = { class: "scan-details" }
-const _hoisted_1133 = { class: "filters scan-filters" }
-const _hoisted_1134 = ["onUpdate:modelValue"]
+const _hoisted_1132 = ["onUpdate:modelValue"]
+const _hoisted_1133 = { class: "scan-details" }
+const _hoisted_1134 = { class: "filters scan-filters" }
 const _hoisted_1135 = ["onUpdate:modelValue"]
 const _hoisted_1136 = ["onUpdate:modelValue"]
 const _hoisted_1137 = ["onUpdate:modelValue"]
-const _hoisted_1138 = ["value"]
-const _hoisted_1139 = { class: "filters" }
-const _hoisted_1140 = ["onUpdate:modelValue"]
+const _hoisted_1138 = ["onUpdate:modelValue"]
+const _hoisted_1139 = ["value"]
+const _hoisted_1140 = { class: "filters" }
 const _hoisted_1141 = ["onUpdate:modelValue"]
-const _hoisted_1142 = { class: "actions scan-actions" }
-const _hoisted_1143 = ["onClick"]
-const _hoisted_1144 = ["disabled", "onClick"]
-const _hoisted_1145 = ["onClick"]
-const _hoisted_1146 = {
+const _hoisted_1142 = ["onUpdate:modelValue"]
+const _hoisted_1143 = { class: "actions scan-actions" }
+const _hoisted_1144 = ["onClick"]
+const _hoisted_1145 = ["disabled", "onClick"]
+const _hoisted_1146 = ["onClick"]
+const _hoisted_1147 = {
   key: 0,
   role: "status"
 }
-const _hoisted_1147 = {
+const _hoisted_1148 = {
   key: 0,
   class: "quiet"
 }
-const _hoisted_1148 = { role: "status" }
-const _hoisted_1149 = {
+const _hoisted_1149 = { role: "status" }
+const _hoisted_1150 = {
   key: 0,
   class: "scan-summary",
   "aria-label": "匹配运行汇总"
 }
-const _hoisted_1150 = { class: "scan-metrics" }
-const _hoisted_1151 = { key: 0 }
-const _hoisted_1152 = { key: 1 }
-const _hoisted_1153 = { class: "scan-details" }
-const _hoisted_1154 = { key: 0 }
-const _hoisted_1155 = {
+const _hoisted_1151 = { class: "scan-metrics" }
+const _hoisted_1152 = { key: 0 }
+const _hoisted_1153 = { key: 1 }
+const _hoisted_1154 = { class: "scan-details" }
+const _hoisted_1155 = { key: 0 }
+const _hoisted_1156 = {
   class: "actions scan-chips",
   role: "group",
   "aria-label": "按匹配记录的运行结果筛选"
 }
-const _hoisted_1156 = ["aria-pressed", "onClick"]
-const _hoisted_1157 = {
+const _hoisted_1157 = ["aria-pressed", "onClick"]
+const _hoisted_1158 = {
   key: 1,
   class: "actions scan-chips",
   role: "group",
   "aria-label": "按匹配记录的跳过原因筛选"
 }
-const _hoisted_1158 = ["aria-pressed", "onClick"]
-const _hoisted_1159 = {
+const _hoisted_1159 = ["aria-pressed", "onClick"]
+const _hoisted_1160 = {
   key: 2,
   class: "actions scan-chips",
   role: "group",
   "aria-label": "按匹配记录的异常类别筛选"
 }
-const _hoisted_1160 = ["aria-pressed", "onClick"]
-const _hoisted_1161 = { key: 2 }
-const _hoisted_1162 = {
+const _hoisted_1161 = ["aria-pressed", "onClick"]
+const _hoisted_1162 = { key: 2 }
+const _hoisted_1163 = {
   key: 2,
   class: "scan-selection",
   "aria-label": "两次扫描对照"
 }
-const _hoisted_1163 = { class: "actions scan-chips" }
-const _hoisted_1164 = { role: "status" }
-const _hoisted_1165 = ["onClick", "aria-label"]
-const _hoisted_1166 = ["onClick"]
-const _hoisted_1167 = {
+const _hoisted_1164 = { class: "actions scan-chips" }
+const _hoisted_1165 = { role: "status" }
+const _hoisted_1166 = ["onClick", "aria-label"]
+const _hoisted_1167 = ["onClick"]
+const _hoisted_1168 = {
   class: "scroll scan-scroll",
   tabindex: "0",
   role: "region",
   "aria-label": "扫描对照表"
 }
-const _hoisted_1168 = { scope: "col" }
 const _hoisted_1169 = { scope: "col" }
-const _hoisted_1170 = { scope: "row" }
-const _hoisted_1171 = { key: 1 }
-const _hoisted_1172 = {
+const _hoisted_1170 = { scope: "col" }
+const _hoisted_1171 = { scope: "row" }
+const _hoisted_1172 = { key: 1 }
+const _hoisted_1173 = {
   class: "scroll scan-scroll",
   tabindex: "0",
   role: "region",
   "aria-label": "扫描运行表"
 }
-const _hoisted_1173 = { key: 0 }
 const _hoisted_1174 = { key: 0 }
-const _hoisted_1175 = ["aria-label", "aria-pressed", "disabled", "onClick"]
-const _hoisted_1176 = {
+const _hoisted_1175 = { key: 0 }
+const _hoisted_1176 = ["aria-label", "aria-pressed", "disabled", "onClick"]
+const _hoisted_1177 = {
   key: 0,
   class: "pager scan-pager"
 }
-const _hoisted_1177 = ["disabled", "onClick"]
 const _hoisted_1178 = ["disabled", "onClick"]
-const _hoisted_1179 = { class: "path" }
-const _hoisted_1180 = ["onUpdate:modelValue"]
+const _hoisted_1179 = ["disabled", "onClick"]
+const _hoisted_1180 = { class: "path" }
 const _hoisted_1181 = ["onUpdate:modelValue"]
 const _hoisted_1182 = ["onUpdate:modelValue"]
-const _hoisted_1183 = { class: "inline" }
-const _hoisted_1184 = ["onUpdate:modelValue", "readonly"]
-const _hoisted_1185 = ["onClick"]
-const _hoisted_1186 = ["onUpdate:modelValue"]
+const _hoisted_1183 = ["onUpdate:modelValue"]
+const _hoisted_1184 = { class: "inline" }
+const _hoisted_1185 = ["onUpdate:modelValue", "readonly"]
+const _hoisted_1186 = ["onClick"]
 const _hoisted_1187 = ["onUpdate:modelValue"]
 const _hoisted_1188 = ["onUpdate:modelValue"]
 const _hoisted_1189 = ["onUpdate:modelValue"]
-const _hoisted_1190 = ["onClick"]
-const _hoisted_1191 = { key: 0 }
+const _hoisted_1190 = ["onUpdate:modelValue"]
+const _hoisted_1191 = ["onClick"]
 const _hoisted_1192 = { key: 0 }
-const _hoisted_1193 = { key: 21 }
-const _hoisted_1194 = ["onUpdate:modelValue"]
-const _hoisted_1195 = {
+const _hoisted_1193 = { key: 0 }
+const _hoisted_1194 = { key: 21 }
+const _hoisted_1195 = ["onUpdate:modelValue"]
+const _hoisted_1196 = {
   key: 22,
   style: {"white-space":"pre-line"}
 }
-const _hoisted_1196 = { class: "search-input" }
-const _hoisted_1197 = ["onUpdate:modelValue"]
-const _hoisted_1198 = { class: "picklist" }
-const _hoisted_1199 = ["onClick"]
+const _hoisted_1197 = { class: "search-input" }
+const _hoisted_1198 = ["onUpdate:modelValue"]
+const _hoisted_1199 = { class: "picklist" }
 const _hoisted_1200 = ["onClick"]
-const _hoisted_1201 = { key: 0 }
-const _hoisted_1202 = { key: 1 }
-const _hoisted_1203 = { class: "picker-tools" }
-const _hoisted_1204 = { class: "search-input" }
-const _hoisted_1205 = ["onUpdate:modelValue", "onInput"]
-const _hoisted_1206 = ["onUpdate:modelValue", "onChange"]
-const _hoisted_1207 = ["value"]
-const _hoisted_1208 = { class: "picklist" }
-const _hoisted_1209 = ["disabled", "onClick"]
-const _hoisted_1210 = { class: "file-summary" }
-const _hoisted_1211 = { key: 0 }
-const _hoisted_1212 = {
+const _hoisted_1201 = ["onClick"]
+const _hoisted_1202 = { key: 0 }
+const _hoisted_1203 = { key: 1 }
+const _hoisted_1204 = { class: "picker-tools" }
+const _hoisted_1205 = { class: "search-input" }
+const _hoisted_1206 = ["onUpdate:modelValue", "onInput"]
+const _hoisted_1207 = ["onUpdate:modelValue", "onChange"]
+const _hoisted_1208 = ["value"]
+const _hoisted_1209 = { class: "picklist" }
+const _hoisted_1210 = ["disabled", "onClick"]
+const _hoisted_1211 = { class: "file-summary" }
+const _hoisted_1212 = { key: 0 }
+const _hoisted_1213 = {
   key: 0,
   role: "status"
 }
-const _hoisted_1213 = { key: 1 }
-const _hoisted_1214 = { class: "pager" }
-const _hoisted_1215 = ["disabled", "onClick"]
+const _hoisted_1214 = { key: 1 }
+const _hoisted_1215 = { class: "pager" }
 const _hoisted_1216 = ["disabled", "onClick"]
-const _hoisted_1217 = {
+const _hoisted_1217 = ["disabled", "onClick"]
+const _hoisted_1218 = {
   key: 25,
   class: "error"
 }
-const _hoisted_1218 = {
+const _hoisted_1219 = {
   key: 26,
   class: "form-actions"
 }
-const _hoisted_1219 = ["disabled", "onClick"]
-const _hoisted_1220 = ["disabled"]
-const _hoisted_1221 = {
+const _hoisted_1220 = ["disabled", "onClick"]
+const _hoisted_1221 = ["disabled"]
+const _hoisted_1222 = {
   key: 1,
   class: "toast",
   role: "status"
@@ -5720,15 +5724,19 @@ return function render(_ctx, _cache) {
                   : _createCommentVNode("", true)], 64))
               : _createCommentVNode("", true),
             (dialog.type==='restore_preview')
-              ? (_openBlock(), _createElementBlock(_Fragment, { key: 6 }, [
-                  _createElementVNode("p", _hoisted_994, _toDisplayString(dialog.info.path), 1),
-                  _createElementVNode("table", null, [_createElementVNode("thead", null, [_createElementVNode("tr", null, [_cache[374] || (_cache[374] = _createElementVNode("th", null, null, -1)), _cache[375] || (_cache[375] = _createElementVNode("th", null, "当前磁盘文件", -1)), _createElementVNode("th", null, "所选 V" + _toDisplayString(dialog.info.version), 1)])]), _createElementVNode("tbody", null, [_createElementVNode("tr", null, [_cache[376] || (_cache[376] = _createElementVNode("th", null, "大小", -1)), _createElementVNode("td", null, _toDisplayString(dialog.info.exists?bytes(dialog.info.current_size):'路径不存在'), 1), _createElementVNode("td", null, _toDisplayString(bytes(dialog.info.size)), 1)]), _createElementVNode("tr", null, [_cache[377] || (_cache[377] = _createElementVNode("th", null, "SHA-256", -1)), _createElementVNode("td", _hoisted_995, _toDisplayString(dialog.info.current_sha||'—'), 1), _createElementVNode("td", _hoisted_996, _toDisplayString(dialog.info.sha), 1)])])]),
-                  _createElementVNode("p", null, "最新在册 V" + _toDisplayString(dialog.info.latest) + " · 写回字节差 " + _toDisplayString(dialog.info.delta), 1),
-                  _createElementVNode("p", null, _toDisplayString(dialog.info.identical?'磁盘内容与所选版本一致。':dialog.info.unrecorded?'当前磁盘内容尚未记录，写回前会先留存版本。':dialog.info.exists?'确认后替换此路径的磁盘内容。':'确认后在原路径重建文件。'), 1),
-                  demo
-                    ? (_openBlock(), _createElementBlock("small", _hoisted_997, "此预览使用示例文件。"))
-                    : _createCommentVNode("", true)
-                ], 64))
+              ? (_openBlock(), _createElementBlock(_Fragment, { key: 6 }, [(dialog.loading)
+                  ? (_openBlock(), _createElementBlock("p", _hoisted_994, "正在核对恢复目标与历史原件…"))
+                  : (dialog.info)
+                    ? (_openBlock(), _createElementBlock(_Fragment, { key: 1 }, [
+                        _createElementVNode("p", _hoisted_995, _toDisplayString(dialog.info.path), 1),
+                        _createElementVNode("table", null, [_createElementVNode("thead", null, [_createElementVNode("tr", null, [_cache[374] || (_cache[374] = _createElementVNode("th", null, null, -1)), _cache[375] || (_cache[375] = _createElementVNode("th", null, "当前磁盘文件", -1)), _createElementVNode("th", null, "所选 V" + _toDisplayString(dialog.info.version), 1)])]), _createElementVNode("tbody", null, [_createElementVNode("tr", null, [_cache[376] || (_cache[376] = _createElementVNode("th", null, "大小", -1)), _createElementVNode("td", null, _toDisplayString(dialog.info.exists?bytes(dialog.info.current_size):'路径不存在'), 1), _createElementVNode("td", null, _toDisplayString(bytes(dialog.info.size)), 1)]), _createElementVNode("tr", null, [_cache[377] || (_cache[377] = _createElementVNode("th", null, "SHA-256", -1)), _createElementVNode("td", _hoisted_996, _toDisplayString(dialog.info.current_sha||'—'), 1), _createElementVNode("td", _hoisted_997, _toDisplayString(dialog.info.sha), 1)])])]),
+                        _createElementVNode("p", null, "最新在册 V" + _toDisplayString(dialog.info.latest) + " · 写回字节差 " + _toDisplayString(dialog.info.delta), 1),
+                        _createElementVNode("p", null, _toDisplayString(dialog.info.identical?'磁盘内容与所选版本一致。':dialog.info.unrecorded?'当前磁盘内容尚未记录，写回前会先留存版本。':dialog.info.exists?'确认后替换此路径的磁盘内容。':'确认后在原路径重建文件。'), 1),
+                        demo
+                          ? (_openBlock(), _createElementBlock("small", _hoisted_998, "此预览使用示例文件。"))
+                          : _createCommentVNode("", true)
+                      ], 64))
+                    : _createCommentVNode("", true)], 64))
               : _createCommentVNode("", true),
             (dialog.type==='backup_result')
               ? (_openBlock(), _createElementBlock(_Fragment, { key: 7 }, [
@@ -5736,80 +5744,80 @@ return function render(_ctx, _cache) {
                   _createElementVNode("p", null, "创建时间 " + _toDisplayString(dialog.result.created?fmt(dialog.result.created):'旧版备份无创建清单') + " · 保存时间范围 " + _toDisplayString(fmt(dialog.result.oldest)) + " 至 " + _toDisplayString(fmt(dialog.result.latest)), 1),
                   _createElementVNode("p", null, "版本合计 " + _toDisplayString(bytes(dialog.result.logical)) + " · 去重后 " + _toDisplayString(bytes(dialog.result.bytes)) + " · 节省 " + _toDisplayString(bytes(dialog.result.saved)) + " · 待核对恢复 " + _toDisplayString(dialog.result.pending_restores) + " 项", 1),
                   (dialog.result.extra_entries)
-                    ? (_openBlock(), _createElementBlock("p", _hoisted_998, "另有 " + _toDisplayString(dialog.result.extra_entries) + " 个未列入备份索引的条目。", 1))
+                    ? (_openBlock(), _createElementBlock("p", _hoisted_999, "另有 " + _toDisplayString(dialog.result.extra_entries) + " 个未列入备份索引的条目。", 1))
                     : _createCommentVNode("", true),
                   (dialog.result.coverage)
-                    ? (_openBlock(), _createElementBlock("section", _hoisted_999, [_cache[378] || (_cache[378] = _createElementVNode("h3", null, "按内容摘要核对当前仓库", -1)), _createElementVNode("p", null, "两边都有 " + _toDisplayString(dialog.result.coverage.shared) + " 个对象。当前仓库独有 " + _toDisplayString(dialog.result.coverage.missing) + " 个，共 " + _toDisplayString(bytes(dialog.result.coverage.missing_bytes)) + "，涉及 " + _toDisplayString(dialog.result.coverage.affected_versions) + " 个当前版本。备份独有 " + _toDisplayString(dialog.result.coverage.only_backup) + " 个，共 " + _toDisplayString(bytes(dialog.result.coverage.only_backup_bytes)) + "。", 1), _cache[379] || (_cache[379] = _createElementVNode("small", null, "相同内容可以被多个历史版本引用。", -1))]))
+                    ? (_openBlock(), _createElementBlock("section", _hoisted_1000, [_cache[378] || (_cache[378] = _createElementVNode("h3", null, "按内容摘要核对当前仓库", -1)), _createElementVNode("p", null, "两边都有 " + _toDisplayString(dialog.result.coverage.shared) + " 个对象。当前仓库独有 " + _toDisplayString(dialog.result.coverage.missing) + " 个，共 " + _toDisplayString(bytes(dialog.result.coverage.missing_bytes)) + "，涉及 " + _toDisplayString(dialog.result.coverage.affected_versions) + " 个当前版本。备份独有 " + _toDisplayString(dialog.result.coverage.only_backup) + " 个，共 " + _toDisplayString(bytes(dialog.result.coverage.only_backup_bytes)) + "。", 1), _cache[379] || (_cache[379] = _createElementVNode("small", null, "相同内容可以被多个历史版本引用。", -1))]))
                     : _createCommentVNode("", true)
                 ], 64))
               : _createCommentVNode("", true),
             (dialog.type==='inventory')
-              ? (_openBlock(), _createElementBlock(_Fragment, { key: 8 }, [_createElementVNode("div", _hoisted_1000, [
-                  _createElementVNode("label", null, [_cache[380] || (_cache[380] = _createTextVNode("路径片段")), _withDirectives(_createElementVNode("input", { "onUpdate:modelValue": $event => ((dialog.q) = $event) }, null, 8, _hoisted_1001), [[_vModelText, dialog.q]])]),
+              ? (_openBlock(), _createElementBlock(_Fragment, { key: 8 }, [_createElementVNode("div", _hoisted_1001, [
+                  _createElementVNode("label", null, [_cache[380] || (_cache[380] = _createTextVNode("路径片段")), _withDirectives(_createElementVNode("input", { "onUpdate:modelValue": $event => ((dialog.q) = $event) }, null, 8, _hoisted_1002), [[_vModelText, dialog.q]])]),
                   _createElementVNode("label", null, [_cache[381] || (_cache[381] = _createTextVNode("子目录及下级")), _withDirectives(_createElementVNode("input", {
                     "onUpdate:modelValue": $event => ((dialog.folder) = $event),
                     placeholder: "业务明细"
-                  }, null, 8, _hoisted_1002), [[_vModelText, dialog.folder]])]),
+                  }, null, 8, _hoisted_1003), [[_vModelText, dialog.folder]])]),
                   _createElementVNode("label", null, [_cache[382] || (_cache[382] = _createTextVNode("扩展名")), _withDirectives(_createElementVNode("input", {
                     "onUpdate:modelValue": $event => ((dialog.ext) = $event),
                     placeholder: "xlsx, csv"
-                  }, null, 8, _hoisted_1003), [[_vModelText, dialog.ext]])]),
-                  _createElementVNode("label", null, [_cache[383] || (_cache[383] = _createTextVNode("摘要前缀")), _withDirectives(_createElementVNode("input", { "onUpdate:modelValue": $event => ((dialog.sha) = $event) }, null, 8, _hoisted_1004), [[_vModelText, dialog.sha]])]),
+                  }, null, 8, _hoisted_1004), [[_vModelText, dialog.ext]])]),
+                  _createElementVNode("label", null, [_cache[383] || (_cache[383] = _createTextVNode("摘要前缀")), _withDirectives(_createElementVNode("input", { "onUpdate:modelValue": $event => ((dialog.sha) = $event) }, null, 8, _hoisted_1005), [[_vModelText, dialog.sha]])]),
                   _createElementVNode("label", null, [_cache[385] || (_cache[385] = _createTextVNode("排序")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.sort) = $event) }, _cache[384] || (_cache[384] = [
                     _createElementVNode("option", { value: "" }, "按路径", -1),
                     _createElementVNode("option", { value: "size" }, "体积最大", -1),
                     _createElementVNode("option", { value: "updated" }, "最近保存", -1),
                     _createElementVNode("option", { value: "version" }, "版本号最高", -1)
-                  ]), 8, _hoisted_1005), [[_vModelSelect, dialog.sort]])]),
+                  ]), 8, _hoisted_1006), [[_vModelSelect, dialog.sort]])]),
                   _createElementVNode("button", {
                     type: "button",
                     class: "btn",
                     onClick: $event => (loadInventory())
-                  }, "查询成员", 8, _hoisted_1006)
+                  }, "查询成员", 8, _hoisted_1007)
                 ]), (dialog.data)
                   ? (_openBlock(), _createElementBlock(_Fragment, { key: 0 }, [
                       _createElementVNode("p", null, _toDisplayString(dialog.data.meta.label) + " · " + _toDisplayString(dialog.data.total) + " 个文件 · " + _toDisplayString(bytes(dialog.data.bytes)) + " · " + _toDisplayString(dialog.data.objects) + " 个唯一内容", 1),
-                      _createElementVNode("div", _hoisted_1007, [
+                      _createElementVNode("div", _hoisted_1008, [
                         _createElementVNode("button", {
                           type: "button",
                           class: "btn",
                           disabled: !dialog.data.total,
                           onClick: $event => (exportInventory())
-                        }, "导出成员 CSV", 8, _hoisted_1008),
+                        }, "导出成员 CSV", 8, _hoisted_1009),
                         _createElementVNode("button", {
                           type: "button",
                           class: "btn",
                           onClick: $event => (checkDisk(dialog.data.page))
-                        }, "核对本页原路径", 8, _hoisted_1009),
+                        }, "核对本页原路径", 8, _hoisted_1010),
                         _createElementVNode("label", null, [_withDirectives(_createElementVNode("input", {
                           type: "checkbox",
                           "onUpdate:modelValue": $event => ((dialog.quick) = $event),
                           onChange: $event => (dialog.disk=null)
-                        }, null, 40, _hoisted_1010), [[_vModelCheckbox, dialog.quick]]), _cache[386] || (_cache[386] = _createTextVNode("只核对大小"))]),
+                        }, null, 40, _hoisted_1011), [[_vModelCheckbox, dialog.quick]]), _cache[386] || (_cache[386] = _createTextVNode("只核对大小"))]),
                         _createElementVNode("button", {
                           type: "button",
                           class: "btn",
                           disabled: !dialog.data.total||(demo&&(dialog.active.q||dialog.active.ext||dialog.active.folder||dialog.active.sha)),
                           onClick: $event => (exportInventory(true))
-                        }, _toDisplayString(demo?'下载完整示例包':'导出所选历史文件 ZIP'), 9, _hoisted_1011),
+                        }, _toDisplayString(demo?'下载完整示例包':'导出所选历史文件 ZIP'), 9, _hoisted_1012),
                         _createElementVNode("button", {
                           type: "button",
                           class: "btn",
                           onClick: $event => (deliveryDialog(dialog.active))
-                        }, "对照此范围核查交付包", 8, _hoisted_1012)
+                        }, "对照此范围核查交付包", 8, _hoisted_1013)
                       ]),
                       (dialog.disk)
-                        ? (_openBlock(), _createElementBlock("details", _hoisted_1013, [_createElementVNode("summary", null, "原路径核对 · " + _toDisplayString(fmt(dialog.disk.checked)), 1), _createElementVNode("p", null, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.disk.counts, (n, k) => {
+                        ? (_openBlock(), _createElementBlock("details", _hoisted_1014, [_createElementVNode("summary", null, "原路径核对 · " + _toDisplayString(fmt(dialog.disk.checked)), 1), _createElementVNode("p", null, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.disk.counts, (n, k) => {
                             return (_openBlock(), _createElementBlock("span", null, _toDisplayString(k) + " " + _toDisplayString(n) + "　", 1))
                           }), 256))]), _createElementVNode("ul", null, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.disk.items, (r) => {
                             return (_openBlock(), _createElementBlock("li", null, [_createTextVNode(_toDisplayString(r.rel) + " · " + _toDisplayString(r.state), 1), (r.current_rel&&r.current_rel!==r.rel)
-                              ? (_openBlock(), _createElementBlock("small", _hoisted_1014, "当前在册位置 " + _toDisplayString(r.current_rel), 1))
+                              ? (_openBlock(), _createElementBlock("small", _hoisted_1015, "当前在册位置 " + _toDisplayString(r.current_rel), 1))
                               : _createCommentVNode("", true), (r.replaced)
-                              ? (_openBlock(), _createElementBlock("small", _hoisted_1015, "此路径当前对应另一文件编号"))
+                              ? (_openBlock(), _createElementBlock("small", _hoisted_1016, "此路径当前对应另一文件编号"))
                               : _createCommentVNode("", true)]))
                           }), 256))])]))
                         : _createCommentVNode("", true),
-                      _createElementVNode("div", _hoisted_1016, [_createElementVNode("table", null, [_cache[387] || (_cache[387] = _createElementVNode("thead", null, [_createElementVNode("tr", null, [
+                      _createElementVNode("div", _hoisted_1017, [_createElementVNode("table", null, [_cache[387] || (_cache[387] = _createElementVNode("thead", null, [_createElementVNode("tr", null, [
                         _createElementVNode("th", null, "清单路径"),
                         _createElementVNode("th", null, "版本"),
                         _createElementVNode("th", null, "大小"),
@@ -5819,20 +5827,20 @@ return function render(_ctx, _cache) {
                           _createElementVNode("td", null, _toDisplayString(r.rel), 1),
                           _createElementVNode("td", null, "V" + _toDisplayString(r.num), 1),
                           _createElementVNode("td", null, _toDisplayString(bytes(r.size)), 1),
-                          _createElementVNode("td", null, [_createElementVNode("details", null, [_createElementVNode("summary", null, _toDisplayString(r.sha.slice(0,10)), 1), _createElementVNode("span", _hoisted_1017, _toDisplayString(r.sha), 1)])])
+                          _createElementVNode("td", null, [_createElementVNode("details", null, [_createElementVNode("summary", null, _toDisplayString(r.sha.slice(0,10)), 1), _createElementVNode("span", _hoisted_1018, _toDisplayString(r.sha), 1)])])
                         ]))
                       }), 256))])])]),
-                      _createElementVNode("div", _hoisted_1018, [_createElementVNode("button", {
+                      _createElementVNode("div", _hoisted_1019, [_createElementVNode("button", {
                         type: "button",
                         class: "btn",
                         disabled: dialog.data.page<=1,
                         onClick: $event => (loadInventory(dialog.data.page-1,dialog.active))
-                      }, "上一页", 8, _hoisted_1019), _createTextVNode(_toDisplayString(dialog.data.page) + " / " + _toDisplayString(dialog.data.pages), 1), _createElementVNode("button", {
+                      }, "上一页", 8, _hoisted_1020), _createTextVNode(_toDisplayString(dialog.data.page) + " / " + _toDisplayString(dialog.data.pages), 1), _createElementVNode("button", {
                         type: "button",
                         class: "btn",
                         disabled: dialog.data.page>=dialog.data.pages,
                         onClick: $event => (loadInventory(dialog.data.page+1,dialog.active))
-                      }, "下一页", 8, _hoisted_1020)])
+                      }, "下一页", 8, _hoisted_1021)])
                     ], 64))
                   : _createCommentVNode("", true)], 64))
               : _createCommentVNode("", true),
@@ -5840,7 +5848,7 @@ return function render(_ctx, _cache) {
               ? (_openBlock(), _createElementBlock(_Fragment, { key: 9 }, [_createElementVNode("label", null, [_cache[388] || (_cache[388] = _createTextVNode("文件交付 ZIP 路径")), _withDirectives(_createElementVNode("input", {
                   "onUpdate:modelValue": $event => ((dialog.path) = $event),
                   required: ""
-                }, null, 8, _hoisted_1021), [[_vModelText, dialog.path]])]), _createElementVNode("small", null, _toDisplayString(dialog.scope?'同时核对此范围的路径、版本、长度和摘要。':'依据包内清单校验每份副本。'), 1)], 64))
+                }, null, 8, _hoisted_1022), [[_vModelText, dialog.path]])]), _createElementVNode("small", null, _toDisplayString(dialog.scope?'同时核对此范围的路径、版本、长度和摘要。':'依据包内清单校验每份副本。'), 1)], 64))
               : _createCommentVNode("", true),
             (dialog.type==='delivery_result')
               ? (_openBlock(), _createElementBlock(_Fragment, { key: 10 }, [
@@ -5855,36 +5863,36 @@ return function render(_ctx, _cache) {
                     return (_openBlock(), _createElementBlock("li", null, _toDisplayString(r.kind) + " · " + _toDisplayString(r.rel), 1))
                   }), 256))]),
                   (dialog.result.issue_count>100)
-                    ? (_openBlock(), _createElementBlock("small", _hoisted_1022, "共 " + _toDisplayString(dialog.result.issue_count) + " 项问题，显示前 100 项。", 1))
+                    ? (_openBlock(), _createElementBlock("small", _hoisted_1023, "共 " + _toDisplayString(dialog.result.issue_count) + " 项问题，显示前 100 项。", 1))
                     : _createCommentVNode("", true)
                 ], 64))
               : _createCommentVNode("", true),
             (dialog.type==='health')
               ? (_openBlock(), _createElementBlock(_Fragment, { key: 11 }, [
                   _cache[395] || (_cache[395] = _createElementVNode("p", null, "保留最近五份完整报告。检查读取历史对象，后台采集继续运行。", -1)),
-                  _createElementVNode("div", _hoisted_1023, [_createElementVNode("button", {
+                  _createElementVNode("div", _hoisted_1024, [_createElementVNode("button", {
                     type: "button",
                     class: "btn",
                     disabled: dialog.job.state==='检查中',
                     onClick: $event => (refreshHealth('health_start'))
-                  }, _toDisplayString(demo?'查看示例检查':'开始检查'), 9, _hoisted_1024), (dialog.job.state==='检查中')
+                  }, _toDisplayString(demo?'查看示例检查':'开始检查'), 9, _hoisted_1025), (dialog.job.state==='检查中')
                     ? (_openBlock(), _createElementBlock("button", {
                         key: 0,
                         type: "button",
                         class: "btn",
                         onClick: $event => (refreshHealth('health_cancel'))
-                      }, "取消检查", 8, _hoisted_1025))
+                      }, "取消检查", 8, _hoisted_1026))
                     : _createCommentVNode("", true)]),
-                  _createElementVNode("p", _hoisted_1026, [_createTextVNode(_toDisplayString(dialog.job.state) + " ", 1), (dialog.job.state==='检查中')
-                    ? (_openBlock(), _createElementBlock("span", _hoisted_1027, _toDisplayString(dialog.job.done) + " / " + _toDisplayString(dialog.job.total), 1))
+                  _createElementVNode("p", _hoisted_1027, [_createTextVNode(_toDisplayString(dialog.job.state) + " ", 1), (dialog.job.state==='检查中')
+                    ? (_openBlock(), _createElementBlock("span", _hoisted_1028, _toDisplayString(dialog.job.done) + " / " + _toDisplayString(dialog.job.total), 1))
                     : _createCommentVNode("", true), _createTextVNode(" " + _toDisplayString(dialog.job.error), 1)]),
                   (dialog.reports.length)
                     ? (_openBlock(), _createElementBlock(_Fragment, { key: 0 }, [_createElementVNode("label", null, [_cache[389] || (_cache[389] = _createTextVNode("检查报告")), _withDirectives(_createElementVNode("select", {
                         "onUpdate:modelValue": $event => ((dialog.id) = $event),
                         onChange: $event => {dialog.status='';dialog.change='';loadHealth()}
                       }, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.reports, (r) => {
-                        return (_openBlock(), _createElementBlock("option", { value: r.id }, "#" + _toDisplayString(r.id) + " · " + _toDisplayString(fmt(r.ended)), 9, _hoisted_1029))
-                      }), 256))], 40, _hoisted_1028), [[
+                        return (_openBlock(), _createElementBlock("option", { value: r.id }, "#" + _toDisplayString(r.id) + " · " + _toDisplayString(fmt(r.ended)), 9, _hoisted_1030))
+                      }), 256))], 40, _hoisted_1029), [[
                         _vModelSelect,
                         dialog.id,
                         void 0,
@@ -5892,29 +5900,29 @@ return function render(_ctx, _cache) {
                       ]])]), (dialog.data)
                         ? (_openBlock(), _createElementBlock(_Fragment, { key: 0 }, [
                             _createElementVNode("p", null, "核验通过 " + _toDisplayString(dialog.data.report.verified) + " / " + _toDisplayString(dialog.data.report.objects) + " 个对象，" + _toDisplayString(bytes(dialog.data.report.verified_bytes)) + "。异常 " + _toDisplayString(dialog.data.report.issues) + "，涉及 " + _toDisplayString(dialog.data.report.affected) + " 个版本。另有未引用对象 " + _toDisplayString(dialog.data.report.unreferenced) + " 个。", 1),
-                            _createElementVNode("div", _hoisted_1030, [
-                              _createElementVNode("label", null, [_cache[390] || (_cache[390] = _createTextVNode("对象摘要片段")), _withDirectives(_createElementVNode("input", { "onUpdate:modelValue": $event => ((dialog.q) = $event) }, null, 8, _hoisted_1031), [[_vModelText, dialog.q]])]),
+                            _createElementVNode("div", _hoisted_1031, [
+                              _createElementVNode("label", null, [_cache[390] || (_cache[390] = _createTextVNode("对象摘要片段")), _withDirectives(_createElementVNode("input", { "onUpdate:modelValue": $event => ((dialog.q) = $event) }, null, 8, _hoisted_1032), [[_vModelText, dialog.q]])]),
                               _createElementVNode("label", null, [_cache[392] || (_cache[392] = _createTextVNode("结果类别")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.status) = $event) }, [_cache[391] || (_cache[391] = _createElementVNode("option", { value: "" }, "全部", -1)), (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.data.counts, (_, k) => {
                                 return (_openBlock(), _createElementBlock("option", null, _toDisplayString(k), 1))
-                              }), 256))], 8, _hoisted_1032), [[_vModelSelect, dialog.status]])]),
+                              }), 256))], 8, _hoisted_1033), [[_vModelSelect, dialog.status]])]),
                               _createElementVNode("label", null, [_cache[394] || (_cache[394] = _createTextVNode("与前一份报告相比")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.change) = $event) }, [_cache[393] || (_cache[393] = _createElementVNode("option", { value: "" }, "本轮发现", -1)), (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.data.changes, (_, k) => {
                                 return (_openBlock(), _createElementBlock("option", null, _toDisplayString(k), 1))
-                              }), 256))], 8, _hoisted_1033), [[_vModelSelect, dialog.change]])]),
+                              }), 256))], 8, _hoisted_1034), [[_vModelSelect, dialog.change]])]),
                               _createElementVNode("button", {
                                 type: "button",
                                 class: "btn",
                                 onClick: $event => (loadHealth())
-                              }, "筛选", 8, _hoisted_1034),
+                              }, "筛选", 8, _hoisted_1035),
                               _createElementVNode("button", {
                                 type: "button",
                                 class: "btn",
                                 onClick: healthExport
-                              }, "导出明细", 8, _hoisted_1035)
+                              }, "导出明细", 8, _hoisted_1036)
                             ]),
                             _createElementVNode("p", null, _toDisplayString(dialog.data.total) + " 条匹配", 1),
                             _createElementVNode("ul", null, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.data.items, (r) => {
                               return (_openBlock(), _createElementBlock("li", null, [
-                                _createElementVNode("span", _hoisted_1036, _toDisplayString(r.object_key), 1),
+                                _createElementVNode("span", _hoisted_1037, _toDisplayString(r.object_key), 1),
                                 _createTextVNode(" · " + _toDisplayString(r.status) + " · " + _toDisplayString(r.change), 1),
                                 _createElementVNode("small", null, "索引 " + _toDisplayString(r.expected??'—') + " / 实际 " + _toDisplayString(r.actual??'—') + " 字节 · " + _toDisplayString(r.versions) + " 版 / " + _toDisplayString(r.files) + " 个文件", 1),
                                 (r.versions)
@@ -5923,23 +5931,23 @@ return function render(_ctx, _cache) {
                                       class: "textbtn",
                                       type: "button",
                                       onClick: $event => (affectedVersions(r))
-                                    }, "查看引用", 8, _hoisted_1037))
+                                    }, "查看引用", 8, _hoisted_1038))
                                   : _createCommentVNode("", true)
                               ]))
                             }), 256))]),
-                            _createElementVNode("div", _hoisted_1038, [_createElementVNode("button", {
+                            _createElementVNode("div", _hoisted_1039, [_createElementVNode("button", {
                               type: "button",
                               class: "btn",
                               disabled: dialog.data.page<=1,
                               onClick: $event => (loadHealth(dialog.data.page-1))
-                            }, "上一页", 8, _hoisted_1039), _createTextVNode(_toDisplayString(dialog.data.page) + " / " + _toDisplayString(dialog.data.pages), 1), _createElementVNode("button", {
+                            }, "上一页", 8, _hoisted_1040), _createTextVNode(_toDisplayString(dialog.data.page) + " / " + _toDisplayString(dialog.data.pages), 1), _createElementVNode("button", {
                               type: "button",
                               class: "btn",
                               disabled: dialog.data.page>=dialog.data.pages,
                               onClick: $event => (loadHealth(dialog.data.page+1))
-                            }, "下一页", 8, _hoisted_1040)]),
+                            }, "下一页", 8, _hoisted_1041)]),
                             (dialog.refs)
-                              ? (_openBlock(), _createElementBlock("details", _hoisted_1041, [
+                              ? (_openBlock(), _createElementBlock("details", _hoisted_1042, [
                                   _createElementVNode("summary", null, "当前引用版本 · " + _toDisplayString(dialog.refs.total), 1),
                                   (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.refs.items, (r) => {
                                     return (_openBlock(), _createElementBlock("p", null, _toDisplayString(r.root) + " / " + _toDisplayString(r.rel) + " · V" + _toDisplayString(r.num) + " · " + _toDisplayString(fmt(r.stamp)), 1))
@@ -5949,13 +5957,13 @@ return function render(_ctx, _cache) {
                                     class: "btn",
                                     disabled: dialog.refs.page<=1,
                                     onClick: $event => (affectedVersions(dialog.refs.row,dialog.refs.page-1))
-                                  }, "上一页", 8, _hoisted_1042),
+                                  }, "上一页", 8, _hoisted_1043),
                                   _createElementVNode("button", {
                                     type: "button",
                                     class: "btn",
                                     disabled: dialog.refs.page>=dialog.refs.pages,
                                     onClick: $event => (affectedVersions(dialog.refs.row,dialog.refs.page+1))
-                                  }, "下一页", 8, _hoisted_1043)
+                                  }, "下一页", 8, _hoisted_1044)
                                 ]))
                               : _createCommentVNode("", true)
                           ], 64))
@@ -5964,33 +5972,33 @@ return function render(_ctx, _cache) {
                 ], 64))
               : _createCommentVNode("", true),
             (dialog.type==='variance')
-              ? (_openBlock(), _createElementBlock(_Fragment, { key: 12 }, [_createElementVNode("div", _hoisted_1044, [
-                  _createElementVNode("label", null, [_cache[396] || (_cache[396] = _createTextVNode("工作表或分组")), _withDirectives(_createElementVNode("input", { "onUpdate:modelValue": $event => ((dialog.sheet) = $event) }, null, 8, _hoisted_1045), [[_vModelText, dialog.sheet]])]),
-                  _createElementVNode("label", null, [_cache[397] || (_cache[397] = _createTextVNode("字段")), _withDirectives(_createElementVNode("input", { "onUpdate:modelValue": $event => ((dialog.field) = $event) }, null, 8, _hoisted_1046), [[_vModelText, dialog.field]])]),
-                  _createElementVNode("label", null, [_cache[398] || (_cache[398] = _createTextVNode("业务编号")), _withDirectives(_createElementVNode("input", { "onUpdate:modelValue": $event => ((dialog.record) = $event) }, null, 8, _hoisted_1047), [[_vModelText, dialog.record]])]),
+              ? (_openBlock(), _createElementBlock(_Fragment, { key: 12 }, [_createElementVNode("div", _hoisted_1045, [
+                  _createElementVNode("label", null, [_cache[396] || (_cache[396] = _createTextVNode("工作表或分组")), _withDirectives(_createElementVNode("input", { "onUpdate:modelValue": $event => ((dialog.sheet) = $event) }, null, 8, _hoisted_1046), [[_vModelText, dialog.sheet]])]),
+                  _createElementVNode("label", null, [_cache[397] || (_cache[397] = _createTextVNode("字段")), _withDirectives(_createElementVNode("input", { "onUpdate:modelValue": $event => ((dialog.field) = $event) }, null, 8, _hoisted_1047), [[_vModelText, dialog.field]])]),
+                  _createElementVNode("label", null, [_cache[398] || (_cache[398] = _createTextVNode("业务编号")), _withDirectives(_createElementVNode("input", { "onUpdate:modelValue": $event => ((dialog.record) = $event) }, null, 8, _hoisted_1048), [[_vModelText, dialog.record]])]),
                   _createElementVNode("label", null, [_cache[399] || (_cache[399] = _createTextVNode("绝对差额至少")), _withDirectives(_createElementVNode("input", {
                     "onUpdate:modelValue": $event => ((dialog.minimum) = $event),
                     placeholder: "例如 5"
-                  }, null, 8, _hoisted_1048), [[_vModelText, dialog.minimum]])]),
+                  }, null, 8, _hoisted_1049), [[_vModelText, dialog.minimum]])]),
                   _createElementVNode("label", null, [_cache[400] || (_cache[400] = _createTextVNode("绝对变化率至少（%）")), _withDirectives(_createElementVNode("input", {
                     "onUpdate:modelValue": $event => ((dialog.rate) = $event),
                     placeholder: "例如 10"
-                  }, null, 8, _hoisted_1049), [[_vModelText, dialog.rate]])]),
+                  }, null, 8, _hoisted_1050), [[_vModelText, dialog.rate]])]),
                   _createElementVNode("label", null, [_cache[402] || (_cache[402] = _createTextVNode("变化方向")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.direction) = $event) }, [_cache[401] || (_cache[401] = _createElementVNode("option", { value: "" }, "全部", -1)), (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(['上升','下降','等值'], (k) => {
                     return (_openBlock(), _createElementBlock("option", null, _toDisplayString(k), 1))
-                  }), 256))], 8, _hoisted_1050), [[_vModelSelect, dialog.direction]])]),
+                  }), 256))], 8, _hoisted_1051), [[_vModelSelect, dialog.direction]])]),
                   _createElementVNode("label", null, [_cache[404] || (_cache[404] = _createTextVNode("顺序")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.sort) = $event) }, _cache[403] || (_cache[403] = [
                     _createElementVNode("option", { value: "magnitude" }, "差额绝对值最大", -1),
                     _createElementVNode("option", { value: "rate" }, "变化率绝对值最大", -1),
                     _createElementVNode("option", { value: "up" }, "差额降序", -1),
                     _createElementVNode("option", { value: "down" }, "差额升序", -1),
                     _createElementVNode("option", { value: "position" }, "原始差异顺序", -1)
-                  ]), 8, _hoisted_1051), [[_vModelSelect, dialog.sort]])]),
+                  ]), 8, _hoisted_1052), [[_vModelSelect, dialog.sort]])]),
                   _createElementVNode("button", {
                     type: "button",
                     class: "btn",
                     onClick: $event => (loadVariance())
-                  }, "核对", 8, _hoisted_1052)
+                  }, "核对", 8, _hoisted_1053)
                 ]), (dialog.data)
                   ? (_openBlock(), _createElementBlock(_Fragment, { key: 0 }, [
                       _createElementVNode("p", null, _toDisplayString(dialog.data.total) + " 项符合条件 · 上升 " + _toDisplayString(dialog.data.counts['上升']||0) + " · 下降 " + _toDisplayString(dialog.data.counts['下降']||0) + " · 等值 " + _toDisplayString(dialog.data.counts['等值']||0), 1),
@@ -6000,7 +6008,7 @@ return function render(_ctx, _cache) {
                       _createElementVNode("details", null, [_cache[405] || (_cache[405] = _createElementVNode("summary", null, "按分组与字段汇总匹配项", -1)), (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.data.groups, (g) => {
                         return (_openBlock(), _createElementBlock("p", null, _toDisplayString(g.sheet) + " / " + _toDisplayString(g.field) + " · " + _toDisplayString(g.count) + " 项 · " + _toDisplayString(g.old) + " → " + _toDisplayString(g.new) + " · 净差 " + _toDisplayString(g.delta), 1))
                       }), 256))]),
-                      _createElementVNode("div", _hoisted_1053, [_createElementVNode("table", null, [_cache[407] || (_cache[407] = _createElementVNode("thead", null, [_createElementVNode("tr", null, [
+                      _createElementVNode("div", _hoisted_1054, [_createElementVNode("table", null, [_cache[407] || (_cache[407] = _createElementVNode("thead", null, [_createElementVNode("tr", null, [
                         _createElementVNode("th", null, "位置"),
                         _createElementVNode("th", null, "旧值"),
                         _createElementVNode("th", null, "新值"),
@@ -6013,13 +6021,13 @@ return function render(_ctx, _cache) {
                               type: "button",
                               class: "textbtn",
                               onClick: $event => (varianceSource(r))
-                            }, _toDisplayString(r.sheet) + " · " + _toDisplayString(r.location), 9, _hoisted_1054),
+                            }, _toDisplayString(r.sheet) + " · " + _toDisplayString(r.location), 9, _hoisted_1055),
                             _cache[406] || (_cache[406] = _createTextVNode()),
                             _createElementVNode("button", {
                               type: "button",
                               class: "textbtn",
                               onClick: $event => (reportDialog('trace',r))
-                            }, "追踪此项", 8, _hoisted_1055),
+                            }, "追踪此项", 8, _hoisted_1056),
                             _createElementVNode("small", null, _toDisplayString(r.record) + "　" + _toDisplayString(r.field), 1)
                           ]),
                           _createElementVNode("td", null, _toDisplayString(r.old), 1),
@@ -6028,26 +6036,26 @@ return function render(_ctx, _cache) {
                           _createElementVNode("td", null, _toDisplayString(r.percent===null?'原值为零':r.percent+'%'), 1)
                         ]))
                       }), 256))])])]),
-                      _createElementVNode("div", _hoisted_1056, [
+                      _createElementVNode("div", _hoisted_1057, [
                         _createElementVNode("button", {
                           type: "button",
                           class: "btn",
                           disabled: dialog.data.page<=1,
                           onClick: $event => (loadVariance(dialog.data.page-1,dialog.applied))
-                        }, "上一页", 8, _hoisted_1057),
+                        }, "上一页", 8, _hoisted_1058),
                         _createTextVNode(_toDisplayString(dialog.data.page) + " / " + _toDisplayString(dialog.data.pages), 1),
                         _createElementVNode("button", {
                           type: "button",
                           class: "btn",
                           disabled: dialog.data.page>=dialog.data.pages,
                           onClick: $event => (loadVariance(dialog.data.page+1,dialog.applied))
-                        }, "下一页", 8, _hoisted_1058),
+                        }, "下一页", 8, _hoisted_1059),
                         _createElementVNode("button", {
                           type: "button",
                           class: "btn",
                           disabled: !dialog.data.total,
                           onClick: varianceExport
-                        }, "导出数值 CSV", 8, _hoisted_1059)
+                        }, "导出数值 CSV", 8, _hoisted_1060)
                       ]),
                       _cache[408] || (_cache[408] = _createElementVNode("small", null, "变化率 = 差额 ÷ 旧值绝对值。此处仅统计差异中的可比数值。", -1))
                     ], 64))
@@ -6056,108 +6064,108 @@ return function render(_ctx, _cache) {
             (dialog.type==='period'||dialog.type==='trace')
               ? (_openBlock(), _createElementBlock(_Fragment, { key: 13 }, [
                   (dialog.type==='period')
-                    ? (_openBlock(), _createElementBlock("div", _hoisted_1060, [
+                    ? (_openBlock(), _createElementBlock("div", _hoisted_1061, [
                         _createElementVNode("label", null, [_cache[409] || (_cache[409] = _createTextVNode("本期开始")), _withDirectives(_createElementVNode("input", {
                           type: "date",
                           "onUpdate:modelValue": $event => ((dialog.form.start) = $event)
-                        }, null, 8, _hoisted_1061), [[_vModelText, dialog.form.start]])]),
+                        }, null, 8, _hoisted_1062), [[_vModelText, dialog.form.start]])]),
                         _createElementVNode("label", null, [_cache[410] || (_cache[410] = _createTextVNode("本期结束")), _withDirectives(_createElementVNode("input", {
                           type: "date",
                           "onUpdate:modelValue": $event => ((dialog.form.end) = $event)
-                        }, null, 8, _hoisted_1062), [[_vModelText, dialog.form.end]])]),
+                        }, null, 8, _hoisted_1063), [[_vModelText, dialog.form.end]])]),
                         _createElementVNode("label", null, [_cache[411] || (_cache[411] = _createTextVNode("统计分组")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.form.group) = $event) }, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList({file:'文件',root:'监控目录',folder:'所在文件夹',ext:'扩展名',kind:'变更类型',source:'采集来源',weekday:'星期',hour:'小时'}, (label, k) => {
-                          return (_openBlock(), _createElementBlock("option", { value: k }, _toDisplayString(label), 9, _hoisted_1064))
-                        }), 256))], 8, _hoisted_1063), [[_vModelSelect, dialog.form.group]])]),
+                          return (_openBlock(), _createElementBlock("option", { value: k }, _toDisplayString(label), 9, _hoisted_1065))
+                        }), 256))], 8, _hoisted_1064), [[_vModelSelect, dialog.form.group]])]),
                         _createElementVNode("label", null, [_cache[413] || (_cache[413] = _createTextVNode("监控目录")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.form.root_id) = $event) }, [_cache[412] || (_cache[412] = _createElementVNode("option", { value: "" }, "全部", -1)), (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(s.roots, (r) => {
-                          return (_openBlock(), _createElementBlock("option", { value: r.id }, _toDisplayString(r.path), 9, _hoisted_1066))
-                        }), 256))], 8, _hoisted_1065), [[_vModelSelect, dialog.form.root_id]])]),
-                        _createElementVNode("label", null, [_cache[414] || (_cache[414] = _createTextVNode("历史路径片段")), _withDirectives(_createElementVNode("input", { "onUpdate:modelValue": $event => ((dialog.form.q) = $event) }, null, 8, _hoisted_1067), [[_vModelText, dialog.form.q]])]),
+                          return (_openBlock(), _createElementBlock("option", { value: r.id }, _toDisplayString(r.path), 9, _hoisted_1067))
+                        }), 256))], 8, _hoisted_1066), [[_vModelSelect, dialog.form.root_id]])]),
+                        _createElementVNode("label", null, [_cache[414] || (_cache[414] = _createTextVNode("历史路径片段")), _withDirectives(_createElementVNode("input", { "onUpdate:modelValue": $event => ((dialog.form.q) = $event) }, null, 8, _hoisted_1068), [[_vModelText, dialog.form.q]])]),
                         _createElementVNode("label", null, [_cache[415] || (_cache[415] = _createTextVNode("扩展名")), _withDirectives(_createElementVNode("input", {
                           "onUpdate:modelValue": $event => ((dialog.form.ext) = $event),
                           placeholder: "xlsx, csv"
-                        }, null, 8, _hoisted_1068), [[_vModelText, dialog.form.ext]])]),
+                        }, null, 8, _hoisted_1069), [[_vModelText, dialog.form.ext]])]),
                         _createElementVNode("label", null, [_cache[416] || (_cache[416] = _createTextVNode("事件类型")), _withDirectives(_createElementVNode("input", {
                           "onUpdate:modelValue": $event => ((dialog.form.kind) = $event),
                           placeholder: "例如 内容修改"
-                        }, null, 8, _hoisted_1069), [[_vModelText, dialog.form.kind]])]),
+                        }, null, 8, _hoisted_1070), [[_vModelText, dialog.form.kind]])]),
                         _createElementVNode("label", null, [_cache[417] || (_cache[417] = _createTextVNode("采集来源")), _withDirectives(_createElementVNode("input", {
                           "onUpdate:modelValue": $event => ((dialog.form.source) = $event),
                           placeholder: "例如 手动扫描"
-                        }, null, 8, _hoisted_1070), [[_vModelText, dialog.form.source]])]),
+                        }, null, 8, _hoisted_1071), [[_vModelText, dialog.form.source]])]),
                         _createElementVNode("label", null, [_cache[418] || (_cache[418] = _createTextVNode("只看分组")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.form.trend) = $event) }, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList({'':'全部',up:'次数增加',down:'次数减少',equal:'次数相同',new:'本期才出现',gone:'仅上期出现'}, (label, k) => {
-                          return (_openBlock(), _createElementBlock("option", { value: k }, _toDisplayString(label), 9, _hoisted_1072))
-                        }), 256))], 8, _hoisted_1071), [[_vModelSelect, dialog.form.trend]])]),
+                          return (_openBlock(), _createElementBlock("option", { value: k }, _toDisplayString(label), 9, _hoisted_1073))
+                        }), 256))], 8, _hoisted_1072), [[_vModelSelect, dialog.form.trend]])]),
                         _createElementVNode("label", null, [_cache[419] || (_cache[419] = _createTextVNode("排序")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.form.sort) = $event) }, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList({after:'本期次数',before:'上期次数',delta:'增幅最大（次数）',drop:'减幅最大（次数）',files:'文件最多',days:'活跃天数最多',label:'分组名称'}, (label, k) => {
-                          return (_openBlock(), _createElementBlock("option", { value: k }, _toDisplayString(label), 9, _hoisted_1074))
-                        }), 256))], 8, _hoisted_1073), [[_vModelSelect, dialog.form.sort]])]),
+                          return (_openBlock(), _createElementBlock("option", { value: k }, _toDisplayString(label), 9, _hoisted_1075))
+                        }), 256))], 8, _hoisted_1074), [[_vModelSelect, dialog.form.sort]])]),
                         _createElementVNode("label", null, [_cache[421] || (_cache[421] = _createElementVNode("span", null, "初次采集", -1)), _createElementVNode("span", null, [_withDirectives(_createElementVNode("input", {
                           type: "checkbox",
                           "onUpdate:modelValue": $event => ((dialog.form.initial) = $event)
-                        }, null, 8, _hoisted_1075), [[_vModelCheckbox, dialog.form.initial]]), _cache[420] || (_cache[420] = _createTextVNode(" 包含初始建档"))])])
+                        }, null, 8, _hoisted_1076), [[_vModelCheckbox, dialog.form.initial]]), _cache[420] || (_cache[420] = _createTextVNode(" 包含初始建档"))])])
                       ]))
                     : _createCommentVNode("", true),
                   (dialog.type==='trace')
-                    ? (_openBlock(), _createElementBlock("p", _hoisted_1076, "填写业务编号、字段或位置中的至少一项，查看这个文件多次保存之间的变化。"))
+                    ? (_openBlock(), _createElementBlock("p", _hoisted_1077, "填写业务编号、字段或位置中的至少一项，查看这个文件多次保存之间的变化。"))
                     : _createCommentVNode("", true),
                   (dialog.type==='trace')
-                    ? (_openBlock(), _createElementBlock("div", _hoisted_1077, [
+                    ? (_openBlock(), _createElementBlock("div", _hoisted_1078, [
                         _createElementVNode("label", null, [_cache[422] || (_cache[422] = _createTextVNode("业务编号")), _withDirectives(_createElementVNode("input", {
                           "onUpdate:modelValue": $event => ((dialog.form.record) = $event),
                           placeholder: "例如 MD-001"
-                        }, null, 8, _hoisted_1078), [[_vModelText, dialog.form.record]])]),
+                        }, null, 8, _hoisted_1079), [[_vModelText, dialog.form.record]])]),
                         _createElementVNode("label", null, [_cache[423] || (_cache[423] = _createTextVNode("字段")), _withDirectives(_createElementVNode("input", {
                           "onUpdate:modelValue": $event => ((dialog.form.field) = $event),
                           placeholder: "例如 现存量"
-                        }, null, 8, _hoisted_1079), [[_vModelText, dialog.form.field]])]),
+                        }, null, 8, _hoisted_1080), [[_vModelText, dialog.form.field]])]),
                         _createElementVNode("label", null, [_cache[424] || (_cache[424] = _createTextVNode("位置")), _withDirectives(_createElementVNode("input", {
                           "onUpdate:modelValue": $event => ((dialog.form.location) = $event),
                           placeholder: "例如 C2"
-                        }, null, 8, _hoisted_1080), [[_vModelText, dialog.form.location]])]),
-                        _createElementVNode("label", null, [_cache[425] || (_cache[425] = _createTextVNode("工作表或分组")), _withDirectives(_createElementVNode("input", { "onUpdate:modelValue": $event => ((dialog.form.sheet) = $event) }, null, 8, _hoisted_1081), [[_vModelText, dialog.form.sheet]])]),
+                        }, null, 8, _hoisted_1081), [[_vModelText, dialog.form.location]])]),
+                        _createElementVNode("label", null, [_cache[425] || (_cache[425] = _createTextVNode("工作表或分组")), _withDirectives(_createElementVNode("input", { "onUpdate:modelValue": $event => ((dialog.form.sheet) = $event) }, null, 8, _hoisted_1082), [[_vModelText, dialog.form.sheet]])]),
                         _createElementVNode("label", null, [_cache[426] || (_cache[426] = _createTextVNode("起始新版本号")), _withDirectives(_createElementVNode("input", {
                           type: "number",
                           min: "1",
                           "onUpdate:modelValue": $event => ((dialog.form.low) = $event)
-                        }, null, 8, _hoisted_1082), [[_vModelText, dialog.form.low]])]),
+                        }, null, 8, _hoisted_1083), [[_vModelText, dialog.form.low]])]),
                         _createElementVNode("label", null, [_cache[427] || (_cache[427] = _createTextVNode("结束新版本号")), _withDirectives(_createElementVNode("input", {
                           type: "number",
                           min: "1",
                           "onUpdate:modelValue": $event => ((dialog.form.high) = $event)
-                        }, null, 8, _hoisted_1083), [[_vModelText, dialog.form.high]])]),
+                        }, null, 8, _hoisted_1084), [[_vModelText, dialog.form.high]])]),
                         _createElementVNode("label", null, [_cache[429] || (_cache[429] = _createTextVNode("变化类型")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.form.kind) = $event) }, [_cache[428] || (_cache[428] = _createElementVNode("option", { value: "" }, "全部", -1)), (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(['新增','修改','删除'], (t) => {
                           return (_openBlock(), _createElementBlock("option", null, _toDisplayString(t), 1))
-                        }), 256))], 8, _hoisted_1084), [[_vModelSelect, dialog.form.kind]])]),
+                        }), 256))], 8, _hoisted_1085), [[_vModelSelect, dialog.form.kind]])]),
                         _createElementVNode("label", null, [_cache[430] || (_cache[430] = _createTextVNode("差异类别")), _withDirectives(_createElementVNode("input", {
                           "onUpdate:modelValue": $event => ((dialog.form.category) = $event),
                           placeholder: "例如 单元格值"
-                        }, null, 8, _hoisted_1085), [[_vModelText, dialog.form.category]])]),
-                        _createElementVNode("label", null, [_cache[431] || (_cache[431] = _createTextVNode("旧值或新值含有")), _withDirectives(_createElementVNode("input", { "onUpdate:modelValue": $event => ((dialog.form.value) = $event) }, null, 8, _hoisted_1086), [[_vModelText, dialog.form.value]])]),
+                        }, null, 8, _hoisted_1086), [[_vModelText, dialog.form.category]])]),
+                        _createElementVNode("label", null, [_cache[431] || (_cache[431] = _createTextVNode("旧值或新值含有")), _withDirectives(_createElementVNode("input", { "onUpdate:modelValue": $event => ((dialog.form.value) = $event) }, null, 8, _hoisted_1087), [[_vModelText, dialog.form.value]])]),
                         _createElementVNode("label", null, [_cache[433] || (_cache[433] = _createElementVNode("span", null, "轨迹", -1)), _createElementVNode("span", null, [_withDirectives(_createElementVNode("input", {
                           type: "checkbox",
                           "onUpdate:modelValue": $event => ((dialog.form.only_return) = $event)
-                        }, null, 8, _hoisted_1087), [[_vModelCheckbox, dialog.form.only_return]]), _cache[432] || (_cache[432] = _createTextVNode(" 只看回到先前可见值"))])]),
+                        }, null, 8, _hoisted_1088), [[_vModelCheckbox, dialog.form.only_return]]), _cache[432] || (_cache[432] = _createTextVNode(" 只看回到先前可见值"))])]),
                         _createElementVNode("label", null, [_cache[435] || (_cache[435] = _createElementVNode("span", null, "时间顺序", -1)), _createElementVNode("span", null, [_withDirectives(_createElementVNode("input", {
                           type: "checkbox",
                           "onUpdate:modelValue": $event => ((dialog.form.ascending) = $event)
-                        }, null, 8, _hoisted_1088), [[_vModelCheckbox, dialog.form.ascending]]), _cache[434] || (_cache[434] = _createTextVNode(" 最早版本优先"))])])
+                        }, null, 8, _hoisted_1089), [[_vModelCheckbox, dialog.form.ascending]]), _cache[434] || (_cache[434] = _createTextVNode(" 最早版本优先"))])])
                       ]))
                     : _createCommentVNode("", true),
-                  _createElementVNode("div", _hoisted_1089, [_createElementVNode("button", {
+                  _createElementVNode("div", _hoisted_1090, [_createElementVNode("button", {
                     type: "button",
                     class: "primary",
                     onClick: $event => (runReport())
-                  }, "查询", 8, _hoisted_1090), _createElementVNode("button", {
+                  }, "查询", 8, _hoisted_1091), _createElementVNode("button", {
                     type: "button",
                     class: "btn",
                     disabled: !dialog.data?.total,
                     onClick: exportReport
-                  }, "导出查询结果 CSV", 8, _hoisted_1091)]),
+                  }, "导出查询结果 CSV", 8, _hoisted_1092)]),
                   (dialog.loading)
-                    ? (_openBlock(), _createElementBlock("p", _hoisted_1092, "正在读取变动…"))
+                    ? (_openBlock(), _createElementBlock("p", _hoisted_1093, "正在读取变动…"))
                     : _createCommentVNode("", true),
                   (dialog.data)
                     ? (_openBlock(), _createElementBlock(_Fragment, { key: 4 }, [(dialog.type==='period')
-                        ? (_openBlock(), _createElementBlock(_Fragment, { key: 0 }, [_createElementVNode("p", null, [_createTextVNode("上期 " + _toDisplayString(dialog.data.previous) + " 至 " + _toDisplayString(dialog.data.previous_end) + "，" + _toDisplayString(dialog.data.before) + " 次，涉及 " + _toDisplayString(dialog.data.files_before) + " 个文件。", 1), _cache[436] || (_cache[436] = _createElementVNode("br", null, null, -1)), _createTextVNode("本期 " + _toDisplayString(dialog.data.start) + " 至 " + _toDisplayString(dialog.data.end) + "，" + _toDisplayString(dialog.data.after) + " 次，涉及 " + _toDisplayString(dialog.data.files_after) + " 个文件。", 1)]), _createElementVNode("div", _hoisted_1093, [_createElementVNode("table", null, [_cache[438] || (_cache[438] = _createElementVNode("thead", null, [_createElementVNode("tr", null, [
+                        ? (_openBlock(), _createElementBlock(_Fragment, { key: 0 }, [_createElementVNode("p", null, [_createTextVNode("上期 " + _toDisplayString(dialog.data.previous) + " 至 " + _toDisplayString(dialog.data.previous_end) + "，" + _toDisplayString(dialog.data.before) + " 次，涉及 " + _toDisplayString(dialog.data.files_before) + " 个文件。", 1), _cache[436] || (_cache[436] = _createElementVNode("br", null, null, -1)), _createTextVNode("本期 " + _toDisplayString(dialog.data.start) + " 至 " + _toDisplayString(dialog.data.end) + "，" + _toDisplayString(dialog.data.after) + " 次，涉及 " + _toDisplayString(dialog.data.files_after) + " 个文件。", 1)]), _createElementVNode("div", _hoisted_1094, [_createElementVNode("table", null, [_cache[438] || (_cache[438] = _createElementVNode("thead", null, [_createElementVNode("tr", null, [
                             _createElementVNode("th", null, "分组"),
                             _createElementVNode("th", null, "上期"),
                             _createElementVNode("th", null, "本期"),
@@ -6179,12 +6187,12 @@ return function render(_ctx, _cache) {
                                 type: "button",
                                 class: "textbtn",
                                 onClick: $event => (reportSource(r))
-                              }, "最近事件", 8, _hoisted_1094)])
+                              }, "最近事件", 8, _hoisted_1095)])
                             ]))
                           }), 256))])])])], 64))
                         : (_openBlock(), _createElementBlock(_Fragment, { key: 1 }, [_createElementVNode("p", null, "命中 " + _toDisplayString(dialog.data.versions) + " 个版本 · 回到先前可见值 " + _toDisplayString(dialog.data.returns) + " 项", 1), _createElementVNode("small", null, [_cache[439] || (_cache[439] = _createTextVNode("所选范围内可见相邻版本的解析情况：")), (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.data.coverage, (n, k) => {
                             return (_openBlock(), _createElementBlock("span", null, _toDisplayString(k) + " " + _toDisplayString(n) + "　", 1))
-                          }), 256))]), _createElementVNode("div", _hoisted_1095, [_createElementVNode("table", null, [_cache[443] || (_cache[443] = _createElementVNode("thead", null, [_createElementVNode("tr", null, [
+                          }), 256))]), _createElementVNode("div", _hoisted_1096, [_createElementVNode("table", null, [_cache[443] || (_cache[443] = _createElementVNode("thead", null, [_createElementVNode("tr", null, [
                             _createElementVNode("th", null, "保存时间 / 版本"),
                             _createElementVNode("th", null, "当时路径 / 位置"),
                             _createElementVNode("th", null, "编号 / 字段"),
@@ -6202,37 +6210,37 @@ return function render(_ctx, _cache) {
                                   type: "button",
                                   class: "textbtn",
                                   onClick: $event => (reportSource(r))
-                                }, _toDisplayString(r.location), 9, _hoisted_1096)
+                                }, _toDisplayString(r.location), 9, _hoisted_1097)
                               ]),
                               _createElementVNode("td", null, [_createTextVNode(_toDisplayString(r.record), 1), _cache[442] || (_cache[442] = _createElementVNode("br", null, null, -1)), _createTextVNode(_toDisplayString(r.field), 1)]),
-                              _createElementVNode("td", _hoisted_1097, _toDisplayString(r.old??'—'), 1),
-                              _createElementVNode("td", _hoisted_1098, _toDisplayString(r.new??'—'), 1),
+                              _createElementVNode("td", _hoisted_1098, _toDisplayString(r.old??'—'), 1),
+                              _createElementVNode("td", _hoisted_1099, _toDisplayString(r.new??'—'), 1),
                               _createElementVNode("td", null, [_createTextVNode(_toDisplayString(r.kind) + " " + _toDisplayString(r.category), 1), (r.returning==='是')
-                                ? (_openBlock(), _createElementBlock("small", _hoisted_1099, "回到先前可见值"))
+                                ? (_openBlock(), _createElementBlock("small", _hoisted_1100, "回到先前可见值"))
                                 : _createCommentVNode("", true)])
                             ]))
                           }), 256))])])])], 64)), (!dialog.data.total)
-                        ? (_openBlock(), _createElementBlock("p", _hoisted_1100, "当前条件没有匹配项。"))
-                        : _createCommentVNode("", true), _createElementVNode("div", _hoisted_1101, [_createElementVNode("button", {
+                        ? (_openBlock(), _createElementBlock("p", _hoisted_1101, "当前条件没有匹配项。"))
+                        : _createCommentVNode("", true), _createElementVNode("div", _hoisted_1102, [_createElementVNode("button", {
                         type: "button",
                         class: "btn",
                         disabled: dialog.data.page===1,
                         onClick: $event => (runReport(dialog.data.page-1,dialog.applied))
-                      }, "上一页", 8, _hoisted_1102), _createElementVNode("span", null, _toDisplayString(dialog.data.page) + " / " + _toDisplayString(dialog.data.pages) + " 页 · " + _toDisplayString(dialog.data.total) + " 项", 1), _createElementVNode("button", {
+                      }, "上一页", 8, _hoisted_1103), _createElementVNode("span", null, _toDisplayString(dialog.data.page) + " / " + _toDisplayString(dialog.data.pages) + " 页 · " + _toDisplayString(dialog.data.total) + " 项", 1), _createElementVNode("button", {
                         type: "button",
                         class: "btn",
                         disabled: dialog.data.page===dialog.data.pages,
                         onClick: $event => (runReport(dialog.data.page+1,dialog.applied))
-                      }, "下一页", 8, _hoisted_1103)])], 64))
+                      }, "下一页", 8, _hoisted_1104)])], 64))
                     : _createCommentVNode("", true)
                 ], 64))
               : _createCommentVNode("", true),
             (dialog.type==='capture_policy')
               ? (_openBlock(), _createElementBlock(_Fragment, { key: 14 }, [
-                  _createElementVNode("p", _hoisted_1104, _toDisplayString(dialog.path), 1),
+                  _createElementVNode("p", _hoisted_1105, _toDisplayString(dialog.path), 1),
                   _createElementVNode("label", null, [_cache[444] || (_cache[444] = _createTextVNode("稳定等待时长")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.settle_ms) = $event) }, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList([500,1500,3000,5000,10000], (v) => {
-                    return (_openBlock(), _createElementBlock("option", { value: v }, _toDisplayString(v/1000) + " 秒", 9, _hoisted_1106))
-                  }), 256))], 8, _hoisted_1105), [[
+                    return (_openBlock(), _createElementBlock("option", { value: v }, _toDisplayString(v/1000) + " 秒", 9, _hoisted_1107))
+                  }), 256))], 8, _hoisted_1106), [[
                     _vModelSelect,
                     dialog.settle_ms,
                     void 0,
@@ -6241,59 +6249,59 @@ return function render(_ctx, _cache) {
                   _createElementVNode("label", null, [_withDirectives(_createElementVNode("input", {
                     type: "checkbox",
                     "onUpdate:modelValue": $event => ((dialog.all_types) = $event)
-                  }, null, 8, _hoisted_1107), [[_vModelCheckbox, dialog.all_types]]), _cache[445] || (_cache[445] = _createTextVNode("对所有扩展名启用稳定等待"))]),
+                  }, null, 8, _hoisted_1108), [[_vModelCheckbox, dialog.all_types]]), _cache[445] || (_cache[445] = _createTextVNode("对所有扩展名启用稳定等待"))]),
                   _cache[446] || (_cache[446] = _createElementVNode("small", null, "监听到保存后，在复查中确认签名保持稳定。默认用于 Office、开放文档、PDF、电子书、ZIP 和笔记本等格式。", -1))
                 ], 64))
               : _createCommentVNode("", true),
             (dialog.type==='waiting_files')
               ? (_openBlock(), _createElementBlock(_Fragment, { key: 15 }, [
-                  _createElementVNode("p", _hoisted_1108, _toDisplayString(dialog.path), 1),
-                  _createElementVNode("div", _hoisted_1109, [_createElementVNode("label", null, [_cache[447] || (_cache[447] = _createTextVNode("文件路径")), _withDirectives(_createElementVNode("input", {
+                  _createElementVNode("p", _hoisted_1109, _toDisplayString(dialog.path), 1),
+                  _createElementVNode("div", _hoisted_1110, [_createElementVNode("label", null, [_cache[447] || (_cache[447] = _createTextVNode("文件路径")), _withDirectives(_createElementVNode("input", {
                     "onUpdate:modelValue": $event => ((dialog.filters.q) = $event),
                     maxlength: "512",
                     placeholder: "输入相对路径片段"
-                  }, null, 8, _hoisted_1110), [[_vModelText, dialog.filters.q]])]), _createElementVNode("label", null, [_cache[449] || (_cache[449] = _createTextVNode("等待原因")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.filters.reason) = $event) }, [_cache[448] || (_cache[448] = _createElementVNode("option", { value: "" }, "全部", -1)), (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(scanFacetChoices(dialog.reasons,dialog.filters.reason), (v) => {
+                  }, null, 8, _hoisted_1111), [[_vModelText, dialog.filters.q]])]), _createElementVNode("label", null, [_cache[449] || (_cache[449] = _createTextVNode("等待原因")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.filters.reason) = $event) }, [_cache[448] || (_cache[448] = _createElementVNode("option", { value: "" }, "全部", -1)), (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(scanFacetChoices(dialog.reasons,dialog.filters.reason), (v) => {
                     return (_openBlock(), _createElementBlock("option", { key: v }, _toDisplayString(v), 1))
-                  }), 128))], 8, _hoisted_1111), [[_vModelSelect, dialog.filters.reason]])]), _createElementVNode("label", null, [_cache[451] || (_cache[451] = _createTextVNode("排序")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.filters.sort) = $event) }, _cache[450] || (_cache[450] = [
+                  }), 128))], 8, _hoisted_1112), [[_vModelSelect, dialog.filters.reason]])]), _createElementVNode("label", null, [_cache[451] || (_cache[451] = _createTextVNode("排序")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.filters.sort) = $event) }, _cache[450] || (_cache[450] = [
                     _createElementVNode("option", { value: "" }, "最早等待", -1),
                     _createElementVNode("option", { value: "recent" }, "最近观察", -1),
                     _createElementVNode("option", { value: "attempts" }, "观察次数最多", -1),
                     _createElementVNode("option", { value: "path" }, "文件路径", -1)
-                  ]), 8, _hoisted_1112), [[_vModelSelect, dialog.filters.sort]])])]),
-                  _createElementVNode("div", _hoisted_1113, [_cache[452] || (_cache[452] = _createElementVNode("button", {
+                  ]), 8, _hoisted_1113), [[_vModelSelect, dialog.filters.sort]])])]),
+                  _createElementVNode("div", _hoisted_1114, [_cache[452] || (_cache[452] = _createElementVNode("button", {
                     type: "submit",
                     class: "primary"
                   }, "查询当前队列", -1)), _createElementVNode("button", {
                     type: "button",
                     class: "btn",
                     onClick: resetWaiting
-                  }, "重置", 8, _hoisted_1114), _createElementVNode("button", {
+                  }, "重置", 8, _hoisted_1115), _createElementVNode("button", {
                     type: "button",
                     class: "btn",
                     onClick: backToJournal
-                  }, _toDisplayString(dialog.previousJournal?'返回扫描运行记录':'查看扫描运行记录'), 9, _hoisted_1115)]),
+                  }, _toDisplayString(dialog.previousJournal?'返回扫描运行记录':'查看扫描运行记录'), 9, _hoisted_1116)]),
                   (dialog.loading)
-                    ? (_openBlock(), _createElementBlock("p", _hoisted_1116, "正在读取当前等待队列…"))
+                    ? (_openBlock(), _createElementBlock("p", _hoisted_1117, "正在读取当前等待队列…"))
                     : _createCommentVNode("", true),
                   (dialog.data)
                     ? (_openBlock(), _createElementBlock(_Fragment, { key: 1 }, [
                         scanFiltersPending
-                          ? (_openBlock(), _createElementBlock("p", _hoisted_1117, "筛选条件已修改，查询后更新结果。"))
+                          ? (_openBlock(), _createElementBlock("p", _hoisted_1118, "筛选条件已修改，查询后更新结果。"))
                           : _createCommentVNode("", true),
-                        _createElementVNode("p", _hoisted_1118, "当前匹配 " + _toDisplayString(num(dialog.data.total)) + " 个等待文件", 1),
+                        _createElementVNode("p", _hoisted_1119, "当前匹配 " + _toDisplayString(num(dialog.data.total)) + " 个等待文件", 1),
                         (Object.keys(dialog.data.counts||{}).length)
-                          ? (_openBlock(), _createElementBlock("div", _hoisted_1119, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.data.counts, (count, reason) => {
+                          ? (_openBlock(), _createElementBlock("div", _hoisted_1120, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.data.counts, (count, reason) => {
                               return (_openBlock(), _createElementBlock("button", {
                                 key: reason,
                                 type: "button",
                                 class: "btn",
                                 "aria-pressed": dialog.applied.reason===reason,
                                 onClick: $event => (waitingReason(reason))
-                              }, _toDisplayString(reason) + " " + _toDisplayString(num(count)), 9, _hoisted_1120))
+                              }, _toDisplayString(reason) + " " + _toDisplayString(num(count)), 9, _hoisted_1121))
                             }), 128))]))
                           : _createCommentVNode("", true),
                         (dialog.data.total)
-                          ? (_openBlock(), _createElementBlock("div", _hoisted_1121, [_createElementVNode("table", null, [_cache[453] || (_cache[453] = _createElementVNode("thead", null, [_createElementVNode("tr", null, [
+                          ? (_openBlock(), _createElementBlock("div", _hoisted_1122, [_createElementVNode("table", null, [_cache[453] || (_cache[453] = _createElementVNode("thead", null, [_createElementVNode("tr", null, [
                               _createElementVNode("th", { scope: "col" }, "文件与原因"),
                               _createElementVNode("th", { scope: "col" }, "首次等待"),
                               _createElementVNode("th", { scope: "col" }, "最近观察"),
@@ -6306,19 +6314,19 @@ return function render(_ctx, _cache) {
                                 _createElementVNode("td", null, _toDisplayString(num(r.attempts)), 1)
                               ]))
                             }), 128))])])]))
-                          : (_openBlock(), _createElementBlock("p", _hoisted_1122, "当前条件下没有等待文件。")),
+                          : (_openBlock(), _createElementBlock("p", _hoisted_1123, "当前条件下没有等待文件。")),
                         (dialog.data.pages>1)
-                          ? (_openBlock(), _createElementBlock("div", _hoisted_1123, [_createElementVNode("button", {
+                          ? (_openBlock(), _createElementBlock("div", _hoisted_1124, [_createElementVNode("button", {
                               class: "btn",
                               type: "button",
                               disabled: dialog.data.page<=1,
                               onClick: $event => (loadWaiting(dialog.data.page-1))
-                            }, "上一页", 8, _hoisted_1124), _createElementVNode("span", null, "第 " + _toDisplayString(dialog.data.page) + " / " + _toDisplayString(dialog.data.pages) + " 页", 1), _createElementVNode("button", {
+                            }, "上一页", 8, _hoisted_1125), _createElementVNode("span", null, "第 " + _toDisplayString(dialog.data.page) + " / " + _toDisplayString(dialog.data.pages) + " 页", 1), _createElementVNode("button", {
                               class: "btn",
                               type: "button",
                               disabled: dialog.data.page>=dialog.data.pages,
                               onClick: $event => (loadWaiting(dialog.data.page+1))
-                            }, "下一页", 8, _hoisted_1125)]))
+                            }, "下一页", 8, _hoisted_1126)]))
                           : _createCommentVNode("", true)
                       ], 64))
                     : _createCommentVNode("", true),
@@ -6327,55 +6335,55 @@ return function render(_ctx, _cache) {
               : _createCommentVNode("", true),
             (dialog.type==='scan_log')
               ? (_openBlock(), _createElementBlock(_Fragment, { key: 16 }, [
-                  _createElementVNode("p", _hoisted_1126, _toDisplayString(dialog.path), 1),
-                  _createElementVNode("div", _hoisted_1127, [
+                  _createElementVNode("p", _hoisted_1127, _toDisplayString(dialog.path), 1),
+                  _createElementVNode("div", _hoisted_1128, [
                     _createElementVNode("label", null, [_cache[456] || (_cache[456] = _createTextVNode("运行结果")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.filters.state) = $event) }, [_cache[455] || (_cache[455] = _createElementVNode("option", { value: "" }, "全部", -1)), (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.states, (v) => {
                       return (_openBlock(), _createElementBlock("option", { key: v }, _toDisplayString(v), 1))
-                    }), 128))], 8, _hoisted_1128), [[_vModelSelect, dialog.filters.state]])]),
+                    }), 128))], 8, _hoisted_1129), [[_vModelSelect, dialog.filters.state]])]),
                     _createElementVNode("label", null, [_cache[458] || (_cache[458] = _createTextVNode("触发来源")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.filters.source) = $event) }, [_cache[457] || (_cache[457] = _createElementVNode("option", { value: "" }, "全部", -1)), (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(scanFacetChoices(dialog.sources,dialog.filters.source), (v) => {
                       return (_openBlock(), _createElementBlock("option", { key: v }, _toDisplayString(v), 1))
-                    }), 128))], 8, _hoisted_1129), [[_vModelSelect, dialog.filters.source]])]),
+                    }), 128))], 8, _hoisted_1130), [[_vModelSelect, dialog.filters.source]])]),
                     _createElementVNode("label", null, [_cache[459] || (_cache[459] = _createTextVNode("起始日期")), _withDirectives(_createElementVNode("input", {
                       type: "date",
                       "onUpdate:modelValue": $event => ((dialog.filters.start) = $event)
-                    }, null, 8, _hoisted_1130), [[_vModelText, dialog.filters.start]])]),
+                    }, null, 8, _hoisted_1131), [[_vModelText, dialog.filters.start]])]),
                     _createElementVNode("label", null, [_cache[460] || (_cache[460] = _createTextVNode("结束日期")), _withDirectives(_createElementVNode("input", {
                       type: "date",
                       "onUpdate:modelValue": $event => ((dialog.filters.end) = $event)
-                    }, null, 8, _hoisted_1131), [[_vModelText, dialog.filters.end]])])
+                    }, null, 8, _hoisted_1132), [[_vModelText, dialog.filters.end]])])
                   ]),
-                  _createElementVNode("details", _hoisted_1132, [_cache[470] || (_cache[470] = _createElementVNode("summary", null, "异常、跳过与排序", -1)), _createElementVNode("div", _hoisted_1133, [
+                  _createElementVNode("details", _hoisted_1133, [_cache[470] || (_cache[470] = _createElementVNode("summary", null, "异常、跳过与排序", -1)), _createElementVNode("div", _hoisted_1134, [
                     _createElementVNode("label", null, [_cache[462] || (_cache[462] = _createTextVNode("异常类别")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.filters.problem) = $event) }, [_cache[461] || (_cache[461] = _createElementVNode("option", { value: "" }, "全部", -1)), (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(scanFacetChoices(dialog.problems,dialog.filters.problem), (v) => {
                       return (_openBlock(), _createElementBlock("option", { key: v }, _toDisplayString(v), 1))
-                    }), 128))], 8, _hoisted_1134), [[_vModelSelect, dialog.filters.problem]])]),
+                    }), 128))], 8, _hoisted_1135), [[_vModelSelect, dialog.filters.problem]])]),
                     _createElementVNode("label", null, [_cache[464] || (_cache[464] = _createTextVNode("跳过原因")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.filters.skip_reason) = $event) }, [_cache[463] || (_cache[463] = _createElementVNode("option", { value: "" }, "全部", -1)), (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(scanFacetChoices(dialog.skipReasons,dialog.filters.skip_reason), (v) => {
                       return (_openBlock(), _createElementBlock("option", { key: v }, _toDisplayString(v), 1))
-                    }), 128))], 8, _hoisted_1135), [[_vModelSelect, dialog.filters.skip_reason]])]),
+                    }), 128))], 8, _hoisted_1136), [[_vModelSelect, dialog.filters.skip_reason]])]),
                     _createElementVNode("label", null, [_cache[466] || (_cache[466] = _createTextVNode("排序")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.filters.sort) = $event) }, _cache[465] || (_cache[465] = [
                       _createElementVNode("option", { value: "recent" }, "最新运行", -1),
                       _createElementVNode("option", { value: "oldest" }, "最早运行", -1),
                       _createElementVNode("option", { value: "slowest" }, "耗时最长", -1),
                       _createElementVNode("option", { value: "waiting" }, "等待数量最多", -1)
-                    ]), 8, _hoisted_1136), [[_vModelSelect, dialog.filters.sort]])]),
+                    ]), 8, _hoisted_1137), [[_vModelSelect, dialog.filters.sort]])]),
                     _createElementVNode("label", null, [_cache[467] || (_cache[467] = _createTextVNode("每页条数")), _withDirectives(_createElementVNode("select", { "onUpdate:modelValue": $event => ((dialog.filters.size) = $event) }, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList([20,50,100], (v) => {
                       return (_openBlock(), _createElementBlock("option", {
                         key: v,
                         value: v
-                      }, _toDisplayString(v) + " 条", 9, _hoisted_1138))
-                    }), 128))], 8, _hoisted_1137), [[
+                      }, _toDisplayString(v) + " 条", 9, _hoisted_1139))
+                    }), 128))], 8, _hoisted_1138), [[
                       _vModelSelect,
                       dialog.filters.size,
                       void 0,
                       { number: true }
                     ]])])
-                  ]), _createElementVNode("div", _hoisted_1139, [_createElementVNode("label", null, [_withDirectives(_createElementVNode("input", {
+                  ]), _createElementVNode("div", _hoisted_1140, [_createElementVNode("label", null, [_withDirectives(_createElementVNode("input", {
                     type: "checkbox",
                     "onUpdate:modelValue": $event => ((dialog.filters.skips) = $event)
-                  }, null, 8, _hoisted_1140), [[_vModelCheckbox, dialog.filters.skips]]), _cache[468] || (_cache[468] = _createTextVNode("仅有跳过项"))]), _createElementVNode("label", null, [_withDirectives(_createElementVNode("input", {
+                  }, null, 8, _hoisted_1141), [[_vModelCheckbox, dialog.filters.skips]]), _cache[468] || (_cache[468] = _createTextVNode("仅有跳过项"))]), _createElementVNode("label", null, [_withDirectives(_createElementVNode("input", {
                     type: "checkbox",
                     "onUpdate:modelValue": $event => ((dialog.filters.waiting) = $event)
-                  }, null, 8, _hoisted_1141), [[_vModelCheckbox, dialog.filters.waiting]]), _cache[469] || (_cache[469] = _createTextVNode("仅有等待项"))])])]),
-                  _createElementVNode("div", _hoisted_1142, [
+                  }, null, 8, _hoisted_1142), [[_vModelCheckbox, dialog.filters.waiting]]), _cache[469] || (_cache[469] = _createTextVNode("仅有等待项"))])])]),
+                  _createElementVNode("div", _hoisted_1143, [
                     _cache[471] || (_cache[471] = _createElementVNode("button", {
                       type: "submit",
                       class: "primary"
@@ -6384,37 +6392,37 @@ return function render(_ctx, _cache) {
                       type: "button",
                       class: "btn",
                       onClick: resetJournal
-                    }, "重置", 8, _hoisted_1143),
+                    }, "重置", 8, _hoisted_1144),
                     _createElementVNode("button", {
                       type: "button",
                       class: "btn",
                       disabled: !dialog.data?.total||dialog.loading,
                       onClick: exportJournal
-                    }, "导出当前结果 CSV", 8, _hoisted_1144),
+                    }, "导出当前结果 CSV", 8, _hoisted_1145),
                     _createElementVNode("button", {
                       type: "button",
                       class: "btn",
                       onClick: journalWaiting
-                    }, "查看当前等待队列", 8, _hoisted_1145)
+                    }, "查看当前等待队列", 8, _hoisted_1146)
                   ]),
                   (dialog.loading)
-                    ? (_openBlock(), _createElementBlock("p", _hoisted_1146, "正在读取扫描记录…"))
+                    ? (_openBlock(), _createElementBlock("p", _hoisted_1147, "正在读取扫描记录…"))
                     : _createCommentVNode("", true),
                   (dialog.data)
                     ? (_openBlock(), _createElementBlock(_Fragment, { key: 1 }, [scanFiltersPending
-                        ? (_openBlock(), _createElementBlock("p", _hoisted_1147, "筛选条件已修改，查询后更新结果。"))
-                        : _createCommentVNode("", true), _createElementVNode("p", _hoisted_1148, "匹配 " + _toDisplayString(num(dialog.data.total)) + " 次运行", 1), (dialog.data.total)
+                        ? (_openBlock(), _createElementBlock("p", _hoisted_1148, "筛选条件已修改，查询后更新结果。"))
+                        : _createCommentVNode("", true), _createElementVNode("p", _hoisted_1149, "匹配 " + _toDisplayString(num(dialog.data.total)) + " 次运行", 1), (dialog.data.total)
                         ? (_openBlock(), _createElementBlock(_Fragment, { key: 1 }, [(dialog.data.summary)
-                            ? (_openBlock(), _createElementBlock("section", _hoisted_1149, [_createElementVNode("dl", _hoisted_1150, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList([['candidates','候选'],['captured','快照读取'],['read_bytes','快照读取量'],['reused','内容复用'],['waiting','等待'],['skipped','跳过']], ([key,label]) => {
+                            ? (_openBlock(), _createElementBlock("section", _hoisted_1150, [_createElementVNode("dl", _hoisted_1151, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList([['candidates','候选'],['captured','快照读取'],['read_bytes','快照读取量'],['reused','内容复用'],['waiting','等待'],['skipped','跳过']], ([key,label]) => {
                                 return (_openBlock(), _createElementBlock("div", { key: key }, [_createElementVNode("dt", null, _toDisplayString(label), 1), _createElementVNode("dd", null, _toDisplayString(journalMetric(key,dialog.data.summary[key])), 1)]))
                               }), 128))]), (dialog.data.summary.finished)
-                                ? (_openBlock(), _createElementBlock("p", _hoisted_1151, _toDisplayString(num(dialog.data.summary.finished)) + " 次有耗时记录 · 平均 " + _toDisplayString(num(dialog.data.average)) + " 毫秒 · 最长 " + _toDisplayString(num(dialog.data.longest)) + " 毫秒", 1))
-                                : (_openBlock(), _createElementBlock("p", _hoisted_1152, "当前结果没有耗时记录。")), _createElementVNode("details", _hoisted_1153, [
+                                ? (_openBlock(), _createElementBlock("p", _hoisted_1152, _toDisplayString(num(dialog.data.summary.finished)) + " 次有耗时记录 · 平均 " + _toDisplayString(num(dialog.data.average)) + " 毫秒 · 最长 " + _toDisplayString(num(dialog.data.longest)) + " 毫秒", 1))
+                                : (_openBlock(), _createElementBlock("p", _hoisted_1153, "当前结果没有耗时记录。")), _createElementVNode("details", _hoisted_1154, [
                                 _cache[472] || (_cache[472] = _createElementVNode("summary", null, "运行分布与耗时分位", -1)),
                                 (dialog.data.summary.finished)
-                                  ? (_openBlock(), _createElementBlock("p", _hoisted_1154, "50% 的有耗时运行在 " + _toDisplayString(num(dialog.data.summary.p50)) + " 毫秒内 · 95% 在 " + _toDisplayString(num(dialog.data.summary.p95)) + " 毫秒内", 1))
+                                  ? (_openBlock(), _createElementBlock("p", _hoisted_1155, "50% 的有耗时运行在 " + _toDisplayString(num(dialog.data.summary.p50)) + " 毫秒内 · 95% 在 " + _toDisplayString(num(dialog.data.summary.p95)) + " 毫秒内", 1))
                                   : _createCommentVNode("", true),
-                                _createElementVNode("div", _hoisted_1155, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.data.summary.states, (n, name) => {
+                                _createElementVNode("div", _hoisted_1156, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.data.summary.states, (n, name) => {
                                   return (_openBlock(), _createElementBlock(_Fragment, { key: name }, [n
                                     ? (_openBlock(), _createElementBlock("button", {
                                         key: 0,
@@ -6422,53 +6430,53 @@ return function render(_ctx, _cache) {
                                         class: "btn",
                                         "aria-pressed": dialog.applied.state===name,
                                         onClick: $event => (journalFacet('state',name))
-                                      }, _toDisplayString(name) + " " + _toDisplayString(num(n)), 9, _hoisted_1156))
+                                      }, _toDisplayString(name) + " " + _toDisplayString(num(n)), 9, _hoisted_1157))
                                     : _createCommentVNode("", true)], 64))
                                 }), 128))]),
                                 (Object.keys(dialog.data.summary.skip_reasons).length)
-                                  ? (_openBlock(), _createElementBlock("div", _hoisted_1157, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.data.summary.skip_reasons, (n, name) => {
+                                  ? (_openBlock(), _createElementBlock("div", _hoisted_1158, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.data.summary.skip_reasons, (n, name) => {
                                       return (_openBlock(), _createElementBlock("button", {
                                         key: name,
                                         type: "button",
                                         class: "btn",
                                         "aria-pressed": dialog.applied.skip_reason===name,
                                         onClick: $event => (journalFacet('skip_reason',name))
-                                      }, _toDisplayString(name) + " " + _toDisplayString(num(n)), 9, _hoisted_1158))
+                                      }, _toDisplayString(name) + " " + _toDisplayString(num(n)), 9, _hoisted_1159))
                                     }), 128))]))
                                   : _createCommentVNode("", true),
                                 (Object.keys(dialog.data.summary.problems).length)
-                                  ? (_openBlock(), _createElementBlock("div", _hoisted_1159, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.data.summary.problems, (n, name) => {
+                                  ? (_openBlock(), _createElementBlock("div", _hoisted_1160, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.data.summary.problems, (n, name) => {
                                       return (_openBlock(), _createElementBlock("button", {
                                         key: name,
                                         type: "button",
                                         class: "btn",
                                         "aria-pressed": dialog.applied.problem===name,
                                         onClick: $event => (journalFacet('problem',name))
-                                      }, _toDisplayString(name) + " " + _toDisplayString(num(n)), 9, _hoisted_1160))
+                                      }, _toDisplayString(name) + " " + _toDisplayString(num(n)), 9, _hoisted_1161))
                                     }), 128))]))
                                   : _createCommentVNode("", true)
                               ])]))
                             : _createCommentVNode("", true)], 64))
-                        : (_openBlock(), _createElementBlock("p", _hoisted_1161, "没有匹配的运行记录。"))], 64))
+                        : (_openBlock(), _createElementBlock("p", _hoisted_1162, "没有匹配的运行记录。"))], 64))
                     : _createCommentVNode("", true),
                   (dialog.selectedRuns.length)
-                    ? (_openBlock(), _createElementBlock("section", _hoisted_1162, [_createElementVNode("div", _hoisted_1163, [_createElementVNode("span", _hoisted_1164, "已选 " + _toDisplayString(dialog.selectedRuns.length) + " / 2", 1), (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.selectedRuns, (run) => {
+                    ? (_openBlock(), _createElementBlock("section", _hoisted_1163, [_createElementVNode("div", _hoisted_1164, [_createElementVNode("span", _hoisted_1165, "已选 " + _toDisplayString(dialog.selectedRuns.length) + " / 2", 1), (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.selectedRuns, (run) => {
                         return (_openBlock(), _createElementBlock("button", {
                           key: run.id,
                           type: "button",
                           class: "btn",
                           onClick: $event => (toggleJournalRun(run)),
                           "aria-label": '移除扫描 #'+run.id
-                        }, "移除 #" + _toDisplayString(run.id), 9, _hoisted_1165))
+                        }, "移除 #" + _toDisplayString(run.id), 9, _hoisted_1166))
                       }), 128)), _createElementVNode("button", {
                         type: "button",
                         class: "btn",
                         onClick: $event => (dialog.selectedRuns=[])
-                      }, "清空对照", 8, _hoisted_1166)]), journalComparison
-                        ? (_openBlock(), _createElementBlock(_Fragment, { key: 0 }, [_cache[477] || (_cache[477] = _createElementVNode("h3", null, "两次扫描对照", -1)), _createElementVNode("div", _hoisted_1167, [_createElementVNode("table", null, [_createElementVNode("thead", null, [_createElementVNode("tr", null, [
+                      }, "清空对照", 8, _hoisted_1167)]), journalComparison
+                        ? (_openBlock(), _createElementBlock(_Fragment, { key: 0 }, [_cache[477] || (_cache[477] = _createElementVNode("h3", null, "两次扫描对照", -1)), _createElementVNode("div", _hoisted_1168, [_createElementVNode("table", null, [_createElementVNode("thead", null, [_createElementVNode("tr", null, [
                             _cache[473] || (_cache[473] = _createElementVNode("th", { scope: "col" }, "指标", -1)),
-                            _createElementVNode("th", _hoisted_1168, "较早 #" + _toDisplayString(journalComparison.before.id), 1),
-                            _createElementVNode("th", _hoisted_1169, "较晚 #" + _toDisplayString(journalComparison.after.id), 1),
+                            _createElementVNode("th", _hoisted_1169, "较早 #" + _toDisplayString(journalComparison.before.id), 1),
+                            _createElementVNode("th", _hoisted_1170, "较晚 #" + _toDisplayString(journalComparison.after.id), 1),
                             _cache[474] || (_cache[474] = _createElementVNode("th", { scope: "col" }, "增减", -1))
                           ])]), _createElementVNode("tbody", null, [_createElementVNode("tr", null, [
                             _cache[475] || (_cache[475] = _createElementVNode("th", { scope: "row" }, "开始与来源", -1)),
@@ -6477,16 +6485,16 @@ return function render(_ctx, _cache) {
                             _cache[476] || (_cache[476] = _createElementVNode("td", null, "—", -1))
                           ]), (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(journalComparison.metrics, (metric) => {
                             return (_openBlock(), _createElementBlock("tr", { key: metric.key }, [
-                              _createElementVNode("th", _hoisted_1170, _toDisplayString(metric.label), 1),
+                              _createElementVNode("th", _hoisted_1171, _toDisplayString(metric.label), 1),
                               _createElementVNode("td", null, _toDisplayString(journalMetric(metric.key,metric.before)), 1),
                               _createElementVNode("td", null, _toDisplayString(journalMetric(metric.key,metric.after)), 1),
                               _createElementVNode("td", null, _toDisplayString(journalMetric(metric.key,metric.delta,true)), 1)
                             ]))
                           }), 128))])])])], 64))
-                        : (_openBlock(), _createElementBlock("p", _hoisted_1171, "再选一次扫描即可对照。已选记录会保留到下一页。"))]))
+                        : (_openBlock(), _createElementBlock("p", _hoisted_1172, "再选一次扫描即可对照。已选记录会保留到下一页。"))]))
                     : _createCommentVNode("", true),
                   (dialog.data?.total)
-                    ? (_openBlock(), _createElementBlock(_Fragment, { key: 3 }, [_createElementVNode("div", _hoisted_1172, [_createElementVNode("table", null, [_cache[479] || (_cache[479] = _createElementVNode("thead", null, [_createElementVNode("tr", null, [
+                    ? (_openBlock(), _createElementBlock(_Fragment, { key: 3 }, [_createElementVNode("div", _hoisted_1173, [_createElementVNode("table", null, [_cache[479] || (_cache[479] = _createElementVNode("thead", null, [_createElementVNode("tr", null, [
                         _createElementVNode("th", { scope: "col" }, "开始与来源"),
                         _createElementVNode("th", { scope: "col" }, "结果"),
                         _createElementVNode("th", { scope: "col" }, "耗时"),
@@ -6496,7 +6504,7 @@ return function render(_ctx, _cache) {
                         return (_openBlock(), _createElementBlock("tr", { key: r.id }, [
                           _createElementVNode("td", null, [_createTextVNode(_toDisplayString(fmt(r.started)), 1), _createElementVNode("small", null, "#" + _toDisplayString(r.id) + " · " + _toDisplayString(r.source), 1)]),
                           _createElementVNode("td", null, [_createTextVNode(_toDisplayString(r.status), 1), (r.problem)
-                            ? (_openBlock(), _createElementBlock("small", _hoisted_1173, _toDisplayString(r.problem), 1))
+                            ? (_openBlock(), _createElementBlock("small", _hoisted_1174, _toDisplayString(r.problem), 1))
                             : _createCommentVNode("", true)]),
                           _createElementVNode("td", null, _toDisplayString(r.ended?num(r.elapsed_ms)+' ms':'—'), 1),
                           _createElementVNode("td", null, [_createElementVNode("details", null, [
@@ -6506,7 +6514,7 @@ return function render(_ctx, _cache) {
                               return (_openBlock(), _createElementBlock("p", { key: k }, _toDisplayString(k) + " " + _toDisplayString(num(n)), 1))
                             }), 128)),
                             (r.ended)
-                              ? (_openBlock(), _createElementBlock("p", _hoisted_1174, "结束于 " + _toDisplayString(fmt(r.ended)), 1))
+                              ? (_openBlock(), _createElementBlock("p", _hoisted_1175, "结束于 " + _toDisplayString(fmt(r.ended)), 1))
                               : _createCommentVNode("", true)
                           ])]),
                           _createElementVNode("td", null, [_createElementVNode("button", {
@@ -6516,27 +6524,27 @@ return function render(_ctx, _cache) {
                             "aria-pressed": journalHasRun(r.id),
                             disabled: r.status==='进行中'||(!journalHasRun(r.id)&&dialog.selectedRuns.length>=2),
                             onClick: $event => (toggleJournalRun(r))
-                          }, _toDisplayString(journalHasRun(r.id)?'移除':'选择'), 9, _hoisted_1175)])
+                          }, _toDisplayString(journalHasRun(r.id)?'移除':'选择'), 9, _hoisted_1176)])
                         ]))
                       }), 128))])])]), (dialog.data.pages>1)
-                        ? (_openBlock(), _createElementBlock("div", _hoisted_1176, [_createElementVNode("button", {
+                        ? (_openBlock(), _createElementBlock("div", _hoisted_1177, [_createElementVNode("button", {
                             type: "button",
                             class: "btn",
                             disabled: dialog.data.page<=1,
                             onClick: $event => (loadJournal(dialog.data.page-1))
-                          }, "上一页", 8, _hoisted_1177), _createElementVNode("span", null, "第 " + _toDisplayString(dialog.data.page) + " / " + _toDisplayString(dialog.data.pages) + " 页", 1), _createElementVNode("button", {
+                          }, "上一页", 8, _hoisted_1178), _createElementVNode("span", null, "第 " + _toDisplayString(dialog.data.page) + " / " + _toDisplayString(dialog.data.pages) + " 页", 1), _createElementVNode("button", {
                             type: "button",
                             class: "btn",
                             disabled: dialog.data.page>=dialog.data.pages,
                             onClick: $event => (loadJournal(dialog.data.page+1))
-                          }, "下一页", 8, _hoisted_1178)]))
+                          }, "下一页", 8, _hoisted_1179)]))
                         : _createCommentVNode("", true)], 64))
                     : _createCommentVNode("", true),
                   _cache[480] || (_cache[480] = _createElementVNode("small", null, "每个目录保留最近 200 次扫描。汇总涵盖所有匹配运行，同一文件可能计入多次。", -1))
                 ], 64))
               : _createCommentVNode("", true),
             (dialog.type==='rule_history')
-              ? (_openBlock(), _createElementBlock(_Fragment, { key: 17 }, [_createElementVNode("p", _hoisted_1179, _toDisplayString(dialog.path), 1), _createElementVNode("ol", null, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.entries, (r) => {
+              ? (_openBlock(), _createElementBlock(_Fragment, { key: 17 }, [_createElementVNode("p", _hoisted_1180, _toDisplayString(dialog.path), 1), _createElementVNode("ol", null, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.entries, (r) => {
                   return (_openBlock(), _createElementBlock("li", { key: r.id }, _toDisplayString(fmt(r.stamp)) + " · " + _toDisplayString(r.patterns||'无排除规则') + " · " + _toDisplayString(r.max_mb ? r.max_mb+' MiB':'不限大小'), 1))
                 }), 128))]), _cache[481] || (_cache[481] = _createElementVNode("small", null, "最近 100 次配置，最新在前。", -1))], 64))
               : _createCommentVNode("", true),
@@ -6544,7 +6552,7 @@ return function render(_ctx, _cache) {
               ? (_openBlock(), _createElementBlock(_Fragment, { key: 18 }, [_createElementVNode("label", null, [_cache[482] || (_cache[482] = _createTextVNode("备份 ZIP 路径")), _withDirectives(_createElementVNode("input", {
                   "onUpdate:modelValue": $event => ((dialog.path) = $event),
                   required: ""
-                }, null, 8, _hoisted_1180), [[_vModelText, dialog.path]])]), _cache[483] || (_cache[483] = _createElementVNode("small", null, "逐个核对对象，无需退出监控。", -1))], 64))
+                }, null, 8, _hoisted_1181), [[_vModelText, dialog.path]])]), _cache[483] || (_cache[483] = _createElementVNode("small", null, "逐个核对对象，无需退出监控。", -1))], 64))
               : _createCommentVNode("", true),
             (dialog.type==='backup')
               ? (_openBlock(), _createElementBlock(_Fragment, { key: 19 }, [_createElementVNode("label", null, [_cache[484] || (_cache[484] = _createTextVNode("管理口令")), _withDirectives(_createElementVNode("input", {
@@ -6552,35 +6560,35 @@ return function render(_ctx, _cache) {
                   type: "password",
                   autocomplete: "off",
                   required: ""
-                }, null, 8, _hoisted_1181), [[_vModelText, dialog.password]])]), _createElementVNode("label", null, [_cache[485] || (_cache[485] = _createTextVNode("新备份文件的完整路径")), _withDirectives(_createElementVNode("input", {
+                }, null, 8, _hoisted_1182), [[_vModelText, dialog.password]])]), _createElementVNode("label", null, [_cache[485] || (_cache[485] = _createTextVNode("新备份文件的完整路径")), _withDirectives(_createElementVNode("input", {
                   "onUpdate:modelValue": $event => ((dialog.path) = $event),
                   required: ""
-                }, null, 8, _hoisted_1182), [[_vModelText, dialog.path]])])], 64))
+                }, null, 8, _hoisted_1183), [[_vModelText, dialog.path]])])], 64))
               : _createCommentVNode("", true),
             (dialog.type==='root')
               ? (_openBlock(), _createElementBlock(_Fragment, { key: 20 }, [
-                  _createElementVNode("label", null, [_cache[486] || (_cache[486] = _createTextVNode("目录路径")), _createElementVNode("div", _hoisted_1183, [_withDirectives(_createElementVNode("input", {
+                  _createElementVNode("label", null, [_cache[486] || (_cache[486] = _createTextVNode("目录路径")), _createElementVNode("div", _hoisted_1184, [_withDirectives(_createElementVNode("input", {
                     "onUpdate:modelValue": $event => ((dialog.path) = $event),
                     placeholder: "例如 D:\\业务资料\\仓库",
                     required: "",
                     readonly: !!dialog.id
-                  }, null, 8, _hoisted_1184), [[_vModelText, dialog.path]]), (native&&!dialog.id)
+                  }, null, 8, _hoisted_1185), [[_vModelText, dialog.path]]), (native&&!dialog.id)
                     ? (_openBlock(), _createElementBlock("button", {
                         key: 0,
                         type: "button",
                         class: "btn",
                         onClick: chooseDir
-                      }, "浏览", 8, _hoisted_1185))
+                      }, "浏览", 8, _hoisted_1186))
                     : _createCommentVNode("", true)])]),
                   _createElementVNode("label", null, [_cache[487] || (_cache[487] = _createTextVNode("排除规则")), _withDirectives(_createElementVNode("input", {
                     "onUpdate:modelValue": $event => ((dialog.patterns) = $event),
                     placeholder: "例如 *.tmp，*.bak，缓存/*"
-                  }, null, 8, _hoisted_1186), [[_vModelText, dialog.patterns]])]),
+                  }, null, 8, _hoisted_1187), [[_vModelText, dialog.patterns]])]),
                   _createElementVNode("label", null, [_cache[488] || (_cache[488] = _createTextVNode("单文件大小上限（MiB）")), _withDirectives(_createElementVNode("input", {
                     type: "number",
                     min: "0",
                     "onUpdate:modelValue": $event => ((dialog.max_mb) = $event)
-                  }, null, 8, _hoisted_1187), [[
+                  }, null, 8, _hoisted_1188), [[
                     _vModelText,
                     dialog.max_mb,
                     void 0,
@@ -6592,21 +6600,21 @@ return function render(_ctx, _cache) {
                     _createElementVNode("label", null, [_cache[489] || (_cache[489] = _createTextVNode("待测文件相对路径，每行一个")), _withDirectives(_createElementVNode("textarea", {
                       "onUpdate:modelValue": $event => ((dialog.paths) = $event),
                       placeholder: "草稿/试算.xlsx"
-                    }, null, 8, _hoisted_1188), [[_vModelText, dialog.paths]])]),
+                    }, null, 8, _hoisted_1189), [[_vModelText, dialog.paths]])]),
                     _createElementVNode("label", null, [_cache[490] || (_cache[490] = _createTextVNode("假设每个文件大小（字节，可留空）")), _withDirectives(_createElementVNode("input", {
                       type: "number",
                       min: "0",
                       "onUpdate:modelValue": $event => ((dialog.probeBytes) = $event)
-                    }, null, 8, _hoisted_1189), [[_vModelText, dialog.probeBytes]])]),
+                    }, null, 8, _hoisted_1190), [[_vModelText, dialog.probeBytes]])]),
                     _createElementVNode("button", {
                       class: "btn",
                       type: "button",
                       onClick: previewRules
-                    }, "预演", 8, _hoisted_1190),
+                    }, "预演", 8, _hoisted_1191),
                     (dialog.samples&&dialog.probed===ruleSignature(dialog))
-                      ? (_openBlock(), _createElementBlock("ul", _hoisted_1191, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.samples, (r) => {
+                      ? (_openBlock(), _createElementBlock("ul", _hoisted_1192, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.samples, (r) => {
                           return (_openBlock(), _createElementBlock("li", null, [_createTextVNode(_toDisplayString(r.rel) + " · " + _toDisplayString(r.reason) + " ", 1), (r.pattern)
-                            ? (_openBlock(), _createElementBlock("span", _hoisted_1192, "· " + _toDisplayString(r.pattern) + " 命中 " + _toDisplayString(r.part), 1))
+                            ? (_openBlock(), _createElementBlock("span", _hoisted_1193, "· " + _toDisplayString(r.pattern) + " 命中 " + _toDisplayString(r.part), 1))
                             : _createCommentVNode("", true)]))
                         }), 256))]))
                       : _createCommentVNode("", true)
@@ -6614,95 +6622,95 @@ return function render(_ctx, _cache) {
                 ], 64))
               : _createCommentVNode("", true),
             (dialog.type==='save')
-              ? (_openBlock(), _createElementBlock("label", _hoisted_1193, [_cache[493] || (_cache[493] = _createTextVNode("保存路径")), _withDirectives(_createElementVNode("input", {
+              ? (_openBlock(), _createElementBlock("label", _hoisted_1194, [_cache[493] || (_cache[493] = _createTextVNode("保存路径")), _withDirectives(_createElementVNode("input", {
                   "onUpdate:modelValue": $event => ((dialog.path) = $event),
                   required: "",
                   placeholder: "请输入完整的新文件路径"
-                }, null, 8, _hoisted_1194), [[_vModelText, dialog.path]])]))
+                }, null, 8, _hoisted_1195), [[_vModelText, dialog.path]])]))
               : _createCommentVNode("", true),
             (['info','confirm'].includes(dialog.type))
-              ? (_openBlock(), _createElementBlock("p", _hoisted_1195, _toDisplayString(dialog.body), 1))
+              ? (_openBlock(), _createElementBlock("p", _hoisted_1196, _toDisplayString(dialog.body), 1))
               : _createCommentVNode("", true),
             (dialog.type==='tree')
-              ? (_openBlock(), _createElementBlock(_Fragment, { key: 23 }, [_createElementVNode("label", _hoisted_1196, [_createVNode(_component_ico, { n: "search" }), _withDirectives(_createElementVNode("input", {
+              ? (_openBlock(), _createElementBlock(_Fragment, { key: 23 }, [_createElementVNode("label", _hoisted_1197, [_createVNode(_component_ico, { n: "search" }), _withDirectives(_createElementVNode("input", {
                   "onUpdate:modelValue": $event => ((dialog.query) = $event),
                   placeholder: "搜索子目录路径"
-                }, null, 8, _hoisted_1197), [[_vModelText, dialog.query]])]), _createElementVNode("div", _hoisted_1198, [_createElementVNode("button", {
+                }, null, 8, _hoisted_1198), [[_vModelText, dialog.query]])]), _createElementVNode("div", _hoisted_1199, [_createElementVNode("button", {
                   type: "button",
                   onClick: $event => (rootFiles(dialog.root))
-                }, "全部文件", 8, _hoisted_1199), (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(visibleFolders, (folder) => {
+                }, "全部文件", 8, _hoisted_1200), (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(visibleFolders, (folder) => {
                   return (_openBlock(), _createElementBlock("button", {
                     type: "button",
                     key: folder.path,
                     onClick: $event => (treeSelect(dialog.root,folder.path)),
                     style: _normalizeStyle({paddingLeft:(8+14*(folder.path.split('/').length-1))+'px'})
-                  }, [_createVNode(_component_ico, { n: "folder" }), _createElementVNode("span", null, _toDisplayString(folder.path), 1), _createElementVNode("small", null, _toDisplayString(folder.total) + " 个文件", 1)], 12, _hoisted_1200))
+                  }, [_createVNode(_component_ico, { n: "folder" }), _createElementVNode("span", null, _toDisplayString(folder.path), 1), _createElementVNode("small", null, _toDisplayString(folder.total) + " 个文件", 1)], 12, _hoisted_1201))
                 }), 128))]), (!dialog.folders.length)
-                  ? (_openBlock(), _createElementBlock("small", _hoisted_1201, "当前目录没有含已跟踪文件的子目录。"))
+                  ? (_openBlock(), _createElementBlock("small", _hoisted_1202, "当前目录没有含已跟踪文件的子目录。"))
                   : (!visibleFolders.length)
-                    ? (_openBlock(), _createElementBlock("small", _hoisted_1202, "没有匹配的子目录。"))
+                    ? (_openBlock(), _createElementBlock("small", _hoisted_1203, "没有匹配的子目录。"))
                     : _createCommentVNode("", true)], 64))
               : _createCommentVNode("", true),
             (dialog.type==='pick')
-              ? (_openBlock(), _createElementBlock(_Fragment, { key: 24 }, [_createElementVNode("div", _hoisted_1203, [_createElementVNode("label", _hoisted_1204, [_createVNode(_component_ico, { n: "search" }), _withDirectives(_createElementVNode("input", {
+              ? (_openBlock(), _createElementBlock(_Fragment, { key: 24 }, [_createElementVNode("div", _hoisted_1204, [_createElementVNode("label", _hoisted_1205, [_createVNode(_component_ico, { n: "search" }), _withDirectives(_createElementVNode("input", {
                   id: "filePicker",
                   "onUpdate:modelValue": $event => ((pickQ) = $event),
                   onInput: searchPick,
                   placeholder: "搜索现名、旧名或相对路径"
-                }, null, 40, _hoisted_1205), [[_vModelText, pickQ]])]), _withDirectives(_createElementVNode("select", {
+                }, null, 40, _hoisted_1206), [[_vModelText, pickQ]])]), _withDirectives(_createElementVNode("select", {
                   "onUpdate:modelValue": $event => ((pickScope) = $event),
                   "aria-label": "历史文件范围",
                   onChange: $event => {pickPage=1;loadPicks()}
                 }, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(fileScopes, (entry) => {
-                  return (_openBlock(), _createElementBlock("option", { value: entry[0] }, _toDisplayString(entry[1]), 9, _hoisted_1207))
-                }), 256))], 40, _hoisted_1206), [[_vModelSelect, pickScope]])]), _createElementVNode("div", _hoisted_1208, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(picks.items, (v) => {
+                  return (_openBlock(), _createElementBlock("option", { value: entry[0] }, _toDisplayString(entry[1]), 9, _hoisted_1208))
+                }), 256))], 40, _hoisted_1207), [[_vModelSelect, pickScope]])]), _createElementVNode("div", _hoisted_1209, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(picks.items, (v) => {
                   return (_openBlock(), _createElementBlock("button", {
                     type: "button",
                     key: v.id,
                     disabled: pickLoading,
                     onClick: $event => (picked(v))
-                  }, [_createElementVNode("span", { class: _normalizeClass(["file-icon", tone(v.ext)]) }, [_createVNode(_component_ico, { n: fileIcon(v.ext) }, null, 8, ["n"])], 2), _createElementVNode("span", _hoisted_1210, [
+                  }, [_createElementVNode("span", { class: _normalizeClass(["file-icon", tone(v.ext)]) }, [_createVNode(_component_ico, { n: fileIcon(v.ext) }, null, 8, ["n"])], 2), _createElementVNode("span", _hoisted_1211, [
                     _createElementVNode("b", null, _toDisplayString(base(v.rel)), 1),
                     _createElementVNode("small", null, _toDisplayString(parent(v.root,v.rel)), 1),
                     (v.matched_path)
-                      ? (_openBlock(), _createElementBlock("small", _hoisted_1211, "原路径：" + _toDisplayString(v.matched_path), 1))
+                      ? (_openBlock(), _createElementBlock("small", _hoisted_1212, "原路径：" + _toDisplayString(v.matched_path), 1))
                       : _createCommentVNode("", true),
                     _createElementVNode("small", null, [_createElementVNode("span", { class: _normalizeClass(["tag", stateTone(v.file_state)]) }, _toDisplayString(v.file_state), 3), _createTextVNode("　V" + _toDisplayString(v.version) + " · " + _toDisplayString(fmt(v.updated)), 1)])
-                  ]), _createVNode(_component_ico, { n: "chevron-right" })], 8, _hoisted_1209))
+                  ]), _createVNode(_component_ico, { n: "chevron-right" })], 8, _hoisted_1210))
                 }), 128)), pickLoading
-                  ? (_openBlock(), _createElementBlock("p", _hoisted_1212, "正在查找…"))
+                  ? (_openBlock(), _createElementBlock("p", _hoisted_1213, "正在查找…"))
                   : (!picks.items.length)
-                    ? (_openBlock(), _createElementBlock("p", _hoisted_1213, "当前范围内没有找到文件"))
-                    : _createCommentVNode("", true)]), _createElementVNode("div", _hoisted_1214, [_createElementVNode("span", null, "共 " + _toDisplayString(picks.total) + " 个文件", 1), _createElementVNode("span", null, [_createElementVNode("button", {
+                    ? (_openBlock(), _createElementBlock("p", _hoisted_1214, "当前范围内没有找到文件"))
+                    : _createCommentVNode("", true)]), _createElementVNode("div", _hoisted_1215, [_createElementVNode("span", null, "共 " + _toDisplayString(picks.total) + " 个文件", 1), _createElementVNode("span", null, [_createElementVNode("button", {
                   type: "button",
                   class: "btn",
                   disabled: pickPage<=1,
                   onClick: $event => {pickPage--;loadPicks()}
-                }, "上一页", 8, _hoisted_1215), _cache[494] || (_cache[494] = _createTextVNode()), _createElementVNode("button", {
+                }, "上一页", 8, _hoisted_1216), _cache[494] || (_cache[494] = _createTextVNode()), _createElementVNode("button", {
                   type: "button",
                   class: "btn",
                   disabled: pickPage*picks.size>=picks.total,
                   onClick: $event => {pickPage++;loadPicks()}
-                }, "下一页", 8, _hoisted_1216)])])], 64))
+                }, "下一页", 8, _hoisted_1217)])])], 64))
               : _createCommentVNode("", true),
             (dialog.error)
-              ? (_openBlock(), _createElementBlock("p", _hoisted_1217, _toDisplayString(dialog.error), 1))
+              ? (_openBlock(), _createElementBlock("p", _hoisted_1218, _toDisplayString(dialog.error), 1))
               : _createCommentVNode("", true),
-            (!['pick','info','tree','rule_history','private_records','scan_log','waiting_files','ledger','receipt','period','trace','inventory','health','variance','backup_result','delivery_result','review_batch'].includes(dialog.type)&&!(dialog.type==='restore_preview'&&(demo||dialog.info.identical)))
-              ? (_openBlock(), _createElementBlock("div", _hoisted_1218, [_createElementVNode("button", {
+            (!['pick','info','tree','rule_history','private_records','scan_log','waiting_files','ledger','receipt','period','trace','inventory','health','variance','backup_result','delivery_result','review_batch'].includes(dialog.type)&&!(dialog.type==='restore_preview'&&(demo||dialog.loading||!dialog.info||dialog.info.identical)))
+              ? (_openBlock(), _createElementBlock("div", _hoisted_1219, [_createElementVNode("button", {
                   type: "button",
                   class: "btn",
                   disabled: busy,
                   onClick: $event => (dialog=null)
-                }, "取消", 8, _hoisted_1219), _createElementVNode("button", {
+                }, "取消", 8, _hoisted_1220), _createElementVNode("button", {
                   class: "primary",
                   disabled: busy
-                }, _toDisplayString(busy?'处理中…':dialog.submit||'保存'), 9, _hoisted_1220)]))
+                }, _toDisplayString(busy?'处理中…':dialog.submit||'保存'), 9, _hoisted_1221)]))
               : _createCommentVNode("", true)
           ], 40, _hoisted_830)], 10, _hoisted_827)], 8, _hoisted_826))
         : _createCommentVNode("", true),
       message
-        ? (_openBlock(), _createElementBlock("div", _hoisted_1221, _toDisplayString(message), 1))
+        ? (_openBlock(), _createElementBlock("div", _hoisted_1222, _toDisplayString(message), 1))
         : _createCommentVNode("", true)
     ], 2))
   }

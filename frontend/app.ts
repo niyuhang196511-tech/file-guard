@@ -1957,7 +1957,7 @@ const app = createApp({
             if (d?.type==='waiting_files'){await this.applyWaiting();return;}
             if (d && ['period','trace'].includes(d.type)){if(!d.loading)await this.runReport();return;}
             if (!d || ['receipt','ledger','inventory','health','variance','delivery_result','backup_result'].includes(d.type)) return;
-            if (d.type==='restore_preview' && (this.demo || d.info.identical)) return;
+            if (d.type==='restore_preview' && (this.demo || d.loading || !d.info || d.info.identical)) return;
             this.busy = true;
             d.error = '';
             try {
@@ -2038,11 +2038,20 @@ const app = createApp({
             };
         },
         async restoreDialog (v) {
-            await this.safe(async () => {
+            this.dialog={type:'restore_preview',title:'恢复 V'+v.num+' 到原路径',loading:true,
+                info:null,error:'',submit:'确认恢复',cmd:'restore'};
+            const d=this.dialog;
+            try {
                 const info = await request('restore_info', {id:v.id});
-                this.dialog={type:'restore_preview',title:'恢复 V'+info.version+' 到原路径',info,
-                    args:{id:v.id,preview:info.preview},submit:'确认恢复',cmd:'restore'};
-            });
+                if(this.dialog===d){
+                    d.info=info;
+                    d.args={id:v.id,preview:info.preview};
+                }
+            } catch (e) {
+                if(this.dialog===d)d.error=String(e.message||e);
+            } finally {
+                if(this.dialog===d)d.loading=false;
+            }
         },
         openSearch () {
             this.fileDialog();
