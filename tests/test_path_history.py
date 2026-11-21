@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from engine import path_history,record_admin
 from engine.service import Service
+from engine.shared_read import _open_windows_file
 from engine.store import Store
 
 
@@ -58,6 +59,53 @@ class PathHistoryTests(unittest.TestCase):
         identity=self.path(mode='identity',file=arrival['file_id'])
         self.assertEqual(identity['counts'],{'新占用记录':1,'重命名':1})
         self.assertEqual((source['identities'],source['roots'],source['groups'][0]['total']),(1,1,2))
+
+    @unittest.skipUnless(os.name == 'nt', '需要 Windows 独占句柄')
+    def test_rename_waits_for_locked_destination(self):
+        self.put('旧名.txt')
+        self.scan()
+        original, = self.service.dispatch('files', {})['items']
+        self.move('旧名.txt', '新名.txt')
+        kernel, handle = _open_windows_file(self.root / '新名.txt', 0x80000000, 0, 0x80)
+        try:
+            self.scan()
+            wait, = self.service.dispatch('waiting_files', {'root': self.rid})['items']
+            self.assertEqual((wait['rel'], wait['reason']), ('新名.txt', '等待文件解除占用'))
+            current, = self.service.dispatch('files', {'scope': 'all'})['items']
+            self.assertEqual((current['id'], current['rel'], current['live']), (original['id'], '旧名.txt', 1))
+        finally:
+            kernel.CloseHandle(handle)
+
+        self.scan(source='保存复查')
+        current, = self.service.dispatch('files', {'scope': 'all'})['items']
+        self.assertEqual((current['id'], current['rel'], current['version']), (original['id'], '新名.txt', 1))
+        history = self.path(mode='identity', file=original['id'], sort='oldest')['items']
+        self.assertEqual([item['kind'] for item in history], ['初始建档', '重命名'])
+        self.assertEqual(self.service.dispatch('waiting_files', {'root': self.rid})['total'], 0)
+
+    def test_rename_waits_for_destination_to_settle(self):
+        self.put('旧名.xlsx')
+        self.scan()
+        original, = self.service.dispatch('files', {})['items']
+        self.move('旧名.xlsx', '新名.xlsx')
+        with patch('engine.store.time.monotonic', return_value=10):
+            self.scan(source='文件监听')
+
+        path = self.root / '新名.xlsx'
+        before = path.stat()
+        os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns + 3_000_000_000))
+        with patch('engine.store.time.monotonic', return_value=13):
+            self.scan(source='保存复查')
+        wait, = self.service.dispatch('waiting_files', {'root': self.rid})['items']
+        self.assertEqual((wait['rel'], wait['reason']), ('新名.xlsx', '等待保存稳定'))
+        current, = self.service.dispatch('files', {'scope': 'all'})['items']
+        self.assertEqual((current['id'], current['live']), (original['id'], 1))
+
+        with patch('engine.store.time.monotonic', return_value=15):
+            self.scan(source='保存复查')
+        current, = self.service.dispatch('files', {'scope': 'all'})['items']
+        self.assertEqual((current['id'], current['rel'], current['version']), (original['id'], '新名.xlsx', 1))
+        self.assertEqual(self.path(mode='identity', file=original['id'], kind='重命名')['total'], 1)
 
     def test_deleted_and_recreated_same_path_has_two_identities(self):
         p=self.put('同名.txt','甲')

@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY,stamp TEXT NOT NULL,acti
 CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,val TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS restores(id INTEGER PRIMARY KEY,file_id INTEGER NOT NULL REFERENCES files,version_id INTEGER NOT NULL REFERENCES versions,prior_sha TEXT,stamp TEXT NOT NULL);
 -- Store applies the schema revision after scheduling compatible data migrations.
+CREATE TABLE IF NOT EXISTS data_migrations(name TEXT PRIMARY KEY);
 
 CREATE INDEX IF NOT EXISTS versions_pending ON versions(id) WHERE status='待解析';
 

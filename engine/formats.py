@@ -7,6 +7,7 @@ import re
 import zipfile
 from collections import defaultdict
 from difflib import SequenceMatcher
+from itertools import islice
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -193,13 +194,27 @@ def xml(path):
     yield from walk(root,'/'+root.tag)
 
 
-def csv_sample_has_columns(sample, delimiter):
+def csv_sample_has_columns(stream, start, delimiter):
+    stream.seek(start)
     try:
-        rows=csv.reader(io.StringIO(sample,newline=''),delimiter=delimiter,strict=True)
-        widths=[len(row) for row in rows if row]
+        rows=csv.reader(stream,delimiter=delimiter,strict=True)
+        # Sample complete records so quoted line breaks or long cells do not split the sample.
+        widths=[len(row) for row in islice(rows,32) if row]
     except csv.Error:
         return False
     return len(widths)>1 and widths[0]>1 and len(set(widths))==1
+
+
+def csv_delimiter(text, stream):
+    start=re.match(r'[\r\n]*',text).end()
+    semicolon=csv_sample_has_columns(stream,start,';')
+    comma=csv_sample_has_columns(stream,start,',')
+    if semicolon!=comma:
+        return ';' if semicolon else ','
+    try:
+        return csv.Sniffer().sniff(text[start:start+8192],delimiters=',;').delimiter
+    except csv.Error:
+        return ','
 
 
 @supports('.csv', '.tsv')
@@ -211,15 +226,9 @@ def tabular(path, ext=None):
     if ext=='.csv' and first.lower() in ('sep=;', 'sep=,', 'sep=\t', 'sep=|'):
         delimiter=first[-1]
     else:
+        if ext=='.csv' and ';' in text:
+            delimiter=csv_delimiter(text,stream)
         stream.seek(0)
-        if ext=='.csv' and ';' in first:
-            sample=text[:8192]
-            try:
-                delimiter=csv.Sniffer().sniff(sample,delimiters=',;').delimiter
-            except csv.Error:
-                # Sniffer can miss quoted records ending with CRLF.
-                if csv_sample_has_columns(sample,';') and not csv_sample_has_columns(sample,','):
-                    delimiter=';'
     for r,row in enumerate(csv.reader(stream,delimiter=delimiter),1):
         if not row:
             yield key('数据表',f'第 {r} 行 · 空记录'),'空记录'

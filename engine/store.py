@@ -134,6 +134,10 @@ class Store:
                     marks=','.join('?' for _ in changed)
                     db.execute(f"UPDATE versions SET status='待解析' WHERE parent_id IS NOT NULL AND ext IN ({marks})",changed)
             if previous_schema<11:db.execute('PRAGMA user_version=11')
+            migration = db.execute("INSERT OR IGNORE INTO data_migrations VALUES ('csv_logical_records') RETURNING name").fetchone()
+            if migration and previous_schema:
+                db.execute("""UPDATE versions SET status='待解析',details='[]',error=''
+                              WHERE parent_id IS NOT NULL AND ext='.csv'""")
 
     @contextlib.contextmanager
     def db(self):
@@ -480,6 +484,8 @@ class Store:
                         latest=db.execute('SELECT max(id) FROM versions WHERE file_id=?',(previous['id'],)).fetchone()[0]
                         db.execute('UPDATE files SET mtime=?,fkey=?,updated=? WHERE id=?',(s.st_mtime_ns,self.fkey(s),now(),previous['id']))
                         self.record(db,previous['id'],rid,rel,'属性修改',latest,latest,source=source)
+                if moved:
+                    candidates.pop(moved['fkey'])
             except (OSError,ValueError) as exc:
                 # Windows sharing violations are also classified as PermissionError.
                 if getattr(exc,'winerror',None) in (32,33):
@@ -502,6 +508,9 @@ class Store:
                     continue
                 if (watch_scan or rel in observed) and settling(rel,'missing'):
                     waiting[rel]='等待路径替换完成'
+                    continue
+                # A possible rename is unresolved until the destination has been read.
+                if r['fkey'] in candidates:
                     continue
                 db.execute('UPDATE files SET live=0,updated=? WHERE id=?',(now(),r['id']))
                 latest=db.execute('SELECT max(id) FROM versions WHERE file_id=?',(r['id'],)).fetchone()[0]

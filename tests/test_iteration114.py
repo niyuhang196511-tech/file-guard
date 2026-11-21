@@ -1,5 +1,6 @@
 import csv
 from datetime import date
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -114,6 +115,68 @@ class Inputs(Workspace):
         rows=result['rows'];self.assertEqual(rows[1],[['文本','001'],['文本','含;分隔'],['文本','两\n行']])
         self.assertEqual(rows[2],[]);self.assertEqual(rows[3][-1],['文本',''])
         self.assertEqual(result['num'],1)
+
+    def test_semicolon_csv_keeps_long_quoted_records_and_version_differences(self):
+        old_note='第一行\r\n'+'a'*9000+'\r\n原备注'
+        new_note=old_note.removesuffix('原备注')+'新备注'
+        for note in (old_note,new_note):
+            self.file('f.csv',f'编号;备注\r\nA;"{note}"\r\nB;完成\r\n')
+            self.scan()
+
+        source=self.source()
+        self.assertEqual(source['width'],2)
+        self.assertEqual(source['rows'], [
+            [['文本','编号'],['文本','备注']],
+            [['文本','A'],['文本',old_note]],
+            [['文本','B'],['文本','完成']],
+        ])
+        change,=self.call('compare',old=1,new=2)['items']
+        self.assertEqual((change['record_key'],change['field'],change['old'],change['new']),
+                         ('A','备注',old_note,new_note))
+
+    def test_semicolon_csv_after_leading_blank_record(self):
+        self.file('f.csv','\r\n编号;备注\r\nA;完成\r\n')
+        self.scan()
+
+        source=self.source()
+        self.assertEqual(source['width'],2)
+        self.assertEqual(source['rows'], [
+            [],
+            [['文本','编号'],['文本','备注']],
+            [['文本','A'],['文本','完成']],
+        ])
+
+    def test_existing_cached_csv_differences_are_reparsed_once(self):
+        self.file('f.csv','编号;数量\r\nA;2\r\n')
+        self.file('f.txt','原文')
+        self.scan()
+        self.file('f.csv','编号;数量\r\nA;3\r\n')
+        self.file('f.txt','新文')
+        self.scan()
+        with self.store.db() as db:
+            db.execute('DROP TABLE IF EXISTS data_migrations')
+            db.execute("UPDATE versions SET details=? WHERE ext='.csv' AND parent_id IS NOT NULL",
+                       (json.dumps([{'field':'旧缓存'}]),))
+
+        self.store=Store(self.store.home)
+        self.api=Service(self.store)
+        with self.store.db() as db:
+            states=[tuple(row) for row in db.execute('SELECT ext,status FROM versions WHERE parent_id IS NOT NULL ORDER BY ext')]
+            self.assertEqual(db.execute("SELECT details FROM versions WHERE ext='.csv' AND parent_id IS NOT NULL").fetchone()[0],'[]')
+            self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0],11)
+        self.assertEqual(states,[('.csv','待解析'),('.txt','已解析')])
+        self.assertTrue(self.store.parse_one())
+        self.assertFalse(self.store.parse_one())
+
+        self.store=Store(self.store.home)
+        self.api=Service(self.store)
+        self.assertFalse(self.store.parse_one())
+        with self.store.db() as db:
+            versions=db.execute("SELECT id,details FROM versions WHERE ext='.csv' ORDER BY num").fetchall()
+        change,=self.call('compare',old=versions[0]['id'],new=versions[1]['id'])['items']
+        cached,=json.loads(versions[1]['details'])
+        self.assertEqual((change['field'],change['old'],change['new']),('数量','2','3'))
+        self.assertEqual((cached['field'],cached['old'],cached['new']),('数量','2','3'))
 
     def test_tsv_and_legacy_chinese_encoding(self):
         self.file('单.tsv','编号\t领料\nA\t包装盒'.encode('gb18030'));self.scan()
