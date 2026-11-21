@@ -9,6 +9,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from openpyxl import Workbook,load_workbook
@@ -19,7 +20,8 @@ from docx import Document
 from pptx import Presentation
 from pypdf import PdfWriter
 from engine import formats
-from engine.store import Store,digest
+from engine.store import FileChanging,Store,digest
+from engine.shared_read import open_snapshot_source,replace_guarded_file
 from engine.service import Service
 from engine.maintenance import restore_backup,workspace_lock
 
@@ -30,6 +32,11 @@ def xlsx(path,qty):
     s['A1']='产品';s['B1']='数量';s['C1']='现存量';s['A2']='移动滑垫';s['C2']=qty
     s['D2']=12.5;s['E2']='=C2*D2'
     book.save(path);book.close()
+
+
+def later_ctime(info):
+    return SimpleNamespace(st_dev=info.st_dev, st_ino=info.st_ino, st_size=info.st_size,
+                           st_mtime_ns=info.st_mtime_ns, st_ctime_ns=info.st_ctime_ns+100)
 
 
 class EngineTest(unittest.TestCase):
@@ -83,6 +90,49 @@ class EngineTest(unittest.TestCase):
         for name in ('a.bin','b.bin'):
             (self.root/name).write_bytes(b'123')
         self.scan();self.assertEqual(len(list(self.store.objects.glob('*/*'))),1)
+    @unittest.skipUnless(os.name=='nt','需要 Windows 路径和句柄时间语义')
+    def test_windows_capture_and_receipt_with_different_ctimes(self):
+        path=self.root/'台账.txt'
+        path.write_bytes(b'archive this')
+        handle_info=later_ctime(path.stat())
+        with patch('engine.store.os.fstat',return_value=handle_info):
+            self.scan()
+            fid=self.files()[0]['id']
+            receipt=self.api.dispatch('save_receipt',{'id':fid,'mode':'full'})
+        self.assertEqual(receipt['result'],'已记入最新版本')
+        self.assertEqual(self.store.obj(receipt['disk_sha']).read_bytes(),b'archive this')
+    def test_capture_rejects_ctime_change_on_open_handle(self):
+        path=self.root/'台账.txt'
+        path.write_bytes(b'archive this')
+        before=path.stat()
+        with patch('engine.store.os.fstat',side_effect=[before,later_ctime(before)]):
+            with self.assertRaisesRegex(FileChanging,'读取期间文件发生变化'):
+                self.store.capture(path)
+        self.assertFalse(list(self.store.temp.iterdir()))
+        self.assertFalse(list(self.store.objects.iterdir()))
+    def test_capture_rejects_path_replacement_before_and_after_open(self):
+        for before_open,error in ((True,'文件正在替换'),(False,'文件写入中')):
+            with self.subTest(before_open=before_open):
+                path=self.root/'台账.txt'
+                path.write_bytes(b'old')
+                replacement=self.root/'新台账.txt'
+                replacement.write_bytes(b'new')
+                before=path.stat()
+                os.utime(replacement,ns=(before.st_atime_ns,before.st_mtime_ns))
+
+                @contextlib.contextmanager
+                def replace_on_open(source_path):
+                    if before_open:
+                        replacement.replace(source_path)
+                    with open_snapshot_source(source_path) as stream:
+                        yield stream
+                    if not before_open:
+                        replacement.replace(source_path)
+
+                with patch('engine.store.open_snapshot_source',replace_on_open):
+                    with self.assertRaisesRegex(FileChanging,error):
+                        self.store.capture(path)
+                self.assertFalse(list(self.store.objects.iterdir()))
     def test_restore_saves_dirty_file(self):
         f=self.edit_file();v,u=self.versions();xlsx(f,55)
         self.store.restore(u['id']);self.assertEqual(digest(f),u['sha'])
@@ -179,6 +229,24 @@ class EngineTest(unittest.TestCase):
             with self.assertRaises(OSError):self.store.restore(u['id'])
         finally:k.CloseHandle(handle)
         self.assertEqual(digest(f),v['sha'])
+    @unittest.skipUnless(os.name=='nt','需要 Windows 独占句柄')
+    def test_windows_restore_replaces_target_while_guard_remains_active(self):
+        path=self.edit_file()
+        latest,initial=self.versions()
+        prior_bytes=path.read_bytes()
+
+        def replace_while_guarded(source,target):
+            with self.assertRaises(PermissionError):
+                with target.open('r+b'):
+                    pass
+            with open_snapshot_source(target) as old_reader:
+                replace_guarded_file(source,target)
+                self.assertEqual(old_reader.read(),prior_bytes)
+
+        with patch('engine.store.replace_guarded_file',side_effect=replace_while_guarded):
+            self.store.restore(initial['id'])
+        self.assertEqual(digest(path),initial['sha'])
+        self.assertEqual(self.versions()[1]['id'],latest['id'])
 
 
 if __name__=='__main__':

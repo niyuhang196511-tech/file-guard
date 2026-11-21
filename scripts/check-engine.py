@@ -1,5 +1,6 @@
 """通过桌面实际使用的进程协议检查已打包引擎；未指定路径时测试 Python 入口。"""
 import argparse
+import csv
 import hashlib
 import json
 import os
@@ -92,8 +93,20 @@ def verify(command):
             hit=call('sheet_find',old=before['id'],new=after['id'],side='new',q='X',exact=True)['items']
             if len(hit)!=1 or hit[0]['address']!='A3':
                 raise ValueError('整表单元格地址异常')
-            if not call('scan_log',root=rid)['total']:
-                raise ValueError('未记录独立引擎扫描运行')
+            journal=call('scan_log',root=rid,state='完成',sort='oldest',size=50)
+            if not journal['total'] or journal['summary']['finished']!=journal['total'] or journal['summary']['captured']<1:
+                raise ValueError('独立引擎扫描运行汇总异常')
+            scan_day=journal['items'][-1]['started'][:10]
+            criteria=dict(root=rid,start=scan_day,end=scan_day,state='完成',sort='oldest')
+            journal=call('scan_log',**criteria)
+            report=location/'扫描运行记录.csv'
+            call('scan_log_export',**criteria,path=str(report),detail=True)
+            with report.open(encoding='utf-8-sig',newline='') as stream:
+                scan_rows=list(csv.DictReader(stream))
+            report_ids=[int(row['扫描编号']) for row in scan_rows]
+            journal_ids=[row['id'] for row in journal['items']]
+            if len(report_ids)<journal['total'] or not all(rid in report_ids for rid in journal_ids):
+                raise ValueError('独立引擎扫描记录导出与筛选不符')
             checkpoint=call('checkpoint_create',root=rid,label='独立进程交接')
             archive=location/'交付.zip'
             call('handoff_create',id=checkpoint,path=str(archive))
@@ -200,7 +213,7 @@ def verify(command):
             process.stdout.close()
         if process.returncode:
             raise RuntimeError(f'引擎退出码 {process.returncode}')
-    print('引擎已通过历史原件预览、清单三方对照、路径沿革、历史版本交付篮、批量版本复核、逐行来源、相同内容追溯、历史正文检索、保存核对、台账版本读取、期间对照、字段变动轨迹、建档、Excel 编号对齐与定位、跨文件检索、扫描记录、Word 段落与页脚比较、交付包、现场核对、预览后恢复与退出检查。')
+    print('引擎已通过扫描诊断和明细导出、历史原件预览、清单三方对照、路径沿革、历史版本交付篮、批量版本复核、逐行来源、相同内容追溯、历史正文检索、保存核对、台账版本读取、期间对照、字段变动轨迹、建档、Excel 编号对齐与定位、跨文件检索、Word 段落与页脚比较、交付包、现场核对、预览后恢复与退出检查。')
 
 
 if __name__=='__main__':

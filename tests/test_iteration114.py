@@ -32,7 +32,7 @@ class Workspace(unittest.TestCase):
 class Receipt(Workspace):
     def test_disk_save_without_close_and_unchanged_memory(self):
         path=self.file('ledger.csv','id,n\nA,1');self.scan()
-        with path.open('r+',encoding='utf-8') as editor:
+        with path.open('r+',encoding='utf-8',newline='') as editor:
             editor.seek(0);editor.write('id,n\nA,2')
             self.assertEqual(self.receipt(mode='full')['result'],'已记入最新版本')
             editor.flush()

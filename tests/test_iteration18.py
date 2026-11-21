@@ -25,7 +25,7 @@ from engine.formats import compare,extract
 from engine.service import Service
 from engine.sheet_view import WorkbookView
 from engine.store import Store
-from engine.shared_read import open_snapshot_source
+from engine.shared_read import open_snapshot_source,replace_guarded_file
 
 
 class Work(unittest.TestCase):
@@ -181,6 +181,15 @@ class OtherFormats(Work):
             data=extract(self.old,'.csv')
             self.assertEqual(data['数据表','第 2 行 · 第 2 列'],'第一行\r\n第二行')
             self.assertIn(('数据表','第 3 行 · 空记录'),data)
+
+    def test_csv_delimiter_fallback_preserves_default_for_ambiguous_semicolons(self):
+        for row in ('"A;B",note','A;B,note'):
+            with self.subTest(row=row):
+                self.old.write_bytes(f'编号;分类,备注\r\n{row}\r\n'.encode())
+                with patch('engine.formats.csv.Sniffer.sniff',side_effect=csv.Error):
+                    data=extract(self.old,'.csv')
+                self.assertEqual(data['数据表','第 2 行 · 第 1 列'],'A;B')
+                self.assertEqual(data['数据表','第 2 行 · 第 2 列'],'note')
 
     def test_json_lines_pointer_and_repeated_keys(self):
         self.old.write_text('{"": 1,"a/b":true}\n{"x":2}')
@@ -379,10 +388,9 @@ class OpenFilesAndSearch(Work):
 
     @unittest.skipUnless(os.name=='nt','需要 Windows 文件共享语义')
     def test_editing_application_can_replace_file_while_monitored_handle_open(self):
-        from engine.shared_read import open_snapshot_source
         p=self.root/'记录.txt';p.write_bytes(b'old')
         q=self.root/'新文件.txt';q.write_bytes(b'new')
         with open_snapshot_source(p) as reader:
-            os.replace(q,p)
+            replace_guarded_file(q,p)
             self.assertEqual(reader.read(),b'old')
         self.assertEqual(p.read_bytes(),b'new')

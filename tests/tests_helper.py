@@ -10,7 +10,16 @@ class RpcProcess:
     def __init__(self,data):
         self.data=data
     def __enter__(self):
-        self.worker=subprocess.Popen([sys.executable,'-m','engine.main'],cwd=Path(__file__).resolve().parents[1],env={**os.environ,'FILEGUARD_DATA':str(self.data)},stdin=subprocess.PIPE,stdout=subprocess.PIPE,encoding='utf-8')
+        # A Windows virtual environment can launch Python through a separate redirector.
+        entrypoint=("import os, runpy; print(os.getpid(), flush=True); "
+                    "runpy.run_module('engine.main', run_name='__main__', alter_sys=True)")
+        self.worker=subprocess.Popen(
+            [sys.executable,'-c',entrypoint],
+            cwd=Path(__file__).resolve().parents[1],
+            env={**os.environ,'FILEGUARD_DATA':str(self.data)},
+            stdin=subprocess.PIPE,stdout=subprocess.PIPE,encoding='utf-8',
+        )
+        self.pid=int(self.worker.stdout.readline())
         return self
     def call(self,cmd,args=None):
         self.worker.stdin.write(json.dumps({'cmd':cmd,'args':args or {}})+'\n')

@@ -1,7 +1,7 @@
 {
   "name": "fileguard-desktop",
   "private": true,
-  "version": "1.22.0",
+  "version": "1.23.0",
   "scripts": {
     "tauri": "tauri",
     "build:ui": "node scripts/compile-app.cjs && node scripts/compile-view.cjs",

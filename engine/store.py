@@ -17,7 +17,7 @@ from pathlib import Path
 from . import formats
 from .backup_check import MANIFEST
 from .publication import new_path
-from .shared_read import open_snapshot_source
+from .shared_read import open_snapshot_source, replace_guarded_file
 
 
 class FileChanging(OSError):
@@ -34,6 +34,15 @@ def within(path, root):
 
 def signature(s):
     return (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
+
+
+def matches_open_file(path_info, handle_info):
+    path_signature = signature(path_info)
+    handle_signature = signature(handle_info)
+    if os.name == 'nt':
+        # On Windows, stat and fstat can report creation and change time respectively.
+        return path_signature[:-1] == handle_signature[:-1]
+    return path_signature == handle_signature
 
 
 def linklike(p):
@@ -158,15 +167,18 @@ class Store:
         try:
             h = hashlib.sha256()
             with os.fdopen(fd,'wb') as out,open_snapshot_source(path) as src:
-                if signature(os.fstat(src.fileno())) != signature(before):
+                opened = os.fstat(src.fileno())
+                if not matches_open_file(before, opened):
                     raise FileChanging('文件正在替换')
                 while block := src.read(1024*1024):
                     h.update(block)
                     out.write(block)
-                if out.tell()!=before.st_size or signature(os.fstat(src.fileno()))!=signature(before):
+                if out.tell()!=before.st_size:
                     raise FileChanging('读取期间文件发生变化')
                 out.flush()
                 os.fsync(out.fileno())
+                if signature(os.fstat(src.fileno()))!=signature(opened):
+                    raise FileChanging('读取期间文件发生变化')
             if signature(path.stat())!=signature(before):
                 raise FileChanging('文件写入中，将在下次扫描重试')
             sha = h.hexdigest()
@@ -388,12 +400,39 @@ class Store:
         stats.update(candidates=len(found),skipped=sum(reasons.values()),skip_reasons=json.dumps(reasons,ensure_ascii=False))
         if errors:
             raise OSError('目录未完整读取：'+errors[0])
-        # Existing but excluded entries are outside the scan, never deletion evidence.
-        missing={k:r for k,r in old.items() if k not in found and k not in ignored and k not in unavailable and not outside_scope(k) and not os.path.lexists(base/k)}
-        initially_missing=set(missing)
         old_keys=Counter(r['fkey'] for r in old.values())
-        new_keys=Counter(self.fkey(s) for s in found.values())
-        candidates={r['fkey']:r for r in missing.values() if r['fkey'] and old_keys[r['fkey']]==1 and new_keys[r['fkey']]==1}
+        found_paths={}
+        for rel,s in found.items():
+            key=self.fkey(s)
+            if key:
+                found_paths.setdefault(key,[]).append(rel)
+        missing,candidates={},{}
+        for rel,row in old.items():
+            # Excluded and unavailable paths are never evidence of deletion.
+            if rel in found or rel in ignored or rel in unavailable or outside_scope(rel):
+                continue
+            path=base/rel
+            absent=not os.path.lexists(path)
+            if absent:
+                missing[rel]=row
+            key=row['fkey']
+            matches=found_paths.get(key,())
+            if old_keys[key]!=1 or len(matches)!=1 or matches[0] in old:
+                continue
+            new_rel=matches[0]
+            if not absent:
+                # A Windows lookup can still find a case-only rename by its old spelling.
+                if os.name!='nt' or os.path.normcase(new_rel)!=os.path.normcase(rel):
+                    continue
+                try:
+                    alias=path.lstat()
+                except OSError:
+                    continue
+                if (not stat.S_ISREG(alias.st_mode) or self.fkey(alias)!=key
+                    or alias.st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT):
+                    continue
+            candidates[key]=row
+        initially_missing=set(missing)
         full=source not in ('文件监听',)
         for i,(rel,s) in enumerate(found.items(),1):
             self.progress[rid]=f'{source} · 正在核对第 {i} / {len(found)} 个文件'
@@ -424,13 +463,15 @@ class Store:
                     stats['captured']+=1
                     stats['read_bytes']+=s.st_size
                 with self.db() as db:
-                    if moved and moved['sha']==sha:
+                    if moved and moved['sha']==sha and moved['fkey']==self.fkey(s):
                         previous=moved
-                        missing.pop(moved['rel'],None)
-                        db.execute('UPDATE files SET rel=?,ext=?,updated=? WHERE id=?',(rel,Path(rel).suffix.lower(),now(),moved['id']))
+                        old_rel=moved['rel']
+                        missing.pop(old_rel,None)
+                        old.pop(old_rel)
+                        db.execute('UPDATE files SET rel=?,ext=?,tracked=1,updated=? WHERE id=?',(rel,Path(rel).suffix.lower(),now(),moved['id']))
                         latest=db.execute('SELECT max(id) FROM versions WHERE file_id=?',(moved['id'],)).fetchone()[0]
-                        kind='重命名' if Path(rel).parent==Path(moved['rel']).parent else '移动'
-                        self.record(db,moved['id'],rid,rel,kind,latest,latest,moved['rel'],source)
+                        kind='重命名' if Path(rel).parent==Path(old_rel).parent else '移动'
+                        self.record(db,moved['id'],rid,rel,kind,latest,latest,old_rel,source)
                     if not previous:
                         fid=db.execute('INSERT INTO files(root_id,rel,fkey,size,mtime,sha,ext,updated) VALUES (?,?,?,?,?,?,?,?)',
                                        (rid,rel,self.fkey(s),s.st_size,s.st_mtime_ns,sha,Path(rel).suffix.lower(),now())).lastrowid
@@ -591,7 +632,7 @@ class Store:
                     if original:
                         if signature(target.stat())!=original:
                             raise ValueError('文件已变化，请重试')
-                        os.replace(tmp,target)
+                        replace_guarded_file(tmp,target)
                     else:
                         if os.name=='nt':
                             os.rename(tmp,target)

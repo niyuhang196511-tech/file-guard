@@ -152,7 +152,7 @@ class Monitoring(Work):
         with patch.dict(os.environ,{'FILEGUARD_START_CAUSE':'后台自动恢复'}),RpcProcess(self.store.home) as proc:
             proc.until(lambda:'解析' in proc.call('runtime')['beats'])
             info=proc.call('runtime')
-            self.assertEqual(info['pid'],proc.worker.pid)
+            self.assertEqual(info['pid'],proc.pid)
             self.assertIn('扫描',info['beats']);self.assertGreaterEqual(info['uptime'],0)
             self.assertTrue(any(r['note']=='后台自动恢复' for r in proc.call('audit')['items']))
     def test_legacy_rules_migrated_once(self):

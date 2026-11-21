@@ -1,7 +1,7 @@
 <!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>FileGuard · 文件变更追溯</title><link rel="stylesheet" href="style.css"></head><body><div id="app" v-cloak><div class="shell" :class="{dark:theme==='深色'}">
 <aside><div class="brand"><div class="brand-mark"><ico n="shield-check"></ico></div><div><strong>FileGuard</strong><small>文件变更追溯</small></div></div>
 <nav><div class="nav-label">工作空间</div><button v-for="x in nav.slice(0,16)" :aria-label="x[0]" :aria-current="page===x[0]?'page':undefined" :class="{active:page===x[0]}" @click="go(x[0])"><ico :n="x[1]"></ico>{{x[0]}}</button><div class="nav-label second">系统管理</div><button v-for="x in nav.slice(16)" :aria-label="x[0]" :aria-current="page===x[0]?'page':undefined" :class="{active:page===x[0]}" @click="go(x[0])"><ico :n="x[1]"></ico>{{x[0]}}</button></nav>
-<div class="aside-bottom"><div class="local-icon"><ico n="monitor"></ico></div><div><b>{{demo?'示例工作区':'本地工作区'}}</b><small>桌面版 · 1.22.0</small></div></div></aside>
+<div class="aside-bottom"><div class="local-icon"><ico n="monitor"></ico></div><div><b>{{demo?'示例工作区':'本地工作区'}}</b><small>桌面版 · 1.23.0</small></div></div></aside>
 <main><header class="top"><div class="crumb"><ico n="panel-left"></ico><i></i>工作空间 <span>›</span><b>{{page}}</b></div><div class="tools"><button class="global-search" @click="openSearch"><ico n="search"></ico>搜索文件 <kbd>Ctrl K</kbd></button><button class="iconbtn" title="通知中心" aria-label="通知中心" @click="notifications=!notifications"><ico n="bell"></ico><em v-if="alerts.length" class="reddot"></em></button><button class="iconbtn" :title="theme==='浅色'?'切换深色':'切换浅色'" aria-label="切换主题" @click="toggleTheme"><ico :n="theme==='浅色'?'moon':'sun'"></ico></button></div></header>
 <div v-if="notifications" class="notice"><div class="card-head"><b>通知中心</b><button class="iconbtn" @click="notifications=false" aria-label="关闭通知"><ico n="x"></ico></button></div><p v-if="!alerts.length">暂无运行异常</p><button class="alert-link" v-for="a in alerts" @click="openAlert(a)"><span>{{a.label}}</span><ico n="chevron-right"></ico></button><div v-if="s.recent.length" class="mini-notes"><b>最近文件活动</b><button v-for="e in s.recent.slice(0,3)" class="textbtn" @click="notifications=false;fromEvent(e)">{{base(e.rel)}} · {{e.kind}}</button></div></div>
 <div class="workspace">
@@ -493,8 +493,8 @@
 <label>排序<select v-model="cpSort" @change="loadCheckpointDiff()"><option value="">按路径</option><option value="growth">增长最多</option><option value="shrink">减少最多</option><option value="change">体积变化最大</option></select></label><label><input type="checkbox" v-model="cpSame" @change="loadCheckpointDiff()">包括相同项</label><button class="btn" :disabled="!cpData?.total" @click="exportCheckpoints">导出对照 CSV</button></div>
 <p v-if="cpBusy" role="status">正在读取清单…</p><template v-if="cpData"><p>匹配 {{cpData.total}} 项 · 净变化 {{cpData.delta}} 字节</p><small v-for="(count,kind) in cpData.counts">{{kind}} {{count}}　</small><div class="scroll"><table><thead><tr><th>变化</th><th>原路径</th><th>现路径</th><th>版本</th><th>字节变化</th><th>查看</th></tr></thead><tbody><tr v-for="r in cpData.items" :key="r.file_id"><td>{{r.kind}}</td><td>{{r.old_path||'—'}}</td><td>{{r.new_path||'—'}}</td><td>{{r.old_num||'—'}} → {{r.new_num||'—'}}</td><td>{{r.delta}}</td><td><button class="textbtn" @click="openCheckpointRow(r)">{{r.old&&r.new&&r.old!==r.new?'对比版本':'版本历史'}}</button></td></tr></tbody></table></div><p v-if="!cpData.total">没有符合条件的文件。</p><div class="pager"><button class="btn" :disabled="cpPage<=1" @click="loadCheckpointDiff(cpPage-1)">上一页</button><span>第 {{cpPage}} 页</span><button class="btn" :disabled="cpPage*cpData.size>=cpData.total" @click="loadCheckpointDiff(cpPage+1)">下一页</button></div></template></section></template>
 <template v-if="page==='系统设置'"><section class="card settings"><h2>后台引擎状态</h2><div><label>{{demo?'示例进程':'当前进程'}} {{runtime?.pid||'—'}}</label><button class="btn" @click="loadRuntime">刷新状态</button></div><template v-if="runtime"><p>启动 {{fmt(runtime.started)}} · 已运行 {{runtime.uptime}} 秒 · {{runtime.watch}}</p><p>待扫描目录 {{runtime.queued}} · 待解析版本 {{runtime.parsing}} · 等待文件 {{runtime.waiting}}<span v-if="runtime.due_in!==null"> · 最早任务约 {{runtime.due_in}} 秒后到期</span></p><p v-for="(stamp,name) in runtime.beats">{{name}}最近活动 · {{fmt(stamp)}}</p><p v-for="(stamp,name) in runtime.faults" class="error">{{name}} · {{fmt(stamp)}}</p></template></section><section class="card settings"><h2>监控与外观</h2><div><label>周期校对间隔<small>重新检查目录并核对文件内容</small></label><select v-model.number="prefs.interval"><option v-for="n in [5,15,30,60,300,900,3600]" :value="n">{{n<60?n+' 秒':n/60+' 分钟'}}</option></select></div><div><label>界面主题</label><select v-model="prefs.theme"><option>浅色</option><option>深色</option></select></div><div v-if="!demo"><label>登录 Windows 后后台启动</label><input type="checkbox" v-model="prefs.autostart"></div><div><span></span><button class="primary" @click="savePrefs">保存设置</button></div></section><section class="card settings"><h2>存储与维护</h2><div class="actions"><button class="btn" @click="healthDialog">仓库体检报告</button><button class="btn" @click="deliveryDialog()">核查交付包</button><button v-if="demo" class="btn" @click="inspectDialog">示例备份覆盖情况</button></div><div><label>仓库用量<small>按快照大小计算，重复内容只存一份。</small></label><span class="actions"><button class="btn" @click="loadStorage">计算用量</button><button class="btn" @click="go('相同内容追溯')">查看正文复用</button></span></div><section v-if="storageData" class="storage19"><p>历史版本合计 {{bytes(storageData.logical)}} · 唯一对象 {{bytes(storageData.unique)}} · 去重节省 {{bytes(storageData.saved)}}</p><p>数据库与日志 {{bytes(storageData.database)}} · 所在磁盘可用 {{bytes(storageData.free)}}</p><details><summary>各目录历史用量</summary><p v-for="r in storageData.by_root">{{r.root}} · {{r.versions}} 版 · {{bytes(r.bytes)}}</p></details><details><summary>历史体积最大的文件</summary><p v-for="r in storageData.largest"><button class="textbtn" @click="selectFile(r)">{{r.rel}}</button> · {{r.versions}} 版 · {{bytes(r.bytes)}}</p></details></section><div v-if="native"><label>后台监控<small>点窗口 × 收到托盘。左键托盘图标打开工作台，右键「退出监控」停止引擎。</small></label></div><div><label>版本仓库<small>{{s.home}}</small></label><span>{{num(s.objects)}} 个对象</span></div><div v-if="s.recovery"><label>待核对的恢复任务<small>正在等待目录上线或文件可读</small></label><button v-if="!demo" class="btn" @click="perform('retry_recovery',{})">重新核对（{{s.recovery}}）</button></div><div><label>解析失败<small>失败文件的历史原件仍然保留</small></label><button class="btn" v-if="!demo&&s.failures" @click="perform('retry',{},'已重新安排解析')">重新解析</button><span v-else>{{s.failures}} 项</span></div><div v-if="!demo"><label>备份与完整性</label><span class="actions"><button class="btn" @click="perform('verify',{})">校验仓库</button><button class="btn" @click="inspectDialog">核查已有备份</button><button class="btn" @click="backupDialog()">创建备份</button></span></div></section></template></template>
-</div><footer class="foot"><span><i></i>{{demo?'示例数据':s.watch}}</span><span>FileGuard · 1.22.0</span></footer></main>
-<div class="mask" v-if="dialog" @click.self="!busy&&(dialog=null)"><section class="modal" :class="{'wide-review':['ledger','receipt','period','trace','variance','inventory','health','delivery_result','restore_preview','review_batch'].includes(dialog.type)}" role="dialog" aria-modal="true" :aria-label="dialog.title"><div class="card-head"><h2>{{dialog.title}}</h2><button class="iconbtn" aria-label="关闭" :disabled="busy" @click="dialog=null"><ico n="x"></ico></button></div><form @submit.prevent="submitDialog"><template v-if="dialog.type==='review'"><label>结论<select v-model="dialog.state"><option v-for="v in reviewStates">{{v}}</option></select></label><label>复核备注<textarea v-model="dialog.note" rows="4" maxlength="2000" :required="dialog.state==='需跟进'"></textarea></label><small>{{dialog.note.length}} / 2000</small></template>
+</div><footer class="foot"><span><i></i>{{demo?'示例数据':s.watch}}</span><span>FileGuard · 1.23.0</span></footer></main>
+<div class="mask" v-if="dialog" @click.self="!busy&&(dialog=null)"><section ref="dialogPanel" class="modal" :class="{'wide-review':['ledger','receipt','period','trace','variance','inventory','health','delivery_result','restore_preview','review_batch','scan_log','waiting_files'].includes(dialog.type)}" role="dialog" aria-modal="true" :aria-label="dialog.title"><div class="card-head"><h2>{{dialog.title}}</h2><button ref="dialogClose" class="iconbtn" aria-label="关闭" :disabled="busy" @click="dialog=null"><ico n="x"></ico></button></div><form @submit.prevent="submitDialog"><template v-if="dialog.type==='review'"><label>结论<select v-model="dialog.state"><option v-for="v in reviewStates">{{v}}</option></select></label><label>复核备注<textarea v-model="dialog.note" rows="4" maxlength="2000" :required="dialog.state==='需跟进'"></textarea></label><small>{{dialog.note.length}} / 2000</small></template>
 <template v-if="dialog.type==='review_batch'">
 <div v-if="dialog.result">
 <p role="status"><strong>批次 {{dialog.result.batch}} 已保存</strong></p>
@@ -614,10 +614,115 @@
 <p v-if="!dialog.data.total">当前条件没有匹配项。</p><div class="actions"><button type="button" class="btn" :disabled="dialog.data.page===1" @click="runReport(dialog.data.page-1,dialog.applied)">上一页</button><span>{{dialog.data.page}} / {{dialog.data.pages}} 页 · {{dialog.data.total}} 项</span><button type="button" class="btn" :disabled="dialog.data.page===dialog.data.pages" @click="runReport(dialog.data.page+1,dialog.applied)">下一页</button></div>
 </template></template>
 <template v-if="dialog.type==='capture_policy'"><p class="path">{{dialog.path}}</p><label>稳定等待时长<select v-model.number="dialog.settle_ms"><option v-for="v in [500,1500,3000,5000,10000]" :value="v">{{v/1000}} 秒</option></select></label><label><input type="checkbox" v-model="dialog.all_types">对所有扩展名启用稳定等待</label><small>监听到保存后，在复查中确认签名保持稳定。默认用于 Office、开放文档、PDF、电子书、ZIP 和笔记本等格式。</small></template>
-<template v-if="dialog.type==='waiting_files'"><p class="path">{{dialog.path}}</p><div class="filters"><label>文件路径<input v-model="dialog.q" @keyup.enter.prevent="loadWaiting()"></label><label>等待原因<select v-model="dialog.reason" @change="loadWaiting()"><option value="">全部</option><option v-for="v in dialog.data?.reasons">{{v}}</option></select></label><label>排序<select v-model="dialog.sort" @change="loadWaiting()"><option value="">最早等待</option><option value="attempts">复查次数最多</option><option value="path">文件路径</option></select></label><button type="button" class="btn" @click="loadWaiting()">查询</button></div><template v-if="dialog.data"><p>{{dialog.data.total}} 个文件</p><div class="scroll"><table><thead><tr><th>路径与原因</th><th>首次等待</th><th>最近一次</th><th>观察次数</th></tr></thead><tbody><tr v-for="r in dialog.data.items"><td>{{r.rel}}<small>{{r.reason}}</small></td><td>{{fmt(r.first_seen)}}</td><td>{{fmt(r.last_seen)}}</td><td>{{r.attempts}}</td></tr></tbody></table></div><div class="pager"><button class="btn" type="button" :disabled="dialog.data.page<=1" @click="loadWaiting(dialog.data.page-1)">上一页</button>{{dialog.data.page}} / {{dialog.data.pages}}<button class="btn" type="button" :disabled="dialog.data.page>=dialog.data.pages" @click="loadWaiting(dialog.data.page+1)">下一页</button></div></template></template>
-<template v-if="dialog.type==='scan_log'"><p class="path">{{dialog.path}}</p><div class="filters"><label>运行结果<select v-model="dialog.state" @change="loadJournal()"><option value="">全部</option><option v-for="v in ['完成','等待保存','有异常','中断','进行中']">{{v}}</option></select></label><label>触发来源<select v-model="dialog.source" @change="loadJournal()"><option value="">全部</option><option v-for="v in dialog.data?.sources">{{v}}</option></select></label><label><input type="checkbox" v-model="dialog.skips" @change="loadJournal()">仅有跳过项</label><button type="button" class="btn" @click="loadJournal()">刷新</button></div>
-<template v-if="dialog.data"><p>匹配 {{dialog.data.total}} 次 · 平均 {{dialog.data.average}} 毫秒 · 最长 {{dialog.data.longest}} 毫秒</p><div class="scroll"><table><thead><tr><th>开始 / 来源</th><th>结果</th><th>耗时</th><th>明细</th></tr></thead><tbody><tr v-for="r in dialog.data.items" :key="r.id"><td>{{fmt(r.started)}}<small>{{r.source}}</small></td><td>{{r.status}}</td><td>{{r.ended?r.elapsed_ms+' ms':'—'}}</td><td><details><summary>运行数据</summary><p>候选 {{r.candidates}} · 快照读取 {{r.captured}}（{{bytes(r.read_bytes)}}）· 内容复用 {{r.reused}} · 等待 {{r.waiting}} · 跳过 {{r.skipped}}</p><p v-for="(n,k) in r.skip_reasons">{{k}} {{n}}</p><p v-if="r.problem">{{r.problem}}</p></details></td></tr></tbody></table></div><p v-if="!dialog.data.total">没有匹配的运行记录。</p>
-<div class="pager"><button type="button" class="btn" :disabled="dialog.data.page<=1" @click="loadJournal(dialog.data.page-1)">上一页</button>{{dialog.data.page}} / {{dialog.data.pages}}<button type="button" class="btn" :disabled="dialog.data.page>=dialog.data.pages" @click="loadJournal(dialog.data.page+1)">下一页</button><button type="button" class="btn" :disabled="!dialog.data.total" @click="exportJournal">导出 CSV</button></div></template><small>每个目录保留最近 200 次扫描。</small></template>
+<template v-if="dialog.type==='waiting_files'">
+<p class="path">{{dialog.path}}</p>
+<div class="filters scan-filters">
+<label>文件路径<input v-model="dialog.filters.q" maxlength="512" placeholder="输入相对路径片段"></label>
+<label>等待原因<select v-model="dialog.filters.reason"><option value="">全部</option><option v-for="v in scanFacetChoices(dialog.reasons,dialog.filters.reason)" :key="v">{{v}}</option></select></label>
+<label>排序<select v-model="dialog.filters.sort"><option value="">最早等待</option><option value="recent">最近观察</option><option value="attempts">观察次数最多</option><option value="path">文件路径</option></select></label>
+</div>
+<div class="actions scan-actions"><button type="submit" class="primary">查询当前队列</button><button type="button" class="btn" @click="resetWaiting">重置</button><button type="button" class="btn" @click="backToJournal">{{dialog.previousJournal?'返回扫描运行记录':'查看扫描运行记录'}}</button></div>
+<p v-if="dialog.loading" role="status">正在读取当前等待队列…</p>
+<template v-if="dialog.data">
+<p v-if="scanFiltersPending" class="quiet">筛选条件已修改，查询后更新结果。</p>
+<p role="status">当前匹配 {{num(dialog.data.total)}} 个等待文件</p>
+<div v-if="Object.keys(dialog.data.counts||{}).length" class="actions scan-chips" role="group" aria-label="按当前路径查询的等待原因筛选">
+<button v-for="(count,reason) in dialog.data.counts" :key="reason" type="button" class="btn" :aria-pressed="dialog.applied.reason===reason" @click="waitingReason(reason)">{{reason}} {{num(count)}}</button>
+</div>
+<div v-if="dialog.data.total" class="scroll scan-scroll" tabindex="0" role="region" aria-label="等待文件表"><table>
+<thead><tr><th scope="col">文件与原因</th><th scope="col">首次等待</th><th scope="col">最近观察</th><th scope="col">观察次数</th></tr></thead>
+<tbody><tr v-for="r in dialog.data.items" :key="r.rel"><td>{{r.rel}}<small>{{r.reason}}</small></td><td>{{fmt(r.first_seen)}}</td><td>{{fmt(r.last_seen)}}</td><td>{{num(r.attempts)}}</td></tr></tbody>
+</table></div>
+<p v-else>当前条件下没有等待文件。</p>
+<div v-if="dialog.data.pages>1" class="pager scan-pager"><button class="btn" type="button" :disabled="dialog.data.page<=1" @click="loadWaiting(dialog.data.page-1)">上一页</button><span>第 {{dialog.data.page}} / {{dialog.data.pages}} 页</span><button class="btn" type="button" :disabled="dialog.data.page>=dialog.data.pages" @click="loadWaiting(dialog.data.page+1)">下一页</button></div>
+</template>
+<small>此处显示查询时仍在等待的文件。</small>
+</template>
+<template v-if="dialog.type==='scan_log'">
+<p class="path">{{dialog.path}}</p>
+<div class="filters scan-filters">
+<label>运行结果<select v-model="dialog.filters.state"><option value="">全部</option><option v-for="v in dialog.states" :key="v">{{v}}</option></select></label>
+<label>触发来源<select v-model="dialog.filters.source"><option value="">全部</option><option v-for="v in scanFacetChoices(dialog.sources,dialog.filters.source)" :key="v">{{v}}</option></select></label>
+<label>起始日期<input type="date" v-model="dialog.filters.start"></label>
+<label>结束日期<input type="date" v-model="dialog.filters.end"></label>
+</div>
+<details class="scan-details"><summary>异常、跳过与排序</summary>
+<div class="filters scan-filters">
+<label>异常类别<select v-model="dialog.filters.problem"><option value="">全部</option><option v-for="v in scanFacetChoices(dialog.problems,dialog.filters.problem)" :key="v">{{v}}</option></select></label>
+<label>跳过原因<select v-model="dialog.filters.skip_reason"><option value="">全部</option><option v-for="v in scanFacetChoices(dialog.skipReasons,dialog.filters.skip_reason)" :key="v">{{v}}</option></select></label>
+<label>排序<select v-model="dialog.filters.sort"><option value="recent">最新运行</option><option value="oldest">最早运行</option><option value="slowest">耗时最长</option><option value="waiting">等待数量最多</option></select></label>
+<label>每页条数<select v-model.number="dialog.filters.size"><option v-for="v in [20,50,100]" :key="v" :value="v">{{v}} 条</option></select></label>
+</div>
+<div class="filters"><label><input type="checkbox" v-model="dialog.filters.skips">仅有跳过项</label><label><input type="checkbox" v-model="dialog.filters.waiting">仅有等待项</label></div>
+</details>
+<div class="actions scan-actions">
+<button type="submit" class="primary">查询扫描记录</button>
+<button type="button" class="btn" @click="resetJournal">重置</button>
+<button type="button" class="btn" :disabled="!dialog.data?.total||dialog.loading" @click="exportJournal">导出当前结果 CSV</button>
+<button type="button" class="btn" @click="journalWaiting">查看当前等待队列</button>
+</div>
+<p v-if="dialog.loading" role="status">正在读取扫描记录…</p>
+<template v-if="dialog.data">
+<p v-if="scanFiltersPending" class="quiet">筛选条件已修改，查询后更新结果。</p>
+<p role="status">匹配 {{num(dialog.data.total)}} 次运行</p>
+<template v-if="dialog.data.total">
+<section class="scan-summary" v-if="dialog.data.summary" aria-label="匹配运行汇总">
+<dl class="scan-metrics">
+<div v-for="[key,label] in [['candidates','候选'],['captured','快照读取'],['read_bytes','快照读取量'],['reused','内容复用'],['waiting','等待'],['skipped','跳过']]" :key="key">
+<dt>{{label}}</dt><dd>{{journalMetric(key,dialog.data.summary[key])}}</dd>
+</div>
+</dl>
+<p v-if="dialog.data.summary.finished">{{num(dialog.data.summary.finished)}} 次有耗时记录 · 平均 {{num(dialog.data.average)}} 毫秒 · 最长 {{num(dialog.data.longest)}} 毫秒</p>
+<p v-else>当前结果没有耗时记录。</p>
+<details class="scan-details"><summary>运行分布与耗时分位</summary>
+<p v-if="dialog.data.summary.finished">50% 的有耗时运行在 {{num(dialog.data.summary.p50)}} 毫秒内 · 95% 在 {{num(dialog.data.summary.p95)}} 毫秒内</p>
+<div class="actions scan-chips" role="group" aria-label="按匹配记录的运行结果筛选">
+<template v-for="(n,name) in dialog.data.summary.states" :key="name"><button v-if="n" type="button" class="btn" :aria-pressed="dialog.applied.state===name" @click="journalFacet('state',name)">{{name}} {{num(n)}}</button></template>
+</div>
+<div v-if="Object.keys(dialog.data.summary.skip_reasons).length" class="actions scan-chips" role="group" aria-label="按匹配记录的跳过原因筛选">
+<button v-for="(n,name) in dialog.data.summary.skip_reasons" :key="name" type="button" class="btn" :aria-pressed="dialog.applied.skip_reason===name" @click="journalFacet('skip_reason',name)">{{name}} {{num(n)}}</button>
+</div>
+<div v-if="Object.keys(dialog.data.summary.problems).length" class="actions scan-chips" role="group" aria-label="按匹配记录的异常类别筛选">
+<button v-for="(n,name) in dialog.data.summary.problems" :key="name" type="button" class="btn" :aria-pressed="dialog.applied.problem===name" @click="journalFacet('problem',name)">{{name}} {{num(n)}}</button>
+</div>
+</details>
+</section>
+</template>
+<template v-else><p>没有匹配的运行记录。</p></template>
+</template>
+<section v-if="dialog.selectedRuns.length" class="scan-selection" aria-label="两次扫描对照">
+<div class="actions scan-chips">
+<span role="status">已选 {{dialog.selectedRuns.length}} / 2</span>
+<button v-for="run in dialog.selectedRuns" :key="run.id" type="button" class="btn" @click="toggleJournalRun(run)" :aria-label="'移除扫描 #'+run.id">移除 #{{run.id}}</button>
+<button type="button" class="btn" @click="dialog.selectedRuns=[]">清空对照</button>
+</div>
+<template v-if="journalComparison">
+<h3>两次扫描对照</h3>
+<div class="scroll scan-scroll" tabindex="0" role="region" aria-label="扫描对照表"><table>
+<thead><tr><th scope="col">指标</th><th scope="col">较早 #{{journalComparison.before.id}}</th><th scope="col">较晚 #{{journalComparison.after.id}}</th><th scope="col">增减</th></tr></thead>
+<tbody>
+<tr><th scope="row">开始与来源</th><td>{{fmt(journalComparison.before.started)}}<small>{{journalComparison.before.source}} · {{journalComparison.before.status}}</small></td><td>{{fmt(journalComparison.after.started)}}<small>{{journalComparison.after.source}} · {{journalComparison.after.status}}</small></td><td>—</td></tr>
+<tr v-for="metric in journalComparison.metrics" :key="metric.key"><th scope="row">{{metric.label}}</th><td>{{journalMetric(metric.key,metric.before)}}</td><td>{{journalMetric(metric.key,metric.after)}}</td><td>{{journalMetric(metric.key,metric.delta,true)}}</td></tr>
+</tbody></table></div>
+</template>
+<p v-else>再选一次扫描即可对照。已选记录会保留到下一页。</p>
+</section>
+<template v-if="dialog.data?.total">
+<div class="scroll scan-scroll" tabindex="0" role="region" aria-label="扫描运行表"><table>
+<thead><tr><th scope="col">开始与来源</th><th scope="col">结果</th><th scope="col">耗时</th><th scope="col">运行数据</th><th scope="col">对照</th></tr></thead>
+<tbody><tr v-for="r in dialog.data.items" :key="r.id">
+<td>{{fmt(r.started)}}<small>#{{r.id}} · {{r.source}}</small></td><td>{{r.status}}<small v-if="r.problem">{{r.problem}}</small></td><td>{{r.ended?num(r.elapsed_ms)+' ms':'—'}}</td>
+<td><details><summary>查看运行数据</summary>
+<p>候选 {{num(r.candidates)}} · 快照读取 {{num(r.captured)}}（{{bytes(r.read_bytes)}}）· 内容复用 {{num(r.reused)}} · 等待 {{num(r.waiting)}} · 跳过 {{num(r.skipped)}}</p>
+<p v-for="(n,k) in r.skip_reasons" :key="k">{{k}} {{num(n)}}</p>
+<p v-if="r.ended">结束于 {{fmt(r.ended)}}</p>
+</details></td>
+<td><button type="button" class="btn" :aria-label="(journalHasRun(r.id)?'移除':'选择')+'扫描 #'+r.id" :aria-pressed="journalHasRun(r.id)" :disabled="r.status==='进行中'||(!journalHasRun(r.id)&&dialog.selectedRuns.length>=2)" @click="toggleJournalRun(r)">{{journalHasRun(r.id)?'移除':'选择'}}</button></td>
+</tr></tbody></table></div>
+<div v-if="dialog.data.pages>1" class="pager scan-pager"><button type="button" class="btn" :disabled="dialog.data.page<=1" @click="loadJournal(dialog.data.page-1)">上一页</button><span>第 {{dialog.data.page}} / {{dialog.data.pages}} 页</span><button type="button" class="btn" :disabled="dialog.data.page>=dialog.data.pages" @click="loadJournal(dialog.data.page+1)">下一页</button></div>
+</template>
+<small>每个目录保留最近 200 次扫描。汇总涵盖所有匹配运行，同一文件可能计入多次。</small>
+</template>
 <template v-if="dialog.type==='rule_history'"><p class="path">{{dialog.path}}</p><ol><li v-for="r in dialog.entries" :key="r.id">{{fmt(r.stamp)}} · {{r.patterns||'无排除规则'}} · {{r.max_mb ? r.max_mb+' MiB':'不限大小'}}</li></ol><small>最近 100 次配置，最新在前。</small></template><template v-if="dialog.type==='inspect'"><label>备份 ZIP 路径<input v-model="dialog.path" required></label><small>逐个核对对象，无需退出监控。</small></template><template v-if="dialog.type==='backup'"><label>管理口令<input v-model="dialog.password" type="password" autocomplete="off" required></label><label>新备份文件的完整路径<input v-model="dialog.path" required></label></template><template v-if="dialog.type==='root'"><label>目录路径<div class="inline"><input v-model="dialog.path" placeholder="例如 D:\业务资料\仓库" required :readonly="!!dialog.id"><button type="button" class="btn" v-if="native&&!dialog.id" @click="chooseDir">浏览</button></div></label><label>排除规则<input v-model="dialog.patterns" placeholder="例如 *.tmp，*.bak，缓存/*"></label><label>单文件大小上限（MiB）<input type="number" min="0" v-model.number="dialog.max_mb"></label><small>填 0 表示不限大小。超过上限的文件会跳过。</small><details><summary>保存前预演规则</summary><label>待测文件相对路径，每行一个<textarea v-model="dialog.paths" placeholder="草稿/试算.xlsx"></textarea></label><label>假设每个文件大小（字节，可留空）<input type="number" min="0" v-model="dialog.probeBytes"></label><button class="btn" type="button" @click="previewRules">预演</button><ul v-if="dialog.samples&&dialog.probed===ruleSignature(dialog)"><li v-for="r in dialog.samples">{{r.rel}} · {{r.reason}} <span v-if="r.pattern">· {{r.pattern}} 命中 {{r.part}}</span></li></ul></details></template>
 <template v-if="dialog.type==='save'"><label>保存路径<input v-model="dialog.path" required placeholder="请输入完整的新文件路径"></label></template><template v-if="['info','confirm'].includes(dialog.type)"><p style="white-space:pre-line">{{dialog.body}}</p></template>
 <template v-if="dialog.type==='tree'"><label class="search-input"><ico n="search"></ico><input v-model="dialog.query" placeholder="搜索子目录路径"></label><div class="picklist"><button type="button" @click="rootFiles(dialog.root)">全部文件</button><button type="button" v-for="folder in visibleFolders" :key="folder.path" @click="treeSelect(dialog.root,folder.path)" :style="{paddingLeft:(8+14*(folder.path.split('/').length-1))+'px'}"><ico n="folder"></ico><span>{{folder.path}}</span><small>{{folder.total}} 个文件</small></button></div><small v-if="!dialog.folders.length">当前目录没有含已跟踪文件的子目录。</small><small v-else-if="!visibleFolders.length">没有匹配的子目录。</small></template><template v-if="dialog.type==='pick'"><div class="picker-tools"><label class="search-input"><ico n="search"></ico><input id="filePicker" v-model="pickQ" @input="searchPick" placeholder="搜索现名、旧名或相对路径"></label><select v-model="pickScope" aria-label="历史文件范围" @change="pickPage=1;loadPicks()"><option v-for="entry in fileScopes" :value="entry[0]">{{entry[1]}}</option></select></div><div class="picklist"><button type="button" v-for="v in picks.items" :key="v.id" :disabled="pickLoading" @click="picked(v)"><span class="file-icon" :class="tone(v.ext)"><ico :n="fileIcon(v.ext)"></ico></span><span class="file-summary"><b>{{base(v.rel)}}</b><small>{{parent(v.root,v.rel)}}</small><small v-if="v.matched_path">原路径：{{v.matched_path}}</small><small><span class="tag" :class="stateTone(v.file_state)">{{v.file_state}}</span>　V{{v.version}} · {{fmt(v.updated)}}</small></span><ico n="chevron-right"></ico></button><p v-if="pickLoading" role="status">正在查找…</p><p v-else-if="!picks.items.length">当前范围内没有找到文件</p></div><div class="pager"><span>共 {{picks.total}} 个文件</span><span><button type="button" class="btn" :disabled="pickPage<=1" @click="pickPage--;loadPicks()">上一页</button> <button type="button" class="btn" :disabled="pickPage*picks.size>=picks.total" @click="pickPage++;loadPicks()">下一页</button></span></div></template>

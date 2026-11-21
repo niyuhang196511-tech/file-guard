@@ -1,4 +1,5 @@
 import csv
+from contextlib import closing
 import hashlib
 import json
 from pathlib import Path
@@ -203,7 +204,7 @@ class Health(Work):
         self.assertEqual([r['id'] for r in self.call('health_reports')],[prior])
     def test_empty_workspace_and_bad_foreign_key(self):
         rid=health.run(self.store);self.assertEqual(self.call('health_results',id=rid)['report']['objects'],0)
-        with sqlite3.connect(self.store.dbfile) as db:
+        with closing(sqlite3.connect(self.store.dbfile)) as db, db:
             db.execute("INSERT INTO tasks VALUES(10000,0,'测试')")
         with self.assertRaisesRegex(ValueError,'引用'):health.run(self.store)
         self.assertEqual(len(self.call('health_reports')),1)

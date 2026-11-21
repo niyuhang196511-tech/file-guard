@@ -1,6 +1,14 @@
 # FileGuard 文件变更监控与版本追溯
 
-当前迭代版本为 **1.22.0**。本项目包含 Windows 桌面应用源码、离线 Vue 中文界面、文件监控与解析引擎、数据库结构、构建脚本和回归测试。当前交付为开发版。Windows 安装包与便携程序需要在 Windows x64 构建机生成。
+当前迭代版本为 **1.23.0**。本项目包含 Windows 桌面应用源码、离线 Vue 中文界面、文件监控与解析引擎、数据库结构、构建脚本和回归测试。当前交付为开发版。Windows 安装包与便携程序需要在 Windows x64 构建机生成。
+
+## 1.23.0 Windows 采集修复与扫描诊断
+
+Windows 文件采集和完整保存核对可正确处理路径与读取句柄返回的时间差异。仅改变文件名大小写时，扫描可沿用同一文件的历史。历史恢复在持有写入保护时原子替换目标，已有读取句柄仍可读完原内容。目标文件系统需要支持 Windows 的受保护替换操作。
+
+在「目录监控 → 扫描运行记录」按日期、结果、触发来源、异常类别或跳过原因筛查，查看整组命中的读取量、等待与跳过次数，以及 P50、P95 耗时。可跨页选择两次扫描，按扫描先后比较指标，或按已应用的条件导出含扫描编号和跳过明细的 CSV。
+
+从运行记录可打开「当前等待队列」，按原因、最近观察时间或尝试次数找出待处理文件。历史运行记录每目录保留最近 200 次，汇总覆盖当前筛选命中的记录。离线预览可用仓库台账目录体验对照与等待原因筛选。Windows 与 Linux 都能识别分号 CSV 中带引号的多行单元格。详见 [100 项优化与验收清单](docs/1.23迭代设计.md)。
 
 ## 1.22.0 历史原件预览
 
@@ -172,9 +180,9 @@ python -m unittest discover -s tests -v
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-windows.ps1
 ```
 
-脚本顺序执行后端回归、PyInstaller 引擎构建、打包引擎协议检查、TypeScript 检查、界面编译和 Tauri 打包。构建成功后，`release/1.22.0` 下包含中文 NSIS 安装 EXE、MSI 和 `FileGuard-Portable-x64.zip`，并生成 SHA256SUMS.txt 校验清单。便携版需要本机已安装 WebView2，解压完整文件夹后启动 FileGuard.exe。请保留同目录的引擎和 portable.flag。
+脚本顺序执行后端回归、PyInstaller 引擎构建、打包引擎协议检查、TypeScript 检查、界面编译和 Tauri 打包。构建成功后，`release/1.23.0` 下包含中文 NSIS 安装 EXE、MSI 和 `FileGuard-Portable-x64.zip`，并生成 SHA256SUMS.txt 校验清单。便携版需要本机已安装 WebView2，解压完整文件夹后启动 FileGuard.exe。请保留同目录的引擎和 portable.flag。
 
-项目也含手动启动的 Windows CI 工作流。此交付未向外部仓库推送代码或执行远程构建。
+项目也含手动启动的 Windows CI 工作流，可在 GitHub Actions 生成安装包和便携包。
 
 构建器与离线 WebView2 配置参见 [Tauri Windows Installer](https://v2.tauri.app/distribute/windows-installer/) 和 [Tauri Sidecar](https://v2.tauri.app/develop/sidecar/)。
 

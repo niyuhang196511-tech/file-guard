@@ -1,6 +1,6 @@
 [package]
 name = "fileguard"
-version = "1.22.0"
+version = "1.23.0"
 description = "文件变更监控与版本追溯"
 edition = "2021"
 

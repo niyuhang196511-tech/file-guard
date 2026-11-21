@@ -193,6 +193,15 @@ def xml(path):
     yield from walk(root,'/'+root.tag)
 
 
+def csv_sample_has_columns(sample, delimiter):
+    try:
+        rows=csv.reader(io.StringIO(sample,newline=''),delimiter=delimiter,strict=True)
+        widths=[len(row) for row in rows if row]
+    except csv.Error:
+        return False
+    return len(widths)>1 and widths[0]>1 and len(set(widths))==1
+
+
 @supports('.csv', '.tsv')
 def tabular(path, ext=None):
     text=text_of(path)
@@ -204,10 +213,13 @@ def tabular(path, ext=None):
     else:
         stream.seek(0)
         if ext=='.csv' and ';' in first:
+            sample=text[:8192]
             try:
-                delimiter=csv.Sniffer().sniff(text[:8192],delimiters=',;').delimiter
+                delimiter=csv.Sniffer().sniff(sample,delimiters=',;').delimiter
             except csv.Error:
-                pass
+                # Sniffer can miss quoted records ending with CRLF.
+                if csv_sample_has_columns(sample,';') and not csv_sample_has_columns(sample,','):
+                    delimiter=';'
     for r,row in enumerate(csv.reader(stream,delimiter=delimiter),1):
         if not row:
             yield key('数据表',f'第 {r} 行 · 空记录'),'空记录'

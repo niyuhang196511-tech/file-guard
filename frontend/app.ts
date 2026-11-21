@@ -122,6 +122,15 @@ const freshTextHistory=(): TextHistoryFilter => ({
     q:'',filename:'',ext:'',root:0,file:0,scope:'',start:'',end:'',context:1,
     latest:true,starred:false,exact:false,sensitive:false,skip_initial:false
 });
+const isScanPanel=(dialog)=>dialog?.type==='scan_log'||dialog?.type==='waiting_files';
+const scanStates=['完成','等待保存','有异常','中断','进行中'];
+const scanMetrics=[
+    ['elapsed_ms','耗时（毫秒）'],['candidates','候选'],['captured','快照读取'],
+    ['read_bytes','快照读取量'],['reused','内容复用'],['waiting','等待'],['skipped','跳过']
+];
+const freshJournal=()=>({state:'',source:'',start:'',end:'',skips:false,waiting:false,
+    problem:'',skip_reason:'',sort:'recent',size:20});
+const freshWaiting=()=>({q:'',reason:'',sort:''});
 const freshCellSearch=()=>({q:'',side:'',type:'',field:'',changed:false,exact:false,sensitive:false});
 const freshReview=()=>({state:'',q:'',root:'',ext:'',status:'',baseline:false,starred:false,latest:false,start:'',end:'',sort:'',page:1,size:25});
 const emptyList = ()=>({
@@ -254,6 +263,7 @@ const app = createApp({
             parseStates:['初始快照','待解析','已解析','属性对比','解析失败'],
             loc: '',
             dialog: null,
+            scanOpener: null,
             message: '',
             busy: false,
             notifications: false,
@@ -276,7 +286,37 @@ const app = createApp({
                 '已撤回'
             ]
         }),
+    watch: {
+        dialog: {
+            flush:'post',
+            handler (current,previous) {
+                if(isScanPanel(current)){
+                    this.$refs.dialogClose?.focus?.({preventScroll:true});
+                }else if(isScanPanel(previous)){
+                    const trigger=this.scanOpener;
+                    this.scanOpener=null;
+                    if(!current&&trigger?.isConnected&&trigger.getClientRects().length&&!trigger.matches(':disabled'))
+                        trigger.focus({preventScroll:true});
+                }
+            }
+        }
+    },
     computed: {
+        journalComparison () {
+            if(this.dialog?.type!=='scan_log'||this.dialog.selectedRuns.length!==2)return null;
+            const [before,after]=[...this.dialog.selectedRuns].sort((a,b)=>a.id-b.id);
+            const metrics=scanMetrics.map(([key,label])=>{
+                const left=key==='elapsed_ms'&&!before.ended?null:before[key];
+                const right=key==='elapsed_ms'&&!after.ended?null:after[key];
+                return {key,label,before:left,after:right,delta:left==null||right==null?null:right-left};
+            });
+            return {before,after,metrics};
+        },
+        scanFiltersPending () {
+            const d=this.dialog;
+            return !!(d?.applied&&['scan_log','waiting_files'].includes(d.type)&&
+                JSON.stringify(d.filters)!==JSON.stringify(d.applied));
+        },
         activeContentVersion () {return this.versions.find(v=>v.id===this.right);},
         snapshotShowsHex () {return this.snapshotForm.mode==='hex'||(this.snapshotForm.mode==='auto'&&this.snapshotData?.mode==='hex');},
         ledgerEnabled () {return this.versions.some(v=>ledgerExt.includes(v.ext));},
@@ -1288,28 +1328,141 @@ const app = createApp({
         policyDialog (r) {
             this.dialog={type:'capture_policy',title:'监听采集策略',root:r.id,path:r.path,settle_ms:r.settle_ms||1500,all_types:!!r.all_types};
         },
-        async waitingDialog (r) {
-            this.dialog={type:'waiting_files',title:'等待中的文件',root:r.id,path:r.path,q:'',reason:'',sort:'',data:null};
+        rememberScanOpener () {
+            if(isScanPanel(this.dialog))return;
+            const trigger=document.activeElement as HTMLElement;
+            this.scanOpener=trigger?.matches?.('button:not(:disabled),a[href],[tabindex]')&&trigger.getClientRects?.().length?trigger:null;
+        },
+        trapScanTab (event: KeyboardEvent) {
+            const dialog=this.$refs.dialogPanel as HTMLElement;
+            const candidates=dialog?.querySelectorAll?.<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),summary,a[href],[tabindex="0"]');
+            if(!candidates)return;
+            const controls=Array.from(candidates).filter(control=>{
+                const collapsed=control.closest('details:not([open])');
+                return control.getClientRects().length&&getComputedStyle(control).visibility==='visible'&&
+                    (!collapsed||collapsed.firstElementChild===control);
+            });
+            if(!controls.length)return;
+            const active=document.activeElement, first=controls[0], last=controls.at(-1);
+            if(!controls.some(control=>control===active)||(event.shiftKey?active===first:active===last)){
+                event.preventDefault();
+                (event.shiftKey?last:first).focus();
+            }
+        },
+        async waitingDialog (root, previousJournal=null) {
+            this.rememberScanOpener();
+            this.dialog={type:'waiting_files',title:'当前等待队列',root:root.id,path:root.path,
+                filters:freshWaiting(),applied:null,loading:false,error:'',reasons:[],data:null,previousJournal};
             await this.loadWaiting();
         },
-        async loadWaiting (page=1) {
-            const d=this.dialog,seq=(this.flags.waits||0)+1;
-            this.flags.waits=seq;
-            const data=await this.safe(()=>request('waiting_files',{root:d.root,q:d.q,reason:d.reason,sort:d.sort,page}));
-            if(this.dialog===d&&this.flags.waits===seq)d.data=data;
+        async loadWaiting (page=1, filters=null) {
+            const d=this.dialog;
+            if(d?.type!=='waiting_files')return;
+            await this.loadScanPanel(d,filters||d.applied||freshWaiting(),page);
+        },
+        async applyWaiting () {
+            const d=this.dialog;
+            if(d?.type!=='waiting_files')return;
+            d.filters.q=d.filters.q.trim();
+            await this.loadWaiting(1,d.filters);
+        },
+        async resetWaiting () {
+            this.dialog.filters=freshWaiting();
+            await this.applyWaiting();
+        },
+        async waitingReason (value) {
+            const filters=this.dialog.filters;
+            filters.reason=filters.reason===value?'':value;
+            await this.applyWaiting();
         },
         async scanJournal (root) {
-            this.dialog={type:'scan_log',title:'扫描运行记录',root:root.id,path:root.path,state:'',source:'',skips:false,data:null};
+            this.rememberScanOpener();
+            this.dialog={type:'scan_log',title:'扫描运行记录',root:root.id,path:root.path,
+                filters:freshJournal(),applied:null,loading:false,error:'',data:null,selectedRuns:[],
+                sources:[],problems:[],skipReasons:[],states:scanStates};
             await this.loadJournal();
         },
-        async loadJournal (page=1) {
-            const d=this.dialog,seq=(this.flags.journal||0)+1;
-            this.flags.journal=seq;
-            const data=await this.safe(()=>request('scan_log',{root:d.root,state:d.state,source:d.source,skips:d.skips,page}));
-            if(this.dialog===d&&this.flags.journal===seq)d.data=data;
+        async loadJournal (page=1, filters=null) {
+            const d=this.dialog;
+            if(d?.type!=='scan_log')return;
+            await this.loadScanPanel(d,filters||d.applied||freshJournal(),page);
+        },
+        async loadScanPanel (d, filters, page) {
+            const seq=(this.flags.scanPanel||0)+1,applied={...filters};
+            this.flags.scanPanel=seq;
+            d.loading=true;d.error='';d.data=null;
+            try {
+                const result=await request(d.type,{root:d.root,...applied,page});
+                if(this.dialog!==d||this.flags.scanPanel!==seq)return;
+                d.data=result;d.applied=applied;
+                if(d.type==='scan_log'){
+                    d.sources=result.sources;
+                    d.problems=result.facets.problems;
+                    d.skipReasons=result.facets.skip_reasons;
+                }else d.reasons=result.reasons;
+            }catch(e){
+                if(this.dialog===d&&this.flags.scanPanel===seq)d.error=String(e.message||e);
+            }finally{
+                if(this.dialog===d&&this.flags.scanPanel===seq)d.loading=false;
+            }
+        },
+        async applyJournal () {
+            const d=this.dialog;
+            if(d?.type!=='scan_log')return;
+            const {start,end}=d.filters;
+            const invalid=[start,end].some(value=>{
+                if(!value)return false;
+                if(!/^\d{4}-\d{2}-\d{2}$/.test(value)||value.startsWith('0000'))return true;
+                const day=new Date(value+'T00:00:00Z');
+                return Number.isNaN(day.valueOf())||day.toISOString().slice(0,10)!==value;
+            });
+            if(invalid||(start&&end&&start>end)){
+                d.error=invalid?'请输入有效的起止日期。':'开始日期应早于或等于结束日期。';
+                return;
+            }
+            await this.loadJournal(1,d.filters);
+        },
+        async resetJournal () {
+            this.dialog.filters=freshJournal();
+            await this.applyJournal();
+        },
+        async journalFacet (key,value) {
+            const filters=this.dialog.filters;
+            filters[key]=filters[key]===value?'':value;
+            await this.applyJournal();
+        },
+        scanFacetChoices (options, value) {
+            return value&&!options.includes(value)?[value,...options]:options;
+        },
+        async journalWaiting () {
+            const d=this.dialog;
+            if(d?.type==='scan_log')await this.waitingDialog({id:d.root,path:d.path},d);
+        },
+        async backToJournal () {
+            const d=this.dialog;
+            if(d?.type!=='waiting_files')return;
+            if(!d.previousJournal){await this.scanJournal({id:d.root,path:d.path});return;}
+            this.dialog=d.previousJournal;
+            await this.loadJournal(this.dialog.data?.page||1);
+        },
+        journalHasRun (id) {
+            return this.dialog.selectedRuns.some(r=>r.id===id);
+        },
+        toggleJournalRun (run) {
+            const d=this.dialog;
+            if(d?.type!=='scan_log')return;
+            if(this.journalHasRun(run.id))d.selectedRuns=d.selectedRuns.filter(r=>r.id!==run.id);
+            else if(run.status!=='进行中'&&d.selectedRuns.length<2)d.selectedRuns.push(run);
+        },
+        journalMetric (key, value, signed=false) {
+            if(value==null)return '—';
+            const absolute=key==='read_bytes'?this.bytes(Math.abs(value)):this.num(Math.abs(value));
+            return (value<0?'−':signed&&value>0?'+':'')+absolute;
         },
         async exportJournal () {
-            const {root,state,source,skips}=this.dialog,args={root,state,source,skips};
+            const d=this.dialog;
+            if(d?.type!=='scan_log'||!d.data?.total||d.loading)return;
+            const args={root:d.root,...d.applied,detail:true};
             if(this.demo)await this.downloadCsv('scan_log_export',args,'扫描运行记录.csv');
             else await this.saveFile('scan_log_export','扫描运行记录.csv',null,args);
         },
@@ -1800,6 +1953,8 @@ const app = createApp({
                 if(!d.result&&!d.loading)await this.previewReviewBatch();
                 return;
             }
+            if (d?.type==='scan_log'){await this.applyJournal();return;}
+            if (d?.type==='waiting_files'){await this.applyWaiting();return;}
             if (d && ['period','trace'].includes(d.type)){if(!d.loading)await this.runReport();return;}
             if (!d || ['receipt','ledger','inventory','health','variance','delivery_result','backup_result'].includes(d.type)) return;
             if (d.type==='restore_preview' && (this.demo || d.info.identical)) return;
@@ -2128,6 +2283,7 @@ const app = createApp({
         });
         window.addEventListener('keydown', (e)=>{
             if(this.busy)return;
+            if(e.key==='Tab'&&isScanPanel(this.dialog))this.trapScanTab(e);
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
                 e.preventDefault();
                 this.fileDialog();

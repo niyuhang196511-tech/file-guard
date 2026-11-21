@@ -160,6 +160,22 @@ def generate(tmp):
     receiving_book(receiving,False)
     batch_ledgers(dirs[0][0],False)
     run(clock(29))
+    warehouse_id=dirs[0][1]
+    # Retained sample runs between the first and second batches of saved versions.
+    scan_examples=(
+        ('文件监听','等待保存',10,42,2,0,0,0,2,{},''),
+        ('保存复查','完成',11,78,29,2,67320,27,0,{},''),
+        ('周期扫描','中断',12,0,0,0,0,0,0,{},'上次引擎退出'),
+        ('周期扫描','完成',13,108,29,0,0,29,0,{'临时文件':1},''),
+        ('手动扫描','完成',14,92,29,0,0,29,0,{},''),
+    )
+    with store.db() as db:
+        db.executemany('''INSERT INTO scan_runs(root_id,source,started,ended,status,elapsed_ms,candidates,
+            captured,read_bytes,reused,waiting,skipped,skip_reasons,problem) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+            ((warehouse_id,source,clock(27,10,minute),clock(27,10,minute) if status!='中断' else '',
+              status,elapsed,candidates,captured,read_bytes,reused,waiting,sum(skips.values()),
+              json.dumps(skips,ensure_ascii=False),problem)
+             for source,status,minute,elapsed,candidates,captured,read_bytes,reused,waiting,skips,problem in scan_examples))
     def snapshot(label,stamp):
         with patch('engine.checkpoints.now',return_value=stamp):
             for _,rid in dirs:
@@ -237,6 +253,15 @@ def generate(tmp):
             db.execute('UPDATE roots SET path=? WHERE id=?',('D:\\业务资料\\'+folder.name,rid))
         db.execute('DELETE FROM tasks')
         db.execute('DELETE FROM audit')
+        # Fictional pending files are separate from the retained scan statistics.
+        sample_waits=(('业务明细/入库补录.xlsx','等待保存稳定',1,3),
+                      ('业务明细/盘点补录.xlsx','等待保存稳定',2,2),
+                      ('归档资料/质检附录.pdf','等待文件读取权限',3,4))
+        db.executemany('INSERT INTO waiting_files VALUES (?,?,?,?,?,?)',
+                       ((warehouse_id,rel,reason,clock(0,17,39),clock(0,17,40+minute),attempts)
+                        for rel,reason,minute,attempts in sample_waits))
+        db.execute('INSERT INTO scan_waits VALUES (?,?,?,?)',
+                   (warehouse_id,len(sample_waits),json.dumps([r[:2] for r in sample_waits],ensure_ascii=False),2))
         for folder,rid in dirs:
             db.execute('INSERT INTO audit(stamp,action,note) VALUES (?,?,?)',(clock(29),'添加监控目录','D:\\业务资料\\'+folder.name))
         db.execute('INSERT INTO audit(stamp,action,note) VALUES (?,?,?)',(clock(0,17,43),'导出版本差异','库存台账.xlsx · V1 → V2 · 示例工作区'))
@@ -332,6 +357,8 @@ def generate(tmp):
                              group_header=content_catalog.GROUP_HEADER,ref_fields=content_catalog.REF_FIELDS,
                              ref_header=content_catalog.REF_HEADER,example=hashlib.sha256(approved).hexdigest())
     d['scanColumns']=scan_log.COLUMNS
+    d['scanDetailColumns']=scan_log.DETAIL_COLUMNS
+    d['scanStates']=scan_log.STATES
     d['waits']={rid:all_rows('waiting_files',root=rid) for _,rid in dirs}
     d['scanRuns']={rid:all_rows('scan_log',root=rid) for _,rid in dirs}
     d['rules']={rid:api.dispatch('rule_history',dict(root=rid)) for _,rid in dirs}

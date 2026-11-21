@@ -120,12 +120,33 @@ class PathHistoryTests(unittest.TestCase):
     def test_case_only_rename_folded_path_marks_both_sides(self):
         self.put('Note.txt')
         self.scan()
+        original,=self.service.dispatch('files',{})['items']
         self.move('Note.txt','intermediate.txt')
         self.move('intermediate.txt','note.txt')
         self.scan()
         renamed,=self.path(rel='NOTE.txt',fold=True,kind='重命名')['items']
         self.assertEqual((renamed['old_match'],renamed['new_match'],renamed['direction']),
                          (1,1,'范围内路径变化'))
+        current,=self.service.dispatch('files',{})['items']
+        self.assertEqual((current['id'],current['rel'],current['version']),(original['id'],'note.txt',1))
+        self.scan()
+        self.assertEqual(self.path(rel='NOTE.txt',fold=True)['counts'],{'新占用记录':1,'范围内路径变化':1})
+
+    def test_existing_case_variants_remain_distinct(self):
+        first=self.put('Note.txt','第一份')
+        try:
+            with (self.root/'note.txt').open('xb') as second:
+                second.write(b'second')
+        except FileExistsError:
+            self.skipTest('当前目录不区分文件名大小写')
+        self.scan()
+        report=self.path(rel='NOTE.txt',fold=True)
+        self.assertEqual((report['identities'],report['counts']),(2,{'新占用记录':2}))
+        first.unlink()
+        self.scan()
+        current,=self.service.dispatch('files',{})['items']
+        self.assertEqual(current['rel'],'note.txt')
+        self.assertEqual(self.path(rel='NOTE.txt',fold=True)['counts'],{'新占用记录':2,'删除记录':1})
 
     def test_structural_kind_and_source_filters_are_intersected(self):
         self.put('核对.txt','初始')

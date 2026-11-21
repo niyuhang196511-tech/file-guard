@@ -7,7 +7,7 @@ import stat
 
 from . import rules
 from .shared_read import open_snapshot_source
-from .store import ensure_plain, now, signature
+from .store import ensure_plain, matches_open_file, now, signature
 
 
 def read_digest(target, before):
@@ -17,10 +17,11 @@ def read_digest(target, before):
         fd=os.open(target,os.O_RDONLY|os.O_NONBLOCK|getattr(os,'O_NOFOLLOW',0))
         source=os.fdopen(fd,'rb')
     with source as stream:
-        if signature(os.fstat(stream.fileno())) != signature(before):
+        opened = os.fstat(stream.fileno())
+        if not matches_open_file(before, opened):
             raise ValueError('读取期间变化')
         sha = hashlib.file_digest(stream, 'sha256').hexdigest()
-        if signature(os.fstat(stream.fileno())) != signature(before):
+        if signature(os.fstat(stream.fileno())) != signature(opened):
             raise ValueError('读取期间变化')
     return sha
 

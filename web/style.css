@@ -74,3 +74,21 @@ aside nav{min-height:0;overflow-y:auto}.snippet111{max-width:28ch;overflow-wrap:
 .snapshot-table .snapshot-focus>td {background:var(--sel)}
 .snapshot-bytes span {display:inline-block;margin-right:.65em}
 .snapshot-byte-hit,.snapshot-table mark {background:#ffe297;color:#382800;border-radius:2px}
+
+.scan-actions,.scan-chips{gap:7px;flex-wrap:wrap;margin:10px 0}
+.scan-filters{align-items:end}
+.scan-filters label{display:grid;gap:4px;min-width:0}
+.scan-filters input,.scan-filters select{max-width:100%}
+.scan-details{margin:8px 0}
+.scan-details summary,.scan-scroll summary{cursor:pointer}
+.scan-summary,.scan-selection{margin:12px 0;padding:10px;border:1px solid var(--line);border-radius:8px}
+.scan-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:8px;margin:0}
+.scan-metrics div{padding:6px;background:var(--sel);border-radius:5px}
+.scan-metrics dt{font-size:12px;color:var(--sub)}
+.scan-metrics dd{margin:3px 0 0;font-weight:600;overflow-wrap:anywhere}
+.scan-scroll{margin:10px 0;max-width:100%}
+.scan-scroll table{min-width:490px}
+.scan-scroll td{overflow-wrap:anywhere}
+.scan-scroll small{display:block}
+.scan-chips [aria-pressed="true"],.scan-scroll [aria-pressed="true"]{background:var(--sel);font-weight:600}
+.scan-pager{justify-content:flex-start;flex-wrap:wrap}

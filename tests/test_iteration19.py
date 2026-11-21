@@ -1,4 +1,5 @@
 import csv
+from contextlib import closing
 import json
 import os
 import sqlite3
@@ -250,7 +251,8 @@ class Workflow(Work):
             self.file.write_text('关窗后的保存')
             # Observe SQLite through an independent read-only connection, never touch the worker's IPC.
             deadline=time.monotonic()+12
-            with sqlite3.connect((self.base/'另一仓库/fileguard.db').as_uri()+'?mode=ro',uri=True) as db:
+            database=(self.base/'另一仓库'/'fileguard.db').as_uri()
+            with closing(sqlite3.connect(database+'?mode=ro',uri=True)) as db:
                 while db.execute('SELECT count(*) FROM versions').fetchone()[0]<2 and time.monotonic()<deadline:
                     time.sleep(.15)
                 self.assertEqual(db.execute('SELECT count(*) FROM versions').fetchone()[0],2)

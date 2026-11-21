@@ -647,16 +647,77 @@ window.exampleRequest=async function(cmd,a={}){
     return '已保存示例监听策略';
   }
   if(cmd==='waiting_files'){
-    const rows=d.waits[a.root]||[],filtered=rows.filter(r=>(!a.reason||r.reason===a.reason)&&(!a.q||r.rel.toLowerCase().includes(a.q.trim().replaceAll('\\','/').toLowerCase())));
-    if(a.sort==='attempts')filtered.sort((l,r)=>r.attempts-l.attempts);
-    if(a.sort==='path')filtered.sort((l,r)=>l.rel.localeCompare(r.rel));
-    return {...paginate(filtered,25),reasons:[...new Set(rows.map(r=>r.reason))],pages:Math.max(1,Math.ceil(filtered.length/25))};
+    const rows=d.waits[a.root]||[];
+    const compare=(l,r)=>l<r?-1:l>r?1:0;
+    const lower=value=>value.replace(/[A-Z]/g,c=>c.toLowerCase());
+    const first=(l,r)=>compare(l.first_seen,r.first_seen)||compare(l.rel,r.rel);
+    const orders={
+      '':first,
+      attempts:(l,r)=>r.attempts-l.attempts||first(l,r),
+      path:(l,r)=>compare(lower(l.rel),lower(r.rel))||compare(l.rel,r.rel),
+      recent:(l,r)=>compare(r.last_seen,l.last_seen)||compare(l.rel,r.rel),
+    };
+    const order=a.sort??'';
+    if(!Object.hasOwn(orders,order))throw Error('无效的等待队列排序');
+    const q=lower((a.q??'').trim().replaceAll('\\','/'));
+    const matching=rows.filter(r=>lower(r.rel).includes(q));
+    const counts=Object.create(null);
+    for(const row of matching)counts[row.reason]=(counts[row.reason]??0)+1;
+    const filtered=matching.filter(r=>!a.reason||r.reason===a.reason).sort(orders[order]);
+    return {...paginate(filtered,25),counts,reasons:[...new Set(rows.map(r=>r.reason))].sort(),pages:Math.max(1,Math.ceil(filtered.length/25))};
   }
   if(cmd==='scan_log'||cmd==='scan_log_export'){
-    const runs=d.scanRuns[a.root]||[],selected=runs.filter(r=>(!a.state||r.status===a.state)&&(!a.skips||r.skipped)&&(!a.source||r.source===a.source));
-    if(cmd==='scan_log_export')return csvText([Object.values(d.scanColumns),...selected.map(r=>Object.keys(d.scanColumns).map(k=>r[k]))]);
-    const finished=selected.filter(r=>r.ended);
-    return {...paginate(selected,20),pages:Math.max(1,Math.ceil(selected.length/20)),sources:[...new Set(runs.map(r=>r.source))],average:Math.round(finished.reduce((n,r)=>n+r.elapsed_ms,0)/(finished.length||1)),longest:Math.max(0,...finished.map(r=>r.elapsed_ms))};
+    const runs=d.scanRuns[a.root]||[];
+    const size=a.size===undefined?20:Number(a.size);
+    const sort=a.sort??'recent';
+    const recent=(l,r)=>r.id-l.id;
+    const orders={
+      recent,
+      oldest:(l,r)=>l.id-r.id,
+      slowest:(l,r)=>Number(!!r.ended)-Number(!!l.ended)||(l.ended&&r.ended?r.elapsed_ms-l.elapsed_ms:0)||recent(l,r),
+      waiting:(l,r)=>r.waiting-l.waiting||recent(l,r),
+    };
+    if(![20,50,100].includes(size))throw Error('无效的每页扫描条数');
+    if(!Object.hasOwn(orders,sort))throw Error('无效的扫描顺序');
+    if(a.state&&!d.scanStates.includes(a.state))throw Error('无效的扫描状态');
+    for(const key of ['start','end']){
+      const value=a[key]??'';
+      if(value==='')continue;
+      const date=new Date(value+'T00:00:00Z');
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(value)||value.startsWith('0000')||!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==value)
+        throw Error('日期须为有效的 YYYY-MM-DD');
+    }
+    if(a.start&&a.end&&a.start>a.end)throw Error('开始日期须早于或等于结束日期');
+    for(const key of ['waiting','skips','detail'])if(a[key]!==undefined&&typeof a[key]!=='boolean')throw Error('无效的开关');
+    const reasons=r=>Object.keys(r.skip_reasons);
+    const selected=runs.filter(r=>inRange(r.started)&&(!a.state||a.state===r.status)&&(!a.source||a.source===r.source)&&
+      (!a.problem||a.problem===r.problem)&&(!a.skip_reason||Object.hasOwn(r.skip_reasons,a.skip_reason))&&
+      (!a.waiting||r.waiting>0)&&(!a.skips||r.skipped>0)).sort(orders[sort]);
+    if(cmd==='scan_log_export'){
+      const columns=a.detail?{...d.scanColumns,...d.scanDetailColumns}:d.scanColumns;
+      const fields=Object.keys(columns);
+      const detail=r=>JSON.stringify(Object.fromEntries(reasons(r).sort().map(k=>[k,r.skip_reasons[k]])));
+      return csvText([Object.values(columns),...selected.map(r=>fields.map(k=>k==='skip_reasons'?detail(r):r[k]))]);
+    }
+    const durations=selected.filter(r=>r.ended).map(r=>r.elapsed_ms).sort((l,r)=>l-r);
+    const finished=durations.length;
+    const rank=p=>durations[Math.ceil(finished*p/100)-1]??0;
+    const mean=durations.reduce((n,x)=>n+x,0)/(finished||1);
+    const lower=Math.floor(mean);
+    const average=mean-lower===0.5&&lower%2===0?lower:Math.round(mean);
+    const sum=(items,key)=>items.reduce((n,r)=>n+r[key],0);
+    const tally=(key,rows)=>{
+      const counts=Object.create(null);
+      for(const r of rows)if(r[key])counts[r[key]]=(counts[r[key]]??0)+1;
+      return counts;
+    };
+    const skipCounts=Object.create(null);
+    for(const r of selected)for(const reason of reasons(r))skipCounts[reason]=(skipCounts[reason]??0)+r.skip_reasons[reason];
+    const unique=entries=>[...new Set(entries)].sort();
+    const totals=Object.fromEntries(['candidates','captured','read_bytes','reused','waiting','skipped'].map(k=>[k,sum(selected,k)]));
+    return {...paginate(selected,size),pages:Math.max(1,Math.ceil(selected.length/size)),sources:unique(runs.map(r=>r.source)),
+      average,longest:durations.at(-1)??0,facets:{problems:unique(runs.map(r=>r.problem).filter(Boolean)),skip_reasons:unique(runs.flatMap(reasons))},
+      summary:{...totals,finished,p50:rank(50),p95:rank(95),states:tally('status',selected),skip_reasons:skipCounts,problems:tally('problem',selected)}};
   }
   if(cmd==='sheet_find'){
     const book=d.grids[a.old+'-'+a.new+'-'+(a.mode||'aligned')],entries=book.cells[a.sheet||book.first];
