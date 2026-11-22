@@ -1867,12 +1867,25 @@ const app = createApp({
         },
         async reportSource (row) {
             const d=this.dialog;
-            const match=await this.safe(()=>request('events',{event_id:row.event_id,size:1}));
-            if(this.dialog!==d)return;
+            if(!['period','trace'].includes(d?.type)||!d.data?.items.includes(row))return;
+            const seq=(this.flags.reportSource||0)+1;
+            this.flags.reportSource=seq;
+            const report=this.flags.reports, form=JSON.stringify(d.form);
+            const isCurrent=()=>this.dialog===d&&this.flags.reportSource===seq&&
+                this.flags.reports===report&&JSON.stringify(d.form)===form;
+            d.error='';
+            let match;
+            try {
+                match=await request('events',{event_id:row.event_id,size:1});
+            } catch(e) {
+                if(isCurrent())d.error=String(e?.message||e);
+                return;
+            }
+            if(!isCurrent())return;
             const e=match?.items[0];
             if(!e?.file_id){d.error='该事件已不在普通日志中，请重新查询';return;}
             this.dialog=null;
-            if(d.type==='period')await this.fromEvent(e);
+            if(d.type==='period')await this.fromEvent(e,true);
             else await this.openFound({...row,file_id:e.file_id,rel:e.rel,root_path:e.root,ext:e.ext});
         },
         async inventoryDialog () {
@@ -2132,10 +2145,10 @@ const app = createApp({
             this.dialog = null;
             await this.selectFile(v, this.page === '版本对比' ? '版本对比' : '历史版本');
         },
-        async fromEvent (e) {
+        async fromEvent (e, fromReport=false) {
             if(e.kind==='已撤回'){this.toast('此记录已撤回，管理员可在变更记录中核查。');return;}
             if (this.page==='变更记录') {
-                if (this.listLoading || this.rangeError) return;
+                if (!fromReport&&(this.listLoading||this.rangeError))return;
                 this.eventReturn={filters:{...this.f},page:this.p,scroll:window.scrollY || 0};
             }
             const file = {

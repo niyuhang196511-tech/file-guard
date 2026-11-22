@@ -47,9 +47,12 @@ def period(db,store,args,export=False):
     for col in ('root_id','kind','source'):
         if args.get(col):
             conditions.append('e.'+col+'=?');params.append(args[col])
-    if args.get('q'):
-        q=str(args['q']).strip().replace('\\','/')
-        conditions.append('(instr(lower(e.rel),lower(?)) OR instr(lower(e.old_rel),lower(?)))');params.extend([q,q])
+    q=str(args.get('q') or '').strip().replace('\\','/').casefold()
+    if q:
+        db.create_function('fg_period_fold',1,lambda text:text.casefold() if text is not None else None,
+                           deterministic=True)
+        conditions.append('(instr(fg_period_fold(e.rel),?)>0 OR instr(fg_period_fold(e.old_rel),?)>0)')
+        params.extend((q,q))
     exts={'.'+x.lstrip('.').lower() for x in re.split(r'[,，;；\s]+',str(args.get('ext',''))) if x.lstrip('.')}
     if len(exts)>50:raise ValueError('一次最多 50 个后缀')
     if exts:
@@ -117,7 +120,9 @@ def trace(db,store,args,export=False):
             endpoints=loc.split(' · ',1)[0].split(' → ')
             if location and location!=loc and location not in endpoints:continue
             cat=detail.get('category') or ''
-            ident=(detail['sheet'],rec,col,cat,loc if not(rec and col) else '')
+            # Formula and type transitions still belong to the same cell's value history.
+            value_category='单元格值' if cat in ('单元格值','数据类型','公式') else cat
+            ident=(detail['sheet'],rec,col,value_category,loc if not(rec and col) else '')
             old,new=detail.get('old'),detail.get('new')
             memory=seen.setdefault(ident,set())
             old_key=(detail.get('old_type'),old)

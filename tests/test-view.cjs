@@ -3,9 +3,10 @@ const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),asse
 const lf=text=>text.replaceAll('\r\n','\n');
 const html=lf(fs.readFileSync(process.argv[2],'utf8'));
 const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(x=>x[1]);
-const bundledScript=name=>lf(fs.readFileSync(path.join(__dirname,'..','web',name),'utf8')).replaceAll('</script','<\\/script');
-assert(scripts[3]===bundledScript('view.js'),'离线预览的 view.js 尚未同步');
-assert(scripts[4]?.endsWith(bundledScript('app.js')),'离线预览的 app.js 尚未同步');
+const bundledScript=name=>lf(fs.readFileSync(path.join(__dirname,'..',name),'utf8')).replaceAll('</script','<\\/script');
+assert(scripts[3]===bundledScript('web/view.js'),'离线预览的 view.js 尚未同步');
+assert(scripts[4]?.endsWith(bundledScript('web/app.js')),'离线预览的 app.js 尚未同步');
+assert(scripts[4]?.includes('\n'+bundledScript('scripts/example_adapter.js')+'\n'),'离线预览的示例适配器尚未同步');
 const faults=[];
 class Element {
   constructor(tag,text=''){this.tag=tag;this.tagName=tag.toUpperCase();this.type=tag;this.text=text;this.children=[];this.props={};this.style={};this.events={};this.selectedIndex=0;this.value='';this.multiple=false}
@@ -511,13 +512,53 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   assert.equal(restoreCalls.length,1);
   appVm.demo=true;ctx.exampleRequest=originalRequest;
   appVm.dialog=null;await appVm.go('变更记录');await appVm.reportDialog('period');
+  const periodReport=appVm.dialog;
+  const [earlierGroup,laterGroup]=periodReport.data.items;
+  const [earlierEvent,laterEvent]=await Promise.all([earlierGroup,laterGroup].map(row=>
+    originalRequest('events',{event_id:row.event_id,size:1})));
+  assert.notEqual(earlierEvent.items[0].file_id,laterEvent.items[0].file_id);
+  const sourceLookups=new Map();
+  const delaySources=(cmd,args)=>cmd==='events'&&args.event_id
+    ?new Promise((resolve,reject)=>sourceLookups.set(args.event_id,{resolve,reject}))
+    :originalRequest(cmd,args);
+  const groupAction=row=>{
+    const tableRow=findNode(root,node=>node.tag==='tr'&&node.textContent.includes(row.label));
+    return findNode(tableRow,node=>node.tag==='button'&&node.textContent==='最近事件').props.onClick();
+  };
+  ctx.exampleRequest=delaySources;
+  const earlierSource=groupAction(earlierGroup);
+  const laterSource=groupAction(laterGroup);
+  sourceLookups.get(earlierGroup.event_id).resolve(earlierEvent);await earlierSource;
+  assert(appVm.dialog===periodReport,'较早的报表来源响应不得关闭对话框');
+  sourceLookups.get(laterGroup.event_id).resolve(laterEvent);await laterSource;
+  assert.equal(appVm.file.id,laterEvent.items[0].file_id);
+  ctx.exampleRequest=originalRequest;
+
+  await appVm.go('变更记录',{start:today,end:'2000-01-01'});
+  assert(appVm.rangeError);
+  await appVm.reportDialog('period');
   assert(appVm.dialog.data.after>0);appVm.dialog.form.group='ext';appVm.dialog.form.ext='xlsx';await appVm.runReport();
   assert.equal(appVm.dialog.data.items[0].label,'.xlsx');await appVm.exportReport();assert((await downloads.at(-1).text()).includes('上期次数'));
   await appVm.reportSource(appVm.dialog.data.items[0]);assert(['版本对比','历史版本'].includes(appVm.page));
+  await appVm.returnToEvents();assert(appVm.rangeError);
   const returned=ctx.FILEGUARD_EXAMPLE.files.find(f=>f.rel==='退货轨迹.csv');
   appVm.dialog=null;await appVm.selectFile(returned);await appVm.reportDialog('trace');appVm.dialog.form.record='RK-001';
   await appVm.runReport();assert.equal(appVm.dialog.data.returns,1);assert.equal(appVm.dialog.data.versions,2);
+  const traceReport=appVm.dialog;
+  const traceRow=traceReport.data.items[0];
+  const traceEvent=await originalRequest('events',{event_id:traceRow.event_id,size:1});
+  ctx.exampleRequest=delaySources;
+  const requeryingTrace=appVm.reportSource(traceRow);
   appVm.dialog.form.only_return=true;await appVm.runReport();assert.equal(appVm.dialog.data.total,1);
+  sourceLookups.get(traceRow.event_id).resolve(traceEvent);await requeryingTrace;
+  assert(appVm.dialog===traceReport,'重查后不得打开旧轨迹中的版本');
+  const currentTrace=traceReport.data.items[0];
+  const editingTrace=appVm.reportSource(currentTrace);
+  traceReport.form.value='待应用的新值';
+  sourceLookups.get(currentTrace.event_id).reject(Error('已过时的轨迹查询'));await editingTrace;
+  assert.equal(traceReport.error,'');
+  traceReport.form.value='';
+  ctx.exampleRequest=originalRequest;
   await appVm.exportReport();assert((await downloads.at(-1).text()).includes('回到先前可见值'));
   await appVm.reportSource(appVm.dialog.data.items[0]);assert.equal(appVm.page,'版本对比');assert(appVm.diff.total);
   const plan=ctx.FILEGUARD_EXAMPLE.files.find(f=>f.rel==='计划领料.xlsx');

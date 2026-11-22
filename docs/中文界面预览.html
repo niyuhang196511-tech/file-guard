@@ -8191,11 +8191,12 @@ window.exampleRequest=async function(cmd,a={}){
     const previous=iso(first-span),previous_end=iso(first-86400000);
     const totals=[0,0],files=[new Set(),new Set()],groups=new Map();
     const exts=String(a.ext||'').toLowerCase().split(/[,，;；\s]+/).filter(Boolean).map(v=>'.'+v.replace(/^\.+/,''));
-    const q=String(a.q||'').toLowerCase().replaceAll('\\','/'),mode=a.group||'file';
+    const fold=text=>Array.from(text,c=>d.textSearch.fold[c]??c.toLowerCase()).join('');
+    const q=fold(String(a.q||'').trim().replaceAll('\\','/')),mode=a.group||'file';
     for(const e of d.events.map(publicEvent).filter(x=>x?.file_id).sort((x,y)=>x.stamp.localeCompare(y.stamp)||x.id-y.id)){
       const day=e.stamp.slice(0,10);if(day<previous||day>end||(!a.initial&&e.kind==='初始建档'))continue;
       if(a.root_id&&+a.root_id!==e.root_id||a.kind&&a.kind!==e.kind||a.source&&a.source!==e.source||exts.length&&!exts.includes(e.ext))continue;
-      if(q&&![e.rel,e.old_rel].some(x=>String(x||'').toLowerCase().includes(q)))continue;
+      if(q&&![e.rel,e.old_rel].some(x=>fold(String(x||'')).includes(q)))continue;
       const curr=Number(day>=start);totals[curr]++;files[curr].add(e.file_id);
       let key,label;
       if(mode==='file'){key=e.file_id;label=e.root+' / '+e.rel;}
@@ -8227,7 +8228,8 @@ window.exampleRequest=async function(cmd,a={}){
         const record=item.record_key||'',field=item.field||'',category=item.category||'',loc=item.location;
         if(val('record')&&val('record')!==record||val('field')&&val('field')!==field||val('sheet')&&val('sheet')!==item.sheet)continue;
         if(val('location')&&val('location')!==loc&&!loc.split(' · ')[0].split(' → ').includes(val('location')))continue;
-        const key=JSON.stringify([item.sheet,record,field,category,record&&field?'':loc]),set=memory.get(key)||new Set();
+        const valueCategory=['单元格值','数据类型','公式'].includes(category)?'单元格值':category;
+        const key=JSON.stringify([item.sheet,record,field,valueCategory,record&&field?'':loc]),set=memory.get(key)||new Set();
         const oldKey=JSON.stringify([item.old_type,item.old]),newKey=JSON.stringify([item.new_type,item.new]);
         const back=item.new!=null&&oldKey!==newKey&&set.has(newKey);
         if(item.old!=null)set.add(oldKey);if(item.new!=null)set.add(newKey);memory.set(key,set);
@@ -10611,12 +10613,25 @@ const app = createApp({
         },
         async reportSource (row) {
             const d=this.dialog;
-            const match=await this.safe(()=>request('events',{event_id:row.event_id,size:1}));
-            if(this.dialog!==d)return;
+            if(!['period','trace'].includes(d?.type)||!d.data?.items.includes(row))return;
+            const seq=(this.flags.reportSource||0)+1;
+            this.flags.reportSource=seq;
+            const report=this.flags.reports, form=JSON.stringify(d.form);
+            const isCurrent=()=>this.dialog===d&&this.flags.reportSource===seq&&
+                this.flags.reports===report&&JSON.stringify(d.form)===form;
+            d.error='';
+            let match;
+            try {
+                match=await request('events',{event_id:row.event_id,size:1});
+            } catch(e) {
+                if(isCurrent())d.error=String(e?.message||e);
+                return;
+            }
+            if(!isCurrent())return;
             const e=match?.items[0];
             if(!e?.file_id){d.error='该事件已不在普通日志中，请重新查询';return;}
             this.dialog=null;
-            if(d.type==='period')await this.fromEvent(e);
+            if(d.type==='period')await this.fromEvent(e,true);
             else await this.openFound({...row,file_id:e.file_id,rel:e.rel,root_path:e.root,ext:e.ext});
         },
         async inventoryDialog () {
@@ -10876,10 +10891,10 @@ const app = createApp({
             this.dialog = null;
             await this.selectFile(v, this.page === '版本对比' ? '版本对比' : '历史版本');
         },
-        async fromEvent (e) {
+        async fromEvent (e, fromReport=false) {
             if(e.kind==='已撤回'){this.toast('此记录已撤回，管理员可在变更记录中核查。');return;}
             if (this.page==='变更记录') {
-                if (this.listLoading || this.rangeError) return;
+                if (!fromReport&&(this.listLoading||this.rangeError))return;
                 this.eventReturn={filters:{...this.f},page:this.p,scroll:window.scrollY || 0};
             }
             const file = {

@@ -403,11 +403,12 @@ window.exampleRequest=async function(cmd,a={}){
     const previous=iso(first-span),previous_end=iso(first-86400000);
     const totals=[0,0],files=[new Set(),new Set()],groups=new Map();
     const exts=String(a.ext||'').toLowerCase().split(/[,，;；\s]+/).filter(Boolean).map(v=>'.'+v.replace(/^\.+/,''));
-    const q=String(a.q||'').toLowerCase().replaceAll('\\','/'),mode=a.group||'file';
+    const fold=text=>Array.from(text,c=>d.textSearch.fold[c]??c.toLowerCase()).join('');
+    const q=fold(String(a.q||'').trim().replaceAll('\\','/')),mode=a.group||'file';
     for(const e of d.events.map(publicEvent).filter(x=>x?.file_id).sort((x,y)=>x.stamp.localeCompare(y.stamp)||x.id-y.id)){
       const day=e.stamp.slice(0,10);if(day<previous||day>end||(!a.initial&&e.kind==='初始建档'))continue;
       if(a.root_id&&+a.root_id!==e.root_id||a.kind&&a.kind!==e.kind||a.source&&a.source!==e.source||exts.length&&!exts.includes(e.ext))continue;
-      if(q&&![e.rel,e.old_rel].some(x=>String(x||'').toLowerCase().includes(q)))continue;
+      if(q&&![e.rel,e.old_rel].some(x=>fold(String(x||'')).includes(q)))continue;
       const curr=Number(day>=start);totals[curr]++;files[curr].add(e.file_id);
       let key,label;
       if(mode==='file'){key=e.file_id;label=e.root+' / '+e.rel;}
@@ -439,7 +440,8 @@ window.exampleRequest=async function(cmd,a={}){
         const record=item.record_key||'',field=item.field||'',category=item.category||'',loc=item.location;
         if(val('record')&&val('record')!==record||val('field')&&val('field')!==field||val('sheet')&&val('sheet')!==item.sheet)continue;
         if(val('location')&&val('location')!==loc&&!loc.split(' · ')[0].split(' → ').includes(val('location')))continue;
-        const key=JSON.stringify([item.sheet,record,field,category,record&&field?'':loc]),set=memory.get(key)||new Set();
+        const valueCategory=['单元格值','数据类型','公式'].includes(category)?'单元格值':category;
+        const key=JSON.stringify([item.sheet,record,field,valueCategory,record&&field?'':loc]),set=memory.get(key)||new Set();
         const oldKey=JSON.stringify([item.old_type,item.old]),newKey=JSON.stringify([item.new_type,item.new]);
         const back=item.new!=null&&oldKey!==newKey&&set.has(newKey);
         if(item.old!=null)set.add(oldKey);if(item.new!=null)set.add(newKey);memory.set(key,set);

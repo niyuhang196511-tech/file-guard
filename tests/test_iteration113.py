@@ -182,6 +182,27 @@ class Reports(unittest.TestCase):
         self.assertEqual(self.period(group='kind',kind='内容修改',root_id=self.rid)['total'],1)
         self.assertEqual(self.period(source='missing')['total'],0)
 
+    def test_period_and_csv_match_casefolded_former_windows_paths(self):
+        folder = self.root/'Änderungen'
+        folder.mkdir()
+        original = folder/'Straße%.txt'
+        original.write_text('first', encoding='utf-8')
+        (folder/'StraßeX.txt').write_text('other', encoding='utf-8')
+        self.scan(5)
+        original.rename(folder/'Current.txt')
+        self.scan(8)
+
+        filters = {'q':'änderungen\\STRASSE%.TXT','kind':'重命名'}
+        event, = self.call('events', **filters)['items']
+        result = self.period(**filters)
+        row, = result['items']
+        self.assertEqual((result['before'],result['after'],row['event_id']),(0,1,event['id']))
+        destination = self.base/'period.csv'
+        self.call('period_csv', start=result['start'], end=result['end'], path=str(destination), **filters)
+        with destination.open(encoding='utf-8-sig', newline='') as stream:
+            exported, = csv.DictReader(stream)
+        self.assertEqual((exported['分组'],exported['本期次数']),(row['label'],'1'))
+
     def test_period_date_edges_missing_extensions_and_csv(self):
         for i in range(31):(self.root/f'f{i}').write_text('a')
         self.scan(1)
@@ -208,6 +229,36 @@ class Reports(unittest.TestCase):
         self.assertEqual(self.trace(kind='删除')['total'],0)
         with self.assertRaises(ValueError):self.trace(low=3,high=2)
         with self.assertRaises(ValueError):self.trace(record='')
+
+    def test_excel_trace_recognizes_returns_across_content_categories_with_types(self):
+        path = self.root/'数量.xlsx'
+        for day, values in enumerate([(100,'100',100), ('100',130,'=1+2'), (120,110,200), (100,100,100)], 1):
+            book = Workbook()
+            sheet = book.active
+            sheet.title = '库存'
+            sheet.append(['编号','数量'])
+            for record, value in zip(('A','B','C'),values):
+                sheet.append([record,value])
+            book.save(path)
+            book.close()
+            self.scan(day)
+        self.fid = self.call('files')['items'][0]['id']
+
+        result = self.trace(record='',field='数量')
+        final = {row['record']:(row['category'],row['returning']) for row in result['items'] if row['version']==4}
+        self.assertEqual(final,{'A':('单元格值','是'),'B':('单元格值','否'),'C':('单元格值','是')})
+
+        filters = dict(record='',field='数量',category='单元格值',only_return=True)
+        matches = self.trace(**filters)
+        self.assertEqual((matches['versions'],matches['returns']),(1,2))
+        self.assertEqual({row['record'] for row in matches['items']},{'A','C'})
+
+        destination = self.base/'returns.csv'
+        self.call('trace_csv',id=self.fid,path=str(destination),**filters)
+        with destination.open(encoding='utf-8-sig', newline='') as stream:
+            exported = list(csv.DictReader(stream))
+        self.assertEqual({row['业务编号'] for row in exported},{'A','C'})
+        self.assertTrue(all(row['回到先前可见值']=='是' for row in exported))
 
     def test_withdrawn_records_are_absent_in_stats_reversions_and_exports(self):
         self.make();first,second=self.trace(ascending=True)['items']
