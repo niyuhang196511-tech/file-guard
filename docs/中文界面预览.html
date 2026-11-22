@@ -682,7 +682,7 @@ aside nav{min-height:0;overflow-y:auto}.snippet111{max-width:28ch;overflow-wrap:
 <template v-if="dialog.type==='backup_result'"><p>数据库版本 {{dialog.result.schema}} · {{dialog.result.roots}} 个目录 · {{dialog.result.files}} 个文件条目 · {{dialog.result.versions}} 个版本</p><p>创建时间 {{dialog.result.created?fmt(dialog.result.created):'旧版备份无创建清单'}} · 保存时间范围 {{fmt(dialog.result.oldest)}} 至 {{fmt(dialog.result.latest)}}</p><p>版本合计 {{bytes(dialog.result.logical)}} · 去重后 {{bytes(dialog.result.bytes)}} · 节省 {{bytes(dialog.result.saved)}} · 待核对恢复 {{dialog.result.pending_restores}} 项</p><p v-if="dialog.result.extra_entries">另有 {{dialog.result.extra_entries}} 个未列入备份索引的条目。</p><section v-if="dialog.result.coverage"><h3>按内容摘要核对当前仓库</h3><p>两边都有 {{dialog.result.coverage.shared}} 个对象。当前仓库独有 {{dialog.result.coverage.missing}} 个，共 {{bytes(dialog.result.coverage.missing_bytes)}}，涉及 {{dialog.result.coverage.affected_versions}} 个当前版本。备份独有 {{dialog.result.coverage.only_backup}} 个，共 {{bytes(dialog.result.coverage.only_backup_bytes)}}。</p><small>相同内容可以被多个历史版本引用。</small></section></template>
 <template v-if="dialog.type==='inventory'"><div class="filters"><label>路径片段<input v-model="dialog.q"></label><label>子目录及下级<input v-model="dialog.folder" placeholder="业务明细"></label><label>扩展名<input v-model="dialog.ext" placeholder="xlsx, csv"></label><label>摘要前缀<input v-model="dialog.sha"></label><label>排序<select v-model="dialog.sort"><option value="">按路径</option><option value="size">体积最大</option><option value="updated">最近保存</option><option value="version">版本号最高</option></select></label><button type="button" class="btn" @click="loadInventory()">查询成员</button></div>
 <template v-if="dialog.data"><p>{{dialog.data.meta.label}} · {{dialog.data.total}} 个文件 · {{bytes(dialog.data.bytes)}} · {{dialog.data.objects}} 个唯一内容</p><div class="actions"><button type="button" class="btn" :disabled="!dialog.data.total" @click="exportInventory()">导出成员 CSV</button><button type="button" class="btn" :disabled="dialog.diskLoading" @click="checkDisk(dialog.data.page)">核对本页原路径</button><label><input type="checkbox" v-model="dialog.quick" @change="resetDiskCheck()">只核对大小</label><button type="button" class="btn" :disabled="!dialog.data.total||(demo&&(dialog.active.q||dialog.active.ext||dialog.active.folder||dialog.active.sha))" @click="exportInventory(true)">{{demo?'下载完整示例包':'导出所选历史文件 ZIP'}}</button><button type="button" class="btn" @click="deliveryDialog(dialog.active)">对照此范围核查交付包</button></div><p v-if="dialog.diskLoading" role="status">正在核对本页原路径…</p><p v-if="dialog.diskError" class="error" role="alert">{{dialog.diskError}}</p><details v-if="dialog.disk" open><summary>原路径核对 · {{fmt(dialog.disk.checked)}}</summary><p><span v-for="(n,k) in dialog.disk.counts">{{k}} {{n}}　</span></p><ul><li v-for="r in dialog.disk.items">{{r.rel}} · {{r.state}}<small v-if="r.current_rel&&r.current_rel!==r.rel">当前在册位置 {{r.current_rel}}</small><small v-if="r.replaced">此路径当前对应另一文件编号</small></li></ul></details><div class="scroll"><table><thead><tr><th>清单路径</th><th>版本</th><th>大小</th><th>摘要</th></tr></thead><tbody><tr v-for="r in dialog.data.items"><td>{{r.rel}}</td><td>V{{r.num}}</td><td>{{bytes(r.size)}}</td><td><details><summary>{{r.sha.slice(0,10)}}</summary><span class="hash">{{r.sha}}</span></details></td></tr></tbody></table></div><div class="pager"><button type="button" class="btn" :disabled="dialog.data.page<=1" @click="loadInventory(dialog.data.page-1,dialog.active)">上一页</button>{{dialog.data.page}} / {{dialog.data.pages}}<button type="button" class="btn" :disabled="dialog.data.page>=dialog.data.pages" @click="loadInventory(dialog.data.page+1,dialog.active)">下一页</button></div></template></template>
-<template v-if="dialog.type==='delivery_check'"><label>文件交付 ZIP 路径<input v-model="dialog.path" required></label><small>{{dialog.scope?'同时核对此范围的路径、版本、长度和摘要。':'依据包内清单校验每份副本。'}}</small></template>
+<template v-if="dialog.type==='delivery_check'"><label>文件交付 ZIP 路径<input v-model="dialog.path" :readonly="dialog.choosing||dialog.loading" required></label><small>{{dialog.scope?'同时核对此范围的路径、版本、长度和摘要。':'依据包内清单校验每份副本。'}}</small></template>
 <template v-if="dialog.type==='delivery_result'"><p>{{dialog.result.label}} · 打包 {{fmt(dialog.result.created)}}<template v-if="dialog.result.scanned"> · 来源扫描 {{fmt(dialog.result.scanned)}}</template></p><p>清单 {{dialog.result.total}} 项 · 内容通过 {{dialog.result.verified}} 项 · 已核对 {{bytes(dialog.result.bytes)}} · {{dialog.result.compared?'已对照所选清单':'依据包内清单'}}</p><p v-for="(n,k) in dialog.result.counts">{{k}} {{n}}</p><ul><li v-for="r in dialog.result.issues">{{r.kind}} · {{r.rel}}</li></ul><small v-if="dialog.result.issue_count>100">共 {{dialog.result.issue_count}} 项问题，显示前 100 项。</small></template>
 <template v-if="dialog.type==='health'"><p>保留最近五份完整报告。检查读取历史对象，后台采集继续运行。</p><div class="actions"><button type="button" class="btn" :disabled="dialog.job.state==='检查中'" @click="refreshHealth('health_start')">{{demo?'查看示例检查':'开始检查'}}</button><button type="button" v-if="dialog.job.state==='检查中'" class="btn" @click="refreshHealth('health_cancel')">取消检查</button></div><p role="status">{{dialog.job.state}} <span v-if="dialog.job.state==='检查中'">{{dialog.job.done}} / {{dialog.job.total}}</span> {{dialog.job.error}}</p>
 <template v-if="dialog.reports.length">
@@ -831,10 +831,10 @@ aside nav{min-height:0;overflow-y:auto}.snippet111{max-width:28ch;overflow-wrap:
 </template>
 <small>每个目录保留最近 200 次扫描。汇总涵盖所有匹配运行，同一文件可能计入多次。</small>
 </template>
-<template v-if="dialog.type==='rule_history'"><p class="path">{{dialog.path}}</p><p v-if="dialog.loading" role="status">正在读取采集规则沿革…</p><ol v-else-if="dialog.entries?.length"><li v-for="r in dialog.entries" :key="r.id">{{fmt(r.stamp)}} · {{r.patterns||'无排除规则'}} · {{r.max_mb ? r.max_mb+' MiB':'不限大小'}}</li></ol><small v-if="dialog.entries?.length">最近 100 次配置，最新在前。</small><small v-else-if="dialog.entries">没有采集规则变更记录。</small></template><template v-if="dialog.type==='inspect'"><label>备份 ZIP 路径<input v-model="dialog.path" required></label><small>逐个核对对象，无需退出监控。</small></template><template v-if="dialog.type==='backup'"><label>管理口令<input v-model="dialog.password" type="password" autocomplete="off" required></label><label>新备份文件的完整路径<input v-model="dialog.path" required></label></template><template v-if="dialog.type==='root'"><label>目录路径<div class="inline"><input v-model="dialog.path" placeholder="例如 D:\业务资料\仓库" required :readonly="!!dialog.id"><button type="button" class="btn" v-if="native&&!dialog.id" @click="chooseDir">浏览</button></div></label><label>排除规则<input v-model="dialog.patterns" placeholder="例如 *.tmp，*.bak，缓存/*"></label><label>单文件大小上限（MiB）<input type="number" min="0" v-model.number="dialog.max_mb"></label><small>填 0 表示不限大小。超过上限的文件会跳过。</small><details><summary>保存前预演规则</summary><label>待测文件相对路径，每行一个<textarea v-model="dialog.paths" placeholder="草稿/试算.xlsx"></textarea></label><label>假设每个文件大小（字节，可留空）<input type="number" min="0" v-model="dialog.probeBytes"></label><button class="btn" type="button" @click="previewRules">预演</button><ul v-if="dialog.samples&&dialog.probed===ruleSignature(dialog)"><li v-for="r in dialog.samples">{{r.rel}} · {{r.reason}} <span v-if="r.pattern">· {{r.pattern}} 命中 {{r.part}}</span></li></ul></details></template>
+<template v-if="dialog.type==='rule_history'"><p class="path">{{dialog.path}}</p><p v-if="dialog.loading" role="status">正在读取采集规则沿革…</p><ol v-else-if="dialog.entries?.length"><li v-for="r in dialog.entries" :key="r.id">{{fmt(r.stamp)}} · {{r.patterns||'无排除规则'}} · {{r.max_mb ? r.max_mb+' MiB':'不限大小'}}</li></ol><small v-if="dialog.entries?.length">最近 100 次配置，最新在前。</small><small v-else-if="dialog.entries">没有采集规则变更记录。</small></template><template v-if="dialog.type==='inspect'"><label>备份 ZIP 路径<input v-model="dialog.path" :readonly="dialog.choosing||dialog.loading" required></label><small>逐个核对对象，无需退出监控。</small></template><template v-if="dialog.type==='backup'"><label>管理口令<input v-model="dialog.password" type="password" autocomplete="off" required></label><label>新备份文件的完整路径<input v-model="dialog.path" required></label></template><template v-if="dialog.type==='root'"><label>目录路径<div class="inline"><input v-model="dialog.path" placeholder="例如 D:\业务资料\仓库" required :readonly="!!dialog.id"><button type="button" class="btn" v-if="native&&!dialog.id" @click="chooseDir">浏览</button></div></label><label>排除规则<input v-model="dialog.patterns" placeholder="例如 *.tmp，*.bak，缓存/*"></label><label>单文件大小上限（MiB）<input type="number" min="0" v-model.number="dialog.max_mb"></label><small>填 0 表示不限大小。超过上限的文件会跳过。</small><details><summary>保存前预演规则</summary><label>待测文件相对路径，每行一个<textarea v-model="dialog.paths" placeholder="草稿/试算.xlsx"></textarea></label><label>假设每个文件大小（字节，可留空）<input type="number" min="0" v-model="dialog.probeBytes"></label><button class="btn" type="button" @click="previewRules">预演</button><ul v-if="dialog.samples&&dialog.probed===ruleSignature(dialog)"><li v-for="r in dialog.samples">{{r.rel}} · {{r.reason}} <span v-if="r.pattern">· {{r.pattern}} 命中 {{r.part}}</span></li></ul></details></template>
 <template v-if="dialog.type==='save'"><label>保存路径<input v-model="dialog.path" required placeholder="请输入完整的新文件路径"></label></template><template v-if="['info','confirm'].includes(dialog.type)"><p style="white-space:pre-line">{{dialog.body}}</p></template>
 <template v-if="dialog.type==='tree'"><p v-if="dialog.loading" role="status">正在读取子目录…</p><label class="search-input"><ico n="search"></ico><input v-model="dialog.query" :disabled="dialog.loading" placeholder="搜索子目录路径"></label><div class="picklist"><button type="button" @click="rootFiles(dialog.root)">全部文件</button><button type="button" v-for="folder in visibleFolders" :key="folder.path" @click="treeSelect(dialog.root,folder.path)" :style="{paddingLeft:(8+14*(folder.path.split('/').length-1))+'px'}"><ico n="folder"></ico><span>{{folder.path}}</span><small>{{folder.total}} 个文件</small></button></div><template v-if="!dialog.loading&&!dialog.error"><small v-if="!dialog.folders.length">当前目录没有含已跟踪文件的子目录。</small><small v-else-if="!visibleFolders.length">没有匹配的子目录。</small></template></template><template v-if="dialog.type==='pick'"><div class="picker-tools"><label class="search-input"><ico n="search"></ico><input id="filePicker" v-model="pickQ" @input="searchPick" placeholder="搜索现名、旧名或相对路径"></label><select v-model="pickScope" aria-label="历史文件范围" @change="pickPage=1;loadPicks()"><option v-for="entry in fileScopes" :value="entry[0]">{{entry[1]}}</option></select></div><div class="picklist"><button type="button" v-for="v in picks.items" :key="v.id" :disabled="pickLoading" @click="picked(v)"><span class="file-icon" :class="tone(v.ext)"><ico :n="fileIcon(v.ext)"></ico></span><span class="file-summary"><b>{{base(v.rel)}}</b><small>{{parent(v.root,v.rel)}}</small><small v-if="v.matched_path">原路径：{{v.matched_path}}</small><small><span class="tag" :class="stateTone(v.file_state)">{{v.file_state}}</span>　V{{v.version}} · {{fmt(v.updated)}}</small></span><ico n="chevron-right"></ico></button><p v-if="pickLoading" role="status">正在查找…</p><p v-else-if="!picks.items.length">当前范围内没有找到文件</p></div><div class="pager"><span>共 {{picks.total}} 个文件</span><span><button type="button" class="btn" :disabled="pickPage<=1" @click="pickPage--;loadPicks()">上一页</button> <button type="button" class="btn" :disabled="pickPage*picks.size>=picks.total" @click="pickPage++;loadPicks()">下一页</button></span></div></template>
-<p class="error" v-if="dialog.error">{{dialog.error}}</p><div v-if="!['pick','info','tree','rule_history','private_records','scan_log','waiting_files','ledger','receipt','period','trace','inventory','health','variance','backup_result','delivery_result','review_batch'].includes(dialog.type)&&!(dialog.type==='restore_preview'&&(demo||dialog.loading||!dialog.info||dialog.info.identical))" class="form-actions"><button type="button" class="btn" :disabled="busy" @click="dialog=null">取消</button><button class="primary" :disabled="busy">{{busy?'处理中…':dialog.submit||'保存'}}</button></div></form></section></div><div class="toast" role="status" v-if="message">{{message}}</div></div></div><script>/**
+<p v-if="dialog.choosing" role="status">正在选择 ZIP 文件…</p><p v-else-if="['inspect','delivery_check'].includes(dialog.type)&&dialog.loading" role="status">正在核查 ZIP 文件…</p><p class="error" v-if="dialog.error">{{dialog.error}}</p><div v-if="!['pick','info','tree','rule_history','private_records','scan_log','waiting_files','ledger','receipt','period','trace','inventory','health','variance','backup_result','delivery_result','review_batch'].includes(dialog.type)&&!(dialog.type==='restore_preview'&&(demo||dialog.loading||!dialog.info||dialog.info.identical))" class="form-actions"><button type="button" class="btn" :disabled="busy" @click="dialog=null">取消</button><button class="primary" :disabled="busy||dialog.choosing||dialog.loading">{{busy?'处理中…':dialog.submit||'保存'}}</button></div></form></section></div><div class="toast" role="status" v-if="message">{{message}}</div></div></div><script>/**
 * vue v3.5.13
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
 * @license MIT
@@ -2427,7 +2427,7 @@ const _hoisted_1024 = { class: "hash" }
 const _hoisted_1025 = { class: "pager" }
 const _hoisted_1026 = ["disabled", "onClick"]
 const _hoisted_1027 = ["disabled", "onClick"]
-const _hoisted_1028 = ["onUpdate:modelValue"]
+const _hoisted_1028 = ["onUpdate:modelValue", "readonly"]
 const _hoisted_1029 = { key: 0 }
 const _hoisted_1030 = { class: "actions" }
 const _hoisted_1031 = ["disabled", "onClick"]
@@ -2674,7 +2674,7 @@ const _hoisted_1189 = {
 const _hoisted_1190 = { key: 1 }
 const _hoisted_1191 = { key: 2 }
 const _hoisted_1192 = { key: 3 }
-const _hoisted_1193 = ["onUpdate:modelValue"]
+const _hoisted_1193 = ["onUpdate:modelValue", "readonly"]
 const _hoisted_1194 = ["onUpdate:modelValue"]
 const _hoisted_1195 = ["onUpdate:modelValue"]
 const _hoisted_1196 = { class: "inline" }
@@ -2723,15 +2723,23 @@ const _hoisted_1229 = ["disabled", "onClick"]
 const _hoisted_1230 = ["disabled", "onClick"]
 const _hoisted_1231 = {
   key: 25,
-  class: "error"
+  role: "status"
 }
 const _hoisted_1232 = {
   key: 26,
+  role: "status"
+}
+const _hoisted_1233 = {
+  key: 27,
+  class: "error"
+}
+const _hoisted_1234 = {
+  key: 28,
   class: "form-actions"
 }
-const _hoisted_1233 = ["disabled", "onClick"]
-const _hoisted_1234 = ["disabled"]
-const _hoisted_1235 = {
+const _hoisted_1235 = ["disabled", "onClick"]
+const _hoisted_1236 = ["disabled"]
+const _hoisted_1237 = {
   key: 1,
   class: "toast",
   role: "status"
@@ -6957,6 +6965,7 @@ return function render(_ctx, _cache) {
             (dialog.type==='delivery_check')
               ? (_openBlock(), _createElementBlock(_Fragment, { key: 9 }, [_createElementVNode("label", null, [_cache[388] || (_cache[388] = _createTextVNode("文件交付 ZIP 路径")), _withDirectives(_createElementVNode("input", {
                   "onUpdate:modelValue": $event => ((dialog.path) = $event),
+                  readonly: dialog.choosing||dialog.loading,
                   required: ""
                 }, null, 8, _hoisted_1028), [[_vModelText, dialog.path]])]), _createElementVNode("small", null, _toDisplayString(dialog.scope?'同时核对此范围的路径、版本、长度和摘要。':'依据包内清单校验每份副本。'), 1)], 64))
               : _createCommentVNode("", true),
@@ -7679,6 +7688,7 @@ return function render(_ctx, _cache) {
             (dialog.type==='inspect')
               ? (_openBlock(), _createElementBlock(_Fragment, { key: 18 }, [_createElementVNode("label", null, [_cache[481] || (_cache[481] = _createTextVNode("备份 ZIP 路径")), _withDirectives(_createElementVNode("input", {
                   "onUpdate:modelValue": $event => ((dialog.path) = $event),
+                  readonly: dialog.choosing||dialog.loading,
                   required: ""
                 }, null, 8, _hoisted_1193), [[_vModelText, dialog.path]])]), _cache[482] || (_cache[482] = _createElementVNode("small", null, "逐个核对对象，无需退出监控。", -1))], 64))
               : _createCommentVNode("", true),
@@ -7831,24 +7841,29 @@ return function render(_ctx, _cache) {
                   onClick: $event => {pickPage++;loadPicks()}
                 }, "下一页", 8, _hoisted_1230)])])], 64))
               : _createCommentVNode("", true),
+            (dialog.choosing)
+              ? (_openBlock(), _createElementBlock("p", _hoisted_1231, "正在选择 ZIP 文件…"))
+              : (['inspect','delivery_check'].includes(dialog.type)&&dialog.loading)
+                ? (_openBlock(), _createElementBlock("p", _hoisted_1232, "正在核查 ZIP 文件…"))
+                : _createCommentVNode("", true),
             (dialog.error)
-              ? (_openBlock(), _createElementBlock("p", _hoisted_1231, _toDisplayString(dialog.error), 1))
+              ? (_openBlock(), _createElementBlock("p", _hoisted_1233, _toDisplayString(dialog.error), 1))
               : _createCommentVNode("", true),
             (!['pick','info','tree','rule_history','private_records','scan_log','waiting_files','ledger','receipt','period','trace','inventory','health','variance','backup_result','delivery_result','review_batch'].includes(dialog.type)&&!(dialog.type==='restore_preview'&&(demo||dialog.loading||!dialog.info||dialog.info.identical)))
-              ? (_openBlock(), _createElementBlock("div", _hoisted_1232, [_createElementVNode("button", {
+              ? (_openBlock(), _createElementBlock("div", _hoisted_1234, [_createElementVNode("button", {
                   type: "button",
                   class: "btn",
                   disabled: busy,
                   onClick: $event => (dialog=null)
-                }, "取消", 8, _hoisted_1233), _createElementVNode("button", {
+                }, "取消", 8, _hoisted_1235), _createElementVNode("button", {
                   class: "primary",
-                  disabled: busy
-                }, _toDisplayString(busy?'处理中…':dialog.submit||'保存'), 9, _hoisted_1234)]))
+                  disabled: busy||dialog.choosing||dialog.loading
+                }, _toDisplayString(busy?'处理中…':dialog.submit||'保存'), 9, _hoisted_1236)]))
               : _createCommentVNode("", true)
           ], 40, _hoisted_834)], 10, _hoisted_831)], 8, _hoisted_830))
         : _createCommentVNode("", true),
       message
-        ? (_openBlock(), _createElementBlock("div", _hoisted_1235, _toDisplayString(message), 1))
+        ? (_openBlock(), _createElementBlock("div", _hoisted_1237, _toDisplayString(message), 1))
         : _createCommentVNode("", true)
     ], 2))
   }
@@ -10808,14 +10823,9 @@ const app = createApp({
             a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);
         },
         async deliveryDialog (scope=null,versionBundle=false) {
-            let path='';
-            if(this.native){
-                path=await this.safe(()=>window.__TAURI__.core.invoke('pick_path',{kind:'delivery',name:''}));
-                if(!path)return;
-            }
-            this.dialog={type:'delivery_check',title:versionBundle?'按交付篮核查 ZIP':scope?'按所选清单核查交付包':'核查交付包',
-                scope,path,versionBundle,submit:'核查交付包'};
-            if(this.demo)await this.submitDialog();
+            await this.openArchiveCheck({type:'delivery_check',
+                title:versionBundle?'按交付篮核查 ZIP':scope?'按所选清单核查交付包':'核查交付包',
+                scope,versionBundle,submit:'核查交付包'},'delivery');
         },
         async healthDialog () {
             this.dialog={type:'health',title:'仓库体检',reports:[],id:0,data:null,applied:null,q:'',change:'',status:'',
@@ -10904,13 +10914,41 @@ const app = createApp({
             await this.loadDiff();
         },
         async inspectDialog () {
-            let path='';
+            await this.openArchiveCheck({type:'inspect',title:'核查备份',submit:'开始核查'},'backup');
+        },
+        async openArchiveCheck (options, kind) {
+            this.dialog={...options,path:'',choosing:this.native,loading:false,error:''};
+            const d=this.dialog;
             if(this.native){
-                path=await this.safe(()=>window.__TAURI__.core.invoke('pick_path',{kind:'backup',name:''}));
-                if(!path)return;
+                try {
+                    const path=await window.__TAURI__.core.invoke('pick_path',{kind,name:''});
+                    if(this.dialog!==d)return;
+                    if(!path){this.dialog=null;return;}
+                    d.path=path;
+                } catch(e) {
+                    if(this.dialog===d)d.error=String(e?.message||e);
+                    return;
+                } finally {
+                    if(this.dialog===d)d.choosing=false;
+                }
             }
-            this.dialog={type:'inspect',title:'核查备份',path,submit:'开始核查'};
             if(this.demo)await this.submitDialog();
+        },
+        async verifyArchive (d) {
+            if(d.choosing||d.loading)return;
+            const backup=d.type==='inspect';
+            const cmd=backup?'inspect_backup':d.versionBundle?'version_bundle_verify':'handoff_verify';
+            const args={...(d.scope||{}),path:d.path};
+            d.loading=true;d.error='';
+            try {
+                const result=await request(cmd,args);
+                if(this.dialog===d)this.dialog={type:backup?'backup_result':'delivery_result',
+                    title:backup?'备份核查通过':result.ok?'交付包核查通过':'交付包存在差异',result};
+            } catch(e) {
+                if(this.dialog===d)d.error=String(e?.message||e);
+            } finally {
+                if(this.dialog===d)d.loading=false;
+            }
         },
         async backupDialog () {
             if(!this.s.record_admin_ready){await this.saveFile('backup','FileGuard-备份.zip',null);return;}
@@ -10926,21 +10964,14 @@ const app = createApp({
             if (d?.type==='scan_log'){await this.applyJournal();return;}
             if (d?.type==='waiting_files'){await this.applyWaiting();return;}
             if (d && ['period','trace'].includes(d.type)){if(!d.loading)await this.runReport();return;}
+            if(d?.type==='inspect'||d?.type==='delivery_check'){await this.verifyArchive(d);return;}
             if (!d || ['receipt','ledger','inventory','health','variance','delivery_result','backup_result'].includes(d.type)) return;
             if (d.type==='restore_preview' && (this.demo || d.loading || !d.info || d.info.identical)) return;
             this.busy = true;
             d.error = '';
             try {
                 let msg;
-                if(d.type==='inspect'){
-                    const b=await request('inspect_backup',{path:d.path});
-                    this.dialog={type:'backup_result',title:'备份核查通过',result:b};
-                    return;
-                }else if(d.type==='delivery_check'){
-                    const result=await request(d.versionBundle?'version_bundle_verify':'handoff_verify',{...(d.scope||{}),path:d.path});
-                    this.dialog={type:'delivery_result',title:result.ok?'交付包核查通过':'交付包存在差异',result};
-                    return;
-                }else if(d.type==='capture_policy'){
+                if(d.type==='capture_policy'){
                     msg=await request('capture_policy',{root:d.root,settle_ms:d.settle_ms,all_types:d.all_types});
                 }else if(d.type==='review'){
                     await request('save_review',{id:d.id,state:d.state,note:d.note,revision:d.revision});

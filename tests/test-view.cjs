@@ -661,6 +661,51 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   await appVm.exportInventory();assert((await downloads.at(-1).text()).includes('SHA-256'));
   const scope=appVm.dialog.active;await appVm.deliveryDialog(scope);assert.equal(appVm.dialog.result.ok,false);
   await appVm.deliveryDialog();assert(appVm.dialog.result.ok);
+  await appVm.go('系统设置');await ctx.Vue.nextTick();
+  let finishArchiveCheck, rejectArchiveCheck, archiveCalls=0;
+  ctx.exampleRequest=(cmd,args)=>{
+    if(!['inspect_backup','handoff_verify'].includes(cmd))return originalRequest(cmd,args);
+    archiveCalls++;
+    return new Promise((resolve,reject)=>{
+      finishArchiveCheck=()=>resolve(originalRequest(cmd,args));rejectArchiveCheck=reject;
+    });
+  };
+  const pendingArchiveChecks=()=>findNode(root,node=>node.tag==='p'&&node.props.role==='status'&&node.textContent.includes('正在核查 ZIP 文件'));
+  const backupExample=findNode(root,node=>node.tag==='button'&&node.textContent==='示例备份覆盖情况');
+  const pendingBackupInspection=backupExample.props.onClick();await ctx.Vue.nextTick();
+  assert(pendingArchiveChecks());
+  await appVm.submitDialog();assert.equal(archiveCalls,1);
+  const eventsButton=findNode(root,node=>node.tag==='button'&&node.props['aria-label']==='变更记录');
+  await eventsButton.props.onClick();await appVm.fileDialog();
+  const afterBackupPicker=appVm.dialog;
+  finishArchiveCheck();await pendingBackupInspection;
+  assert.equal(appVm.dialog,afterBackupPicker,'旧备份核查结果不得覆盖后续文件选择器');
+
+  await appVm.go('系统设置');await ctx.Vue.nextTick();
+  const deliveryCheck=findNode(root,node=>node.tag==='button'&&node.textContent==='核查交付包');
+  const pendingDeliveryCheck=deliveryCheck.props.onClick();await ctx.Vue.nextTick();
+  assert(pendingArchiveChecks());
+  const closeArchive=findNode(root,node=>node.tag==='button'&&node.props['aria-label']==='关闭');
+  assert(!closeArchive.props.disabled);closeArchive.props.onClick();
+  await appVm.fileDialog();
+  const afterDeliveryPicker=appVm.dialog;
+  rejectArchiveCheck(Error('交付包核查失败'));await pendingDeliveryCheck;
+  assert.equal(appVm.dialog,afterDeliveryPicker);assert.equal(afterDeliveryPicker.error,undefined);
+  ctx.exampleRequest=originalRequest;
+
+  appVm.demo=false;appVm.native=true;
+  let finishNativePick;
+  ctx.__TAURI__={core:{invoke(command,args){
+    assert.equal(command,'pick_path');assert.equal(args.kind,'backup');
+    return new Promise(resolve=>{finishNativePick=resolve;});
+  }}};
+  const pickingBackup=appVm.inspectDialog();await ctx.Vue.nextTick();
+  assert(root.textContent.includes('正在选择 ZIP 文件'));
+  await appVm.fileDialog();const afterNativePicker=appVm.dialog;
+  finishNativePick('C:/FileGuard/backup.zip');await pickingBackup;
+  assert.equal(appVm.dialog,afterNativePicker,'迟到的原生路径选择不得覆盖后续文件选择器');
+  delete ctx.__TAURI__;appVm.demo=true;appVm.native=false;
+
   await appVm.go('系统设置');await appVm.inspectDialog();assert(appVm.dialog.result.coverage.missing>0);
   await appVm.healthDialog();
   const healthPanel=appVm.dialog;

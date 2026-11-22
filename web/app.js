@@ -1986,14 +1986,9 @@ const app = createApp({
             a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);
         },
         async deliveryDialog (scope=null,versionBundle=false) {
-            let path='';
-            if(this.native){
-                path=await this.safe(()=>window.__TAURI__.core.invoke('pick_path',{kind:'delivery',name:''}));
-                if(!path)return;
-            }
-            this.dialog={type:'delivery_check',title:versionBundle?'按交付篮核查 ZIP':scope?'按所选清单核查交付包':'核查交付包',
-                scope,path,versionBundle,submit:'核查交付包'};
-            if(this.demo)await this.submitDialog();
+            await this.openArchiveCheck({type:'delivery_check',
+                title:versionBundle?'按交付篮核查 ZIP':scope?'按所选清单核查交付包':'核查交付包',
+                scope,versionBundle,submit:'核查交付包'},'delivery');
         },
         async healthDialog () {
             this.dialog={type:'health',title:'仓库体检',reports:[],id:0,data:null,applied:null,q:'',change:'',status:'',
@@ -2082,13 +2077,41 @@ const app = createApp({
             await this.loadDiff();
         },
         async inspectDialog () {
-            let path='';
+            await this.openArchiveCheck({type:'inspect',title:'核查备份',submit:'开始核查'},'backup');
+        },
+        async openArchiveCheck (options, kind) {
+            this.dialog={...options,path:'',choosing:this.native,loading:false,error:''};
+            const d=this.dialog;
             if(this.native){
-                path=await this.safe(()=>window.__TAURI__.core.invoke('pick_path',{kind:'backup',name:''}));
-                if(!path)return;
+                try {
+                    const path=await window.__TAURI__.core.invoke('pick_path',{kind,name:''});
+                    if(this.dialog!==d)return;
+                    if(!path){this.dialog=null;return;}
+                    d.path=path;
+                } catch(e) {
+                    if(this.dialog===d)d.error=String(e?.message||e);
+                    return;
+                } finally {
+                    if(this.dialog===d)d.choosing=false;
+                }
             }
-            this.dialog={type:'inspect',title:'核查备份',path,submit:'开始核查'};
             if(this.demo)await this.submitDialog();
+        },
+        async verifyArchive (d) {
+            if(d.choosing||d.loading)return;
+            const backup=d.type==='inspect';
+            const cmd=backup?'inspect_backup':d.versionBundle?'version_bundle_verify':'handoff_verify';
+            const args={...(d.scope||{}),path:d.path};
+            d.loading=true;d.error='';
+            try {
+                const result=await request(cmd,args);
+                if(this.dialog===d)this.dialog={type:backup?'backup_result':'delivery_result',
+                    title:backup?'备份核查通过':result.ok?'交付包核查通过':'交付包存在差异',result};
+            } catch(e) {
+                if(this.dialog===d)d.error=String(e?.message||e);
+            } finally {
+                if(this.dialog===d)d.loading=false;
+            }
         },
         async backupDialog () {
             if(!this.s.record_admin_ready){await this.saveFile('backup','FileGuard-备份.zip',null);return;}
@@ -2104,21 +2127,14 @@ const app = createApp({
             if (d?.type==='scan_log'){await this.applyJournal();return;}
             if (d?.type==='waiting_files'){await this.applyWaiting();return;}
             if (d && ['period','trace'].includes(d.type)){if(!d.loading)await this.runReport();return;}
+            if(d?.type==='inspect'||d?.type==='delivery_check'){await this.verifyArchive(d);return;}
             if (!d || ['receipt','ledger','inventory','health','variance','delivery_result','backup_result'].includes(d.type)) return;
             if (d.type==='restore_preview' && (this.demo || d.loading || !d.info || d.info.identical)) return;
             this.busy = true;
             d.error = '';
             try {
                 let msg;
-                if(d.type==='inspect'){
-                    const b=await request('inspect_backup',{path:d.path});
-                    this.dialog={type:'backup_result',title:'备份核查通过',result:b};
-                    return;
-                }else if(d.type==='delivery_check'){
-                    const result=await request(d.versionBundle?'version_bundle_verify':'handoff_verify',{...(d.scope||{}),path:d.path});
-                    this.dialog={type:'delivery_result',title:result.ok?'交付包核查通过':'交付包存在差异',result};
-                    return;
-                }else if(d.type==='capture_policy'){
+                if(d.type==='capture_policy'){
                     msg=await request('capture_policy',{root:d.root,settle_ms:d.settle_ms,all_types:d.all_types});
                 }else if(d.type==='review'){
                     await request('save_review',{id:d.id,state:d.state,note:d.note,revision:d.revision});

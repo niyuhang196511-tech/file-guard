@@ -1370,7 +1370,7 @@ const _hoisted_1024 = { class: "hash" }
 const _hoisted_1025 = { class: "pager" }
 const _hoisted_1026 = ["disabled", "onClick"]
 const _hoisted_1027 = ["disabled", "onClick"]
-const _hoisted_1028 = ["onUpdate:modelValue"]
+const _hoisted_1028 = ["onUpdate:modelValue", "readonly"]
 const _hoisted_1029 = { key: 0 }
 const _hoisted_1030 = { class: "actions" }
 const _hoisted_1031 = ["disabled", "onClick"]
@@ -1617,7 +1617,7 @@ const _hoisted_1189 = {
 const _hoisted_1190 = { key: 1 }
 const _hoisted_1191 = { key: 2 }
 const _hoisted_1192 = { key: 3 }
-const _hoisted_1193 = ["onUpdate:modelValue"]
+const _hoisted_1193 = ["onUpdate:modelValue", "readonly"]
 const _hoisted_1194 = ["onUpdate:modelValue"]
 const _hoisted_1195 = ["onUpdate:modelValue"]
 const _hoisted_1196 = { class: "inline" }
@@ -1666,15 +1666,23 @@ const _hoisted_1229 = ["disabled", "onClick"]
 const _hoisted_1230 = ["disabled", "onClick"]
 const _hoisted_1231 = {
   key: 25,
-  class: "error"
+  role: "status"
 }
 const _hoisted_1232 = {
   key: 26,
+  role: "status"
+}
+const _hoisted_1233 = {
+  key: 27,
+  class: "error"
+}
+const _hoisted_1234 = {
+  key: 28,
   class: "form-actions"
 }
-const _hoisted_1233 = ["disabled", "onClick"]
-const _hoisted_1234 = ["disabled"]
-const _hoisted_1235 = {
+const _hoisted_1235 = ["disabled", "onClick"]
+const _hoisted_1236 = ["disabled"]
+const _hoisted_1237 = {
   key: 1,
   class: "toast",
   role: "status"
@@ -5900,6 +5908,7 @@ return function render(_ctx, _cache) {
             (dialog.type==='delivery_check')
               ? (_openBlock(), _createElementBlock(_Fragment, { key: 9 }, [_createElementVNode("label", null, [_cache[388] || (_cache[388] = _createTextVNode("文件交付 ZIP 路径")), _withDirectives(_createElementVNode("input", {
                   "onUpdate:modelValue": $event => ((dialog.path) = $event),
+                  readonly: dialog.choosing||dialog.loading,
                   required: ""
                 }, null, 8, _hoisted_1028), [[_vModelText, dialog.path]])]), _createElementVNode("small", null, _toDisplayString(dialog.scope?'同时核对此范围的路径、版本、长度和摘要。':'依据包内清单校验每份副本。'), 1)], 64))
               : _createCommentVNode("", true),
@@ -6622,6 +6631,7 @@ return function render(_ctx, _cache) {
             (dialog.type==='inspect')
               ? (_openBlock(), _createElementBlock(_Fragment, { key: 18 }, [_createElementVNode("label", null, [_cache[481] || (_cache[481] = _createTextVNode("备份 ZIP 路径")), _withDirectives(_createElementVNode("input", {
                   "onUpdate:modelValue": $event => ((dialog.path) = $event),
+                  readonly: dialog.choosing||dialog.loading,
                   required: ""
                 }, null, 8, _hoisted_1193), [[_vModelText, dialog.path]])]), _cache[482] || (_cache[482] = _createElementVNode("small", null, "逐个核对对象，无需退出监控。", -1))], 64))
               : _createCommentVNode("", true),
@@ -6774,24 +6784,29 @@ return function render(_ctx, _cache) {
                   onClick: $event => {pickPage++;loadPicks()}
                 }, "下一页", 8, _hoisted_1230)])])], 64))
               : _createCommentVNode("", true),
+            (dialog.choosing)
+              ? (_openBlock(), _createElementBlock("p", _hoisted_1231, "正在选择 ZIP 文件…"))
+              : (['inspect','delivery_check'].includes(dialog.type)&&dialog.loading)
+                ? (_openBlock(), _createElementBlock("p", _hoisted_1232, "正在核查 ZIP 文件…"))
+                : _createCommentVNode("", true),
             (dialog.error)
-              ? (_openBlock(), _createElementBlock("p", _hoisted_1231, _toDisplayString(dialog.error), 1))
+              ? (_openBlock(), _createElementBlock("p", _hoisted_1233, _toDisplayString(dialog.error), 1))
               : _createCommentVNode("", true),
             (!['pick','info','tree','rule_history','private_records','scan_log','waiting_files','ledger','receipt','period','trace','inventory','health','variance','backup_result','delivery_result','review_batch'].includes(dialog.type)&&!(dialog.type==='restore_preview'&&(demo||dialog.loading||!dialog.info||dialog.info.identical)))
-              ? (_openBlock(), _createElementBlock("div", _hoisted_1232, [_createElementVNode("button", {
+              ? (_openBlock(), _createElementBlock("div", _hoisted_1234, [_createElementVNode("button", {
                   type: "button",
                   class: "btn",
                   disabled: busy,
                   onClick: $event => (dialog=null)
-                }, "取消", 8, _hoisted_1233), _createElementVNode("button", {
+                }, "取消", 8, _hoisted_1235), _createElementVNode("button", {
                   class: "primary",
-                  disabled: busy
-                }, _toDisplayString(busy?'处理中…':dialog.submit||'保存'), 9, _hoisted_1234)]))
+                  disabled: busy||dialog.choosing||dialog.loading
+                }, _toDisplayString(busy?'处理中…':dialog.submit||'保存'), 9, _hoisted_1236)]))
               : _createCommentVNode("", true)
           ], 40, _hoisted_834)], 10, _hoisted_831)], 8, _hoisted_830))
         : _createCommentVNode("", true),
       message
-        ? (_openBlock(), _createElementBlock("div", _hoisted_1235, _toDisplayString(message), 1))
+        ? (_openBlock(), _createElementBlock("div", _hoisted_1237, _toDisplayString(message), 1))
         : _createCommentVNode("", true)
     ], 2))
   }
