@@ -116,6 +116,37 @@ class Checkpoints(Work):
             task.result();snap.result()
         self.assertEqual(self.api('checkpoints',root=self.rid)[0]['bytes'],9)
 
+    def test_snapshot_waits_for_all_pending_files_to_be_captured(self):
+        self.write('first.txt','old')
+        self.write('locked.txt','old')
+        self.scan()
+        before = self.snap('编辑前')
+        self.write('first.txt','new 1')
+        self.write('locked.txt','new 2')
+        capture = self.store.capture
+
+        def temporarily_locked(path):
+            if path.name == 'locked.txt':
+                raise PermissionError('文件正在使用')
+            return capture(path)
+
+        with patch.object(self.store,'capture',side_effect=temporarily_locked):
+            self.scan()
+        run, = self.api('scan_log',root=self.rid,state='等待保存')['items']
+        self.assertEqual((run['captured'],run['waiting']),(1,1))
+        for action in (None, '暂停'):
+            if action:
+                self.store.root_action(self.rid,action)
+            with self.assertRaisesRegex(ValueError,'等待保存'):
+                self.snap('编辑后')
+        self.assertEqual([row['id'] for row in self.api('checkpoints',root=self.rid)], [before])
+
+        self.store.root_action(self.rid,'继续')
+        self.scan()
+        after = self.snap('编辑后')
+        items = self.api('checkpoint_diff',old=before,new=after)['items']
+        self.assertEqual([(row['new_path'],row['new_num']) for row in items], [('first.txt',2),('locked.txt',2)])
+
 
 class Monitoring(Work):
     def test_rules_match_actual_scanner_and_size_boundary(self):

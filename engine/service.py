@@ -192,7 +192,9 @@ class Service:
                     identity=roots[rid]
                     watch=observer.schedule(handler(rid),identity[0],recursive=True)
                     watches[rid]=watch,identity
-                    if rid in self.seen_watches:self.s.queue(rid,'监听重连校对',0)
+                    # The observer cannot report changes made before this subscription.
+                    source='监听重连校对' if rid in self.seen_watches else '监听接入校对'
+                    self.s.queue(rid,source,0)
                     self.seen_watches.add(rid)
                 except OSError:
                     modes[rid]='监听订阅失败，周期校对'

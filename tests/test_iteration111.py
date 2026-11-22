@@ -3,8 +3,9 @@ from email.message import EmailMessage
 import json
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 import zipfile
 from openpyxl import Workbook
 from openpyxl.chart import BarChart, LineChart, Reference
@@ -196,8 +197,35 @@ class Journal(Work):
         self.assertEqual((page['total'],len(page['items'])),(38,13))
         self.assertTrue(all(row['reason']=='等待保存稳定' for row in page['items']))
         self.store.root_action(self.rid,'暂停');self.assertEqual(self.call('waiting_files',root=self.rid)['total'],0)
+    def test_first_subscription_reconciles_changes_while_offline(self):
+        (self.directory / 'note.txt').write_text('before', encoding='utf-8')
+        self.scan()
+        offline = self.directory.rename(self.base / 'offline')
+        with self.store.db() as db:
+            db.execute('DELETE FROM tasks WHERE root_id=?', (self.rid,))
+        self.scan('周期校对')
+        self.assertTrue(self.call('roots')[0]['error'])
+        (offline / 'note.txt').write_text('changed while offline', encoding='utf-8')
+
+        observer = SimpleNamespace(is_alive=lambda: True, emitters=(), schedule=Mock(return_value='watch'))
+
+        def next_iteration(_):
+            if observer.schedule.called:
+                self.service.stopping.set()
+            else:
+                offline.rename(self.directory)
+
+        with patch.object(self.service.stopping, 'wait', side_effect=next_iteration):
+            self.service.watch_loop(observer, lambda rid: rid)
+        observer.schedule.assert_called_once_with(self.rid, str(self.directory.resolve()), recursive=True)
+        self.assertEqual(self.call('roots')[0]['queued_source'], '监听接入校对')
+        with self.store.db() as db:
+            task = db.execute('DELETE FROM tasks WHERE root_id=? RETURNING root_id,source', (self.rid,)).fetchone()
+        self.store.scan(*task)
+        self.assertEqual(self.call('history', id=1)[0]['num'], 2)
+        self.assertFalse(self.call('roots')[0]['error'])
+
     def test_subscription_updates_on_replaced_directory(self):
-        from types import SimpleNamespace
         from threading import Event
         counters=[];removed=[];finished=Event()
         def subscribe(handler,path,recursive):
@@ -211,7 +239,9 @@ class Journal(Work):
         self.service.stopping=SimpleNamespace(is_set=finished.is_set,wait=wait)
         self.service.watch_loop(observer,lambda rid:rid)
         self.assertEqual((len(counters),removed),(2,['watch1']))
-        self.assertEqual(self.call('roots')[0]['watch_mode'],'文件监听与周期校对')
+        root=self.call('roots')[0]
+        self.assertEqual(root['watch_mode'],'文件监听与周期校对')
+        self.assertEqual(root['queued_source'],'监听重连校对')
     def test_migration_requeues_only_relevant_and_backup(self):
         self.directory.joinpath('mail.eml').write_text('Subject: A\n\nfirst');self.scan()
         self.directory.joinpath('mail.eml').write_text('Subject: B\n\nnext');self.scan()

@@ -13,6 +13,12 @@ def create(db, store, args):
     root = db.execute('SELECT * FROM roots WHERE id=? AND removed=0',(args['root'],)).fetchone()
     if not root or not root['last_scan'] or root['error']:
         raise ValueError('请先完成一次成功的目录扫描')
+    scan = db.execute('SELECT status FROM scan_runs WHERE root_id=? ORDER BY id DESC LIMIT 1',
+                      (root['id'],)).fetchone()
+    if scan and scan['status']=='等待保存':
+        raise ValueError('上次扫描仍有文件等待保存，请完成复查后再保存目录清单')
+    if scan and scan['status']!='完成':
+        raise ValueError('请先完成一次成功的目录扫描')
     try:
         checkpoint = db.execute('INSERT INTO checkpoints(root_id,label,stamp,last_scan) VALUES (?,?,?,?)',
                                 (root['id'],label,now(),root['last_scan'])).lastrowid
