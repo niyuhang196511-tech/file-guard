@@ -237,6 +237,11 @@ class Workflow(Work):
                     exported = [int(row['版本号']) for row in csv.DictReader(src)]
                 self.assertEqual((paged, exported), (expected, expected))
 
+    def test_review_queue_rejects_malformed_page_arguments(self):
+        for args in ({'size':None},{'size':5.5},{'page':None},{'page':'1.5'},{'page':'1_0'}):
+            with self.subTest(args=args), self.assertRaisesRegex(ValueError,'分页条件无效'):
+                self.call('review_queue', **args)
+
     def test_admin_withdraw_every_public_event_surface_and_restore(self):
         password=self.admin();evt=self.call('events')['items'][0];eid=evt['id']
         def amend(rev,action,caption=''):

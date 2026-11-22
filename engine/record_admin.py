@@ -72,8 +72,12 @@ def private_records(db,before):
 def amend(db,store,args,stamp):
     eid=int(args['id'])
     action=args.get('action')
-    reason=args.get('reason','').strip()
-    caption=args.get('caption','').strip()
+    reason=args.get('reason','')
+    caption=args.get('caption','')
+    if not isinstance(reason,str) or not isinstance(caption,str):
+        raise ValueError('操作原因和公开说明必须是文本')
+    reason=reason.strip()
+    caption=caption.strip()
     if action not in ('更正','撤回','移出普通日志','恢复展示'):raise ValueError('无效的记录操作')
     if not 1<=len(reason)<=1000:raise ValueError('请填写 1 至 1000 字的操作原因')
     if action=='更正' and not 1<=len(caption)<=1000:raise ValueError('请填写 1 至 1000 字的公开更正说明')

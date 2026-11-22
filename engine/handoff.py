@@ -9,7 +9,7 @@ import stat
 import unicodedata
 import zipfile
 
-from .comparison import new_csv,csv_cell
+from .comparison import new_csv,csv_cell,page_integer
 from .publication import new_path
 from .store import ensure_plain,within,now
 from .shared_read import open_snapshot_source,resolved_windows_relative_path
@@ -52,7 +52,7 @@ def catalogue(db,args):
 
 
 def page(meta,items,args):
-    total=len(items);pages=max(1,(total+24)//25);p=max(1,min(pages,int(args.get('page',1))))
+    total=len(items);pages=max(1,(total+24)//25);p=max(1,min(pages,page_integer(args,'page',1)))
     return dict(meta=meta,total=total,pages=pages,page=p,bytes=sum(r['size'] for r in items),
                 objects=len({r['sha'] for r in items}),items=items[(p-1)*25:p*25])
 

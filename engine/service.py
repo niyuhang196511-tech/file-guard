@@ -9,7 +9,7 @@ from pathlib import Path
 
 from . import formats, review, record_admin, backup_check, rules, checkpoints, finder, scan_log, handoff, health, variance, work_reports, save_receipt, table_source, text_history, content_catalog, line_origins, review_batch, version_bundle, path_history, checkpoint_three, snapshot_preview
 from .sheet_view import WorkbookView
-from .comparison import Comparison, HEADER, EXCEL_HEADER, csv_cell, new_csv
+from .comparison import Comparison, HEADER, EXCEL_HEADER, csv_cell, new_csv, page_integer
 from .store import now, within
 
 
@@ -388,8 +388,8 @@ class Service:
 
     def page(self,db,table,a):
         select,count_query,params=self.list_query(db,table,a)
-        size=min(100,max(1,int(a.get('size',25))))
-        page=max(1,int(a.get('page',1)))
+        size=min(100,max(1,page_integer(a,'size',25)))
+        page=max(1,page_integer(a,'page',1))
         if not db.in_transaction:
             db.execute('BEGIN')
         count=db.execute(count_query,params).fetchone()[0]

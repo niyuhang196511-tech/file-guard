@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import re
 
-from .comparison import new_csv, csv_cell
+from .comparison import new_csv, csv_cell, page_integer
 from .store import within
 
 TEXT_FILTERS = ('q','filename','ext','root','kind','sheet','field','record','start','end','side','sort','direction')
@@ -103,8 +103,8 @@ def query(db,store,args,export=False):
         db.commit();store.audit(db,'导出跨文件差异','按当前条件导出')
         return str(path)
     total,files,events=db.execute(sql+'SELECT count(*),count(DISTINCT file_id),count(DISTINCT eid)'+source,params).fetchone()
-    size=max(1,min(int(args.get('size',25)),100))
-    pages=max(1,(total+size-1)//size);page=min(pages,max(1,int(args.get('page',1))))
+    size=max(1,min(page_integer(args,'size',25),100))
+    pages=max(1,(total+size-1)//size);page=min(pages,max(1,page_integer(args,'page',1)))
     # Match and export the complete values. Bound only the preview sent to the window.
     fields=['eid','file_id','root_id','rel','ext','stamp','old_v','new_v','root_path','prior','version','ordinal','sheet','location','field','record_key','kind']
     for col in ('old_value','new_value'):

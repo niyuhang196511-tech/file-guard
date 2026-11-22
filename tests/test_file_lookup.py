@@ -22,6 +22,11 @@ class FileLookupTests(unittest.TestCase):
     def files(self, **filters):
         return self.api.dispatch('files', filters)
 
+    def test_list_paging_rejects_malformed_values(self):
+        for args in ({'size':None},{'size':5.5},{'page':None},{'page':'1.5'},{'page':'1_0'}):
+            with self.subTest(args=args), self.assertRaisesRegex(ValueError,'分页条件无效'):
+                self.files(**args)
+
     def scan(self):
         self.store.scan(self.rid)
 
@@ -104,6 +109,18 @@ class FileLookupTests(unittest.TestCase):
         self.api.dispatch('record_amend',dict(amend,action='撤回',revision=1))
         self.assertEqual(self.api.dispatch('events',{'caption':'STRASSE'})['total'],0)
         self.assertEqual(self.api.dispatch('events',{'q':'已撤回'})['total'],1)
+
+    def test_record_amend_rejects_non_text_reason(self):
+        (self.root/'Reason.txt').write_text('first', encoding='utf-8')
+        self.scan()
+        event = self.api.dispatch('events',{})['items'][0]
+        password = 'local test password'
+        salt = b'test salt'
+        with self.store.db() as db:
+            db.execute('INSERT INTO record_admin VALUES (1,?,?)',(salt,record_admin.derive(password,salt)))
+        with self.assertRaisesRegex(ValueError,'文本'):
+            self.api.dispatch('record_amend',dict(id=event['id'],password=password,revision=0,
+                                                  action='撤回',reason=None))
 
     def test_event_list_sort_uses_actual_offset_time(self):
         path=self.root/'时区.txt'

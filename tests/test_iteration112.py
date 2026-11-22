@@ -339,6 +339,9 @@ class Packages(Work):
         for i in range(28):self.write(str(i)+'.csv','test')
         self.scan();self.cid=self.checkpoint('larger')
         self.assertEqual(len(self.inventory(page=300)['items']),7)
+        for value in (None,5.5,'1.5','1_0'):
+            with self.subTest(page=value), self.assertRaisesRegex(ValueError,'分页条件无效'):
+                self.inventory(page=value)
         dest=self.base/'inventory.csv';self.call('inventory_csv',id=self.cid,ext='csv',path=str(dest))
         self.assertEqual(len(self.csv(dest)),31)
 

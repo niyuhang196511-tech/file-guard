@@ -1,5 +1,6 @@
 """复核元数据绑定到不可变版本，快照字节与用户意见独立存储。"""
 from datetime import date
+from .comparison import page_integer
 
 STATES=('待复核','需跟进','已复核')
 BASE=""" FROM versions v JOIN files f ON f.id=v.file_id JOIN roots r ON r.id=f.root_id
@@ -62,10 +63,10 @@ def query(db,args,export=False):
     sql='SELECT '+FIELDS+BASE+where(terms)+' ORDER BY '+order
     if export:
         return db.execute(sql,params)
-    size=max(1,min(100,int(args.get('size',25))))
+    size=max(1,min(100,page_integer(args,'size',25)))
     total=counts[state] if state else sum(counts.values())
     pages=max(1,(total+size-1)//size)
-    page=min(pages,max(1,int(args.get('page',1))))
+    page=min(pages,max(1,page_integer(args,'page',1)))
     items=[dict(r) for r in db.execute(sql+' LIMIT ? OFFSET ?',params+[size,(page-1)*size])]
     return dict(items=items,total=total,size=size,page=page,pages=pages,counts=counts)
 

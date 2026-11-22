@@ -80,6 +80,11 @@ class Finder(Work):
         self.assertEqual(len(rows),2);self.assertEqual(rows[0]['事件路径'],'业务/qty.csv')
         with self.assertRaises((FileExistsError,ValueError)):self.call('finder_export',path=str(dest))
         with self.assertRaises(ValueError):self.call('finder_export',path=str(self.store.home/'a.csv'))
+
+    def test_finder_rejects_malformed_page_arguments(self):
+        for args in ({'size':None},{'size':5.5},{'page':None},{'page':'1.5'},{'page':'1_0'}):
+            with self.subTest(args=args), self.assertRaisesRegex(ValueError,'分页条件无效'):
+                self.find(**args)
     def test_long_values_search_and_export_beyond_preview(self):
         self.b.write_text('x'*500+'TAIL');self.scan()
         result=self.find(q='TAIL',side='new_value')['items'][0]
