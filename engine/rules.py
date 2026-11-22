@@ -5,6 +5,8 @@ import re
 
 
 def exclusion_patterns(text):
+    if not isinstance(text,str):
+        raise ValueError('规则必须是文本')
     parts = re.split(r'[,，;；、\r\n]+', text)
     return list(dict.fromkeys(p.strip().replace('\\','/') for p in parts if p.strip()))
 
@@ -25,14 +27,29 @@ def temporary(name):
     return name.startswith(('~$', '.fileguard-')) or (name.startswith('.~lock.') and name.endswith('#'))
 
 
+def _integer(value):
+    if type(value) is int:
+        return value
+    if type(value) is str:
+        raw=value.strip()
+        digits=raw[1:] if raw[:1] in ('+','-') else raw
+        if digits and all('0' <= char <= '9' for char in digits):
+            return int(raw)
+    raise ValueError('请检查文件大小与规则上限')
+
+
 def preview(args):
-    paths = args.get('paths','').splitlines()
+    raw_paths=args.get('paths','')
+    if not isinstance(raw_paths,str):
+        raise ValueError('每次可预演 1 至 100 行相对路径')
+    paths = raw_paths.splitlines()
     if not 1 <= len(paths) <= 100:
         raise ValueError('每次可预演 1 至 100 行相对路径')
     patterns = exclusion_patterns(args.get('patterns',''))
-    maximum = int(args.get('max_mb') or 0)
+    maximum_value=args.get('max_mb',0)
+    maximum=0 if maximum_value in ('',None) else _integer(maximum_value)
     size = args.get('bytes')
-    size = None if size in ('', None) else int(size)
+    size = None if size in ('', None) else _integer(size)
     if not 0 <= maximum <= 1048576 or (size is not None and size < 0):
         raise ValueError('请检查文件大小与规则上限')
     rows = []

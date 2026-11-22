@@ -1019,6 +1019,12 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   assert.equal(lineage.target.rel,'退货轨迹.csv');assert.equal(lineage.target.num,3);
   assert.equal(lineage.items.find(r=>r.line===1).origin.num,1);
   assert.equal(lineage.items.find(r=>r.line===2).origin.num,3);
+  {
+    const originId=lineage.items.find(r=>r.line===1).origin.id;
+    const filtered=await ctx.exampleRequest('line_origins',{id:lineage.target.id,origin:originId,depth:20,size:50,page:1});
+    assert(filtered.items.length>0&&filtered.items.every(r=>r.origin.id===originId));
+    await assert.rejects(ctx.exampleRequest('line_origins',{id:lineage.target.id,size:5.5}),/无效的数字条件：size/);
+  }
   assert(root.textContent.includes('首次建档可见'));
   await appVm.filterLineageSource(lineage.sources.find(v=>v.num===1));
   assert.equal(appVm.lineageData.total,1);

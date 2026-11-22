@@ -51,6 +51,8 @@ class DirectoryMonitorTests(unittest.TestCase):
                 self.api.dispatch('configure', {'id':self.rid, 'path':str(self.root), 'max_mb':value})
         self.api.dispatch('configure', {'id':self.rid, 'path':str(self.root), 'max_mb':' 2 '})
         self.assertEqual(self.roots()[self.rid]['max_mb'], 2)
+        with self.assertRaises(ValueError):
+            self.api.dispatch('configure', {'id':self.rid, 'path':str(self.root), 'patterns':None})
 
     def test_single_scan_is_atomic_and_source_survives_background_queue(self):
         second=self.base/'第二';second.mkdir()

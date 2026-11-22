@@ -14,6 +14,19 @@ HEADER = ('文件','旧版本','新版本','分组','位置','记录编号','变
 EXCEL_HEADER = ('字段','差异类别','旧类型','新类型')
 
 
+def page_integer(args, key, default):
+    value = args.get(key, default)
+    if type(value) is str:
+        raw = value.strip()
+        digits = raw[1:] if raw[:1] in ('+', '-') else raw
+        if not digits or any(char < '0' or char > '9' for char in digits):
+            raise ValueError('分页条件无效')
+        return int(raw)
+    if type(value) is int:
+        return value
+    raise ValueError('分页条件无效')
+
+
 class Comparison:
     def __init__(self, details, **metadata):
         self.details = details
@@ -63,8 +76,8 @@ class Comparison:
 
     def page(self,args):
         counts,selected = self.select(args)
-        size = min(100,max(1,int(args.get('size',40))))
-        page = max(1,int(args.get('page',1)))
+        size = min(100,max(1,page_integer(args,'size',40)))
+        page = max(1,page_integer(args,'page',1))
         page=min(page,max(1,(len(selected)+size-1)//size))
         items=selected[(page-1)*size:page*size]
         if self.metadata.get('is_word'):

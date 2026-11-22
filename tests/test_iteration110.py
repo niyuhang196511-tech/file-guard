@@ -230,6 +230,17 @@ class Monitoring(Work):
             self.assertEqual(self.api('rule_preview',paths='稿子.txt',max_mb=1,bytes=size)[0]['reason'],expected)
         for name in ('../p','C:\\private','/etc/passwd','\n'.join(['p']*101),'   '):
             with self.assertRaises(ValueError):self.api('rule_preview',paths=name)
+        compatible=self.api('rule_preview',paths='note.txt',max_mb='',bytes='')
+        self.assertEqual(compatible[0]['reason'],'允许采集')
+        for args in ({'max_mb':True},{'max_mb':1.5},{'max_mb':'1_0'},
+                     {'bytes':True},{'bytes':1.5},{'bytes':'1_0'}):
+            with self.subTest(args=args), self.assertRaises(ValueError):
+                self.api('rule_preview',paths='note.txt',**args)
+        for args in ({'paths':None},{'patterns':None}):
+            with self.subTest(args=args), self.assertRaises(ValueError):
+                call=dict(args)
+                call.setdefault('paths','note.txt')
+                self.api('rule_preview',**call)
         self.assertEqual(len(self.api('rule_history',root=self.rid)),2)
         self.store.configure(self.root,'draft， *.tmp',1,self.rid)
         self.assertEqual(len(self.api('rule_history',root=self.rid)),2)

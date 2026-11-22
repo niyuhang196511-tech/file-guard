@@ -69,6 +69,13 @@ class EngineTest(unittest.TestCase):
         diff=other.dispatch('compare',{'old':u['id'],'new':v['id']})
         self.assertEqual(diff['items'],[{'sheet':'库存表','location':'C2','kind':'修改','old':'100','new':'80',
                                          'field':'现存量','category':'单元格值','old_type':'数字','new_type':'数字'}])
+
+    def test_compare_rejects_malformed_page_arguments(self):
+        self.edit_file();new,old=self.versions()
+        for args in ({'size':None},{'size':5.5},{'page':None},{'page':'1.5'},{'page':'1_0'}):
+            with self.subTest(args=args), self.assertRaisesRegex(ValueError,'分页条件无效'):
+                self.api.dispatch('compare',{'old':old['id'],'new':new['id'],**args})
+
     def test_initial_excluded_from_today(self):
         xlsx(self.root/'台账.xlsx',100);self.scan();s=self.api.dispatch('summary',{})
         self.assertEqual((s['today'],s['files'],s['versions']),(0,1,1))

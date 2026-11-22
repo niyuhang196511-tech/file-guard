@@ -206,27 +206,44 @@ window.exampleRequest=async function(cmd,a={}){
   }
   if(cmd==='line_origins'||cmd==='line_origins_csv'){
     const bundle=d.lineOrigins;
-    const modes=bundle.reports[a.id]?.[a.moves?1:0];
-    const depth=a.depth||20;
+    const number=(key,defaultValue=0)=>{
+      const value=a[key]===undefined?defaultValue:a[key];
+      if(!Number.isSafeInteger(value)||value<0)throw Error('无效的数字条件：'+key);
+      return value;
+    };
+    const toggle=key=>{
+      const value=a[key]===undefined?false:a[key];
+      if(typeof value!=='boolean')throw Error('无效的开关：'+key);
+      return value;
+    };
+    const id=number('id'),depth=number('depth',20),size=number('size',50),
+      low=number('low'),high=number('high'),originId=number('origin'),moves=toggle('moves'),exact=toggle('exact'),sensitive=toggle('sensitive');
+    number('page',1);
+    if(!id)throw Error('无效的数字条件：id');
+    if(![5,10,20,40].includes(depth)||![20,50,100].includes(size))throw Error('无效的追溯深度或每页行数');
+    const q=a.q===undefined?'':a.q,kind=a.kind===undefined?'':a.kind;
+    if(typeof q!=='string'||Array.from(q).length>160||/[\r\n\0]/.test(q))throw Error('正文筛选最多 160 字，须为单行');
+    if(!['','target','earlier','initial','unknown','moved'].includes(kind))throw Error('无效的来源筛选');
+    if(high&&low>high)throw Error('起始行须小于或等于结束行');
+    const modes=bundle.reports[id]?.[moves?1:0];
     const found=modes?.find(([n])=>n>=depth)||modes?.at(-1);
     if(!found)throw Error('无法追溯目标版本：不支持的历史文件格式或超过上限');
-    if(a.high&&a.low>a.high)throw Error('起始行须小于或等于结束行');
     const {target,rows,chain,boundary}=found[1];
     const fold=s=>Array.from(s,c=>d.textSearch.fold[c]??c.toLowerCase()).join('');
-    const transform=a.sensitive?s=>s:fold;
-    const needle=transform(a.q||'');
+    const transform=sensitive?s=>s:fold;
+    const needle=transform(q);
     const counts={moved:0},stats=new Map(),selected=[];
     for(const r of rows){
-      const origin=r.origin.id;
+      const rowOrigin=r.origin.id;
       counts[r.kind]=(counts[r.kind]||0)+1;counts.moved+=Number(r.moves>0);
-      if(!stats.has(origin))stats.set(origin,{lines:0,unknown:0,moved:0});
-      const s=stats.get(origin);s.lines++;s.unknown+=Number(r.kind==='unknown');s.moved+=Number(r.moves>0);
-      if(a.origin&&a.origin!==origin||a.low&&r.line<a.low||a.high&&r.line>a.high)continue;
-      const matches={target:r.kind==='introduced'&&origin===target.id,earlier:r.kind!=='unknown'&&origin!==target.id,
+      if(!stats.has(rowOrigin))stats.set(rowOrigin,{lines:0,unknown:0,moved:0});
+      const s=stats.get(rowOrigin);s.lines++;s.unknown+=Number(r.kind==='unknown');s.moved+=Number(r.moves>0);
+      if(originId&&originId!==rowOrigin||low&&r.line<low||high&&r.line>high)continue;
+      const matches={target:r.kind==='introduced'&&rowOrigin===target.id,earlier:r.kind!=='unknown'&&rowOrigin!==target.id,
         initial:r.kind==='initial',unknown:r.kind==='unknown',moved:r.moves>0};
-      if(a.kind&&!matches[a.kind])continue;
+      if(kind&&!matches[kind])continue;
       const text=transform(r.text);
-      if(needle&&(a.exact?text!==needle:!text.includes(needle)))continue;
+      if(needle&&(exact?text!==needle:!text.includes(needle)))continue;
       selected.push(r);
     }
     if(cmd.endsWith('_csv')){
