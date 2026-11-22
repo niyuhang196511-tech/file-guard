@@ -87,9 +87,60 @@ class EngineTest(unittest.TestCase):
         self.assertEqual([e['kind'] for e in self.events()],['移动','重命名','初始建档'])
         self.assertEqual(len(self.versions()),1)
     def test_snapshot_dedup(self):
-        for name in ('a.bin','b.bin'):
-            (self.root/name).write_bytes(b'123')
-        self.scan();self.assertEqual(len(list(self.store.objects.glob('*/*'))),1)
+        (self.root/'a.bin').write_bytes(b'123')
+        self.scan()
+        archived, = self.store.objects.glob('*/*')
+        (self.root/'b.bin').write_bytes(b'123')
+        with patch('engine.store.os.replace', side_effect=AssertionError('替换了完整的历史对象')):
+            self.scan()
+        self.assertEqual(len(self.files()), 2)
+        self.assertEqual(list(self.store.objects.glob('*/*')), [archived])
+        self.assertEqual(archived.read_bytes(), b'123')
+
+    def test_recapture_repairs_shared_archive(self):
+        path = self.root/'台账.txt'
+        path.write_bytes(b'good')
+        self.scan()
+        first, = self.versions()
+        path.write_bytes(b'edit')
+        self.scan()
+        archived = self.store.obj(first['sha'])
+        archived.write_bytes(b'bad!')
+
+        path.write_bytes(b'good')
+        self.scan()
+        latest, _, initial = self.versions()
+        self.assertEqual((latest['num'], latest['sha']), (3, initial['sha']))
+        self.assertEqual(archived.read_bytes(), b'good')
+        with self.store.db() as db:
+            for version in (latest, initial):
+                self.store.checked_version(db, version['id'])
+        self.assertFalse(list(self.store.temp.iterdir()))
+
+    def test_failed_archive_repair_does_not_register_version(self):
+        path = self.root/'台账.txt'
+        path.write_bytes(b'good')
+        self.scan()
+        first, = self.versions()
+        path.write_bytes(b'edit')
+        self.scan()
+        archived = self.store.obj(first['sha'])
+        archived.write_bytes(b'bad')
+
+        path.write_bytes(b'good')
+        with patch('engine.store.os.replace', side_effect=PermissionError('暂不可替换历史对象')) as replace:
+            self.scan()
+        self.assertEqual(replace.call_count, 1)
+        self.assertEqual([v['num'] for v in self.versions()], [2, 1])
+        self.assertEqual(archived.read_bytes(), b'bad')
+        waiting, = self.api.dispatch('waiting_files', {'root':self.rid})['items']
+        self.assertEqual(waiting['rel'], path.name)
+        self.assertFalse(list(self.store.temp.iterdir()))
+
+        self.scan()
+        self.assertEqual([v['num'] for v in self.versions()], [3, 2, 1])
+        self.assertEqual(archived.read_bytes(), b'good')
+        self.assertEqual(self.api.dispatch('waiting_files', {'root':self.rid})['total'], 0)
     @unittest.skipUnless(os.name=='nt','需要 Windows 路径和句柄时间语义')
     def test_windows_capture_and_receipt_with_different_ctimes(self):
         path=self.root/'台账.txt'

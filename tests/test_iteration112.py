@@ -2,6 +2,7 @@ import csv
 from contextlib import closing
 import hashlib
 import json
+import os
 from pathlib import Path
 import sqlite3
 import stat
@@ -13,7 +14,7 @@ from unittest.mock import patch
 import zipfile
 
 from openpyxl import Workbook
-from engine import backup_check,handoff,health,variance
+from engine import backup_check,formats,handoff,health,variance
 from engine.service import Service
 from engine.store import Store
 
@@ -79,6 +80,106 @@ class Restore(Work):
         self.assertFalse(dest.exists());self.assertFalse(list(self.base.glob('.fileguard-export-*')))
         self.call('copy',id=1,path=str(dest));self.assertEqual(dest.read_bytes(),b'a')
         with self.assertRaises(FileExistsError):self.call('copy',id=1,path=str(dest))
+
+
+class ComparisonIntegrity(Work):
+    def test_corrupt_csv_snapshot_is_not_compared_cached_or_indexed(self):
+        original = b'id,qty\nA,100\n'
+        self.write('ledger.csv', original)
+        self.scan()
+        fid = self.call('files')['items'][0]['id']
+        first, = self.call('history', id=fid)
+        snapshot = self.store.obj(first['sha'])
+        snapshot.write_bytes(b'id,qty\nA,777\n')
+        self.write('ledger.csv', b'id,qty\nA,200\n')
+        self.store.scan(self.rid)
+        second, _ = self.call('history', id=fid)
+        self.assertEqual(second['status'], '待解析')
+
+        args = dict(old=first['id'], new=second['id'])
+        for mode in ('aligned', 'coordinate'):
+            with self.subTest(mode=mode):
+                result = self.call('compare', **args, mode=mode)
+                self.assertEqual((result['status'], result['items']), ('解析失败', []))
+                self.assertIn('校验', result['error'])
+
+        self.assertTrue(self.store.parse_one())
+        result = self.call('compare', **args)
+        self.assertEqual((result['status'], result['items']), ('解析失败', []))
+        self.assertIn('校验', result['error'])
+        self.assertEqual(self.call('finder', q='777')['total'], 0)
+        trace = self.call('field_trace', id=fid, record='A', field='qty')
+        self.assertEqual((trace['coverage'], trace['items']), ({'解析失败': 1}, []))
+
+        snapshot.write_bytes(original)
+        self.call('retry', id=second['id'])
+        self.assertTrue(self.store.parse_one())
+        change, = self.call('compare', **args)['items']
+        self.assertEqual((change['old'], change['new']), ('100', '200'))
+        self.assertEqual(self.call('finder', q='100')['total'], 1)
+
+    def test_excel_row_view_rejects_parseable_but_corrupt_snapshot(self):
+        path = self.directory / 'ledger.xlsx'
+        for value in (100, 200):
+            book = Workbook()
+            book.active.append(['编号', '数量'])
+            book.active.append(['A', value])
+            book.save(path)
+            book.close()
+            with zipfile.ZipFile(path, 'a') as archive:
+                archive.comment = b'export'
+            self.scan()
+        second, first = self.call('history', id=1)
+        snapshot = self.store.obj(first['sha'])
+        raw = snapshot.read_bytes()
+        snapshot.write_bytes(raw[:-1] + b'X')
+        self.assertTrue(zipfile.is_zipfile(snapshot))
+        args = dict(old=first['id'], new=second['id'])
+        for command in ('sheet_rows', 'sheet_find'):
+            with self.subTest(command=command), self.assertRaisesRegex(ValueError, '校验'):
+                self.call(command, **args, q='100')
+
+        snapshot.write_bytes(raw)
+        self.assertEqual(self.call('sheet_find', **args, q='100')['items'][0]['value'], '100')
+
+    def test_snapshot_change_during_parse_is_not_published(self):
+        path = self.write('notes.txt', 'good')
+        self.scan()
+        first, = self.call('history', id=1)
+        snapshot = self.store.obj(first['sha'])
+        before = snapshot.stat()
+        path.write_bytes(b'next')
+        self.store.scan(self.rid)
+
+        compare = formats.compare
+        def replace_before_read(*args, **kwargs):
+            snapshot.write_bytes(b'bad!')
+            os.utime(snapshot, ns=(before.st_atime_ns,before.st_mtime_ns+1_000_000_000))
+            return compare(*args, **kwargs)
+
+        with patch.object(formats, 'compare', side_effect=replace_before_read):
+            self.assertTrue(self.store.parse_one())
+        latest = self.call('history', id=1)[0]
+        self.assertEqual((latest['status'], latest['changes']), ('解析失败', 0))
+        self.assertIn('解析期间变化', latest['error'])
+        self.assertEqual(self.call('finder', q='bad!')['total'], 0)
+
+    def test_large_and_metadata_only_comparisons_skip_digest(self):
+        for name in ('large.txt', 'content.bin'):
+            self.write(name, b'older')
+        self.scan()
+        for name in ('large.txt', 'content.bin'):
+            self.write(name, b'newer')
+        self.store.scan(self.rid)
+
+        with patch.object(formats, 'PARSE_BYTES', 4), patch('engine.store.digest', side_effect=AssertionError('应在读取前限制大小')):
+            while self.store.parse_one():
+                pass
+        files = {row['rel']: row['id'] for row in self.call('files')['items']}
+        versions = {name: self.call('history', id=fid) for name, fid in files.items()}
+        self.assertEqual(versions['content.bin'][0]['status'], '属性对比')
+        self.assertEqual(versions['large.txt'][0]['status'], '解析失败')
+        self.assertIn('解析上限', versions['large.txt'][0]['error'])
 
 
 class Packages(Work):

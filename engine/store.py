@@ -138,6 +138,13 @@ class Store:
             if migration and previous_schema:
                 db.execute("""UPDATE versions SET status='待解析',details='[]',error=''
                               WHERE parent_id IS NOT NULL AND ext='.csv'""")
+            migration = db.execute("INSERT OR IGNORE INTO data_migrations VALUES ('verified_comparison_sources') RETURNING name").fetchone()
+            if migration and previous_schema:
+                extensions = sorted(formats.TEXT | formats.plugins.keys())
+                placeholders = ','.join('?' for _ in extensions)
+                db.execute(f"""UPDATE versions SET status='待解析',details='[]',error=''
+                               WHERE parent_id IS NOT NULL AND status='已解析'
+                               AND ext IN ({placeholders})""", extensions)
 
     @contextlib.contextmanager
     def db(self):
@@ -184,11 +191,16 @@ class Store:
                 raise FileChanging('文件写入中，将在下次扫描重试')
             sha = h.hexdigest()
             dest = self.obj(sha)
+            ensure_plain(dest, self.home)
             dest.parent.mkdir(exist_ok=True)
-            if not dest.exists():
-                os.replace(tmp,dest)
-            elif dest.stat().st_size!=before.st_size:
-                raise ValueError('历史对象大小异常，请检查仓库')
+            try:
+                archived = dest.stat()
+            except FileNotFoundError:
+                archived = None
+            if archived is not None and not stat.S_ISREG(archived.st_mode):
+                raise ValueError('历史对象不是普通文件，请检查仓库')
+            if archived is None or archived.st_size != before.st_size or digest(dest) != sha:
+                os.replace(tmp, dest)
             return sha,before
         finally:
             tmp.unlink(missing_ok=True)
@@ -540,25 +552,54 @@ class Store:
 
     def parse_one(self):
         with self.db() as db:
-            v=db.execute("SELECT n.*,p.sha AS prior FROM versions n JOIN versions p ON n.parent_id=p.id WHERE n.status='待解析' ORDER BY n.id LIMIT 1").fetchone()
+            v=db.execute("""SELECT n.id,n.ext,n.sha,n.size,p.sha AS prior,p.size AS prior_size
+                            FROM versions n JOIN versions p ON n.parent_id=p.id
+                            WHERE n.status='待解析' ORDER BY n.id LIMIT 1""").fetchone()
         if not v:
             return False
         error=''
         try:
-            status,details=formats.compare(self.obj(v['prior']),self.obj(v['sha']),v['ext'])
+            status,details=self.compare_versions(dict(sha=v['prior'],size=v['prior_size']),v)
         except Exception as exc:
             status,details,error='解析失败',[],str(exc)
         with self.db() as db:
             db.execute('UPDATE versions SET status=?,details=?,error=? WHERE id=?',(status,json.dumps(details,ensure_ascii=False),error,v['id']))
         return True
 
+    def compare_versions(self, left, right, mode='aligned'):
+        ext=right['ext']
+        if ext not in formats.plugins and ext not in formats.TEXT:
+            return formats.compare(self.obj(left['sha']),self.obj(right['sha']),ext,mode)
+        with self.parsing_paths(left,right) as (a,b):
+            return formats.compare(a,b,ext,mode)
+
+    def checked_object(self,sha,size):
+        obj=self.obj(sha)
+        ensure_plain(obj,self.home)
+        try:
+            before=obj.stat()
+            if stat.S_ISREG(before.st_mode) and before.st_size==size:
+                state=signature(before)
+                if digest(obj)==sha and signature(obj.stat())==state:
+                    return obj,state
+        except FileNotFoundError:
+            pass
+        raise ValueError('历史版本不存在或校验未通过')
+
+    @contextlib.contextmanager
+    def parsing_paths(self,*versions):
+        keys=[(v['sha'],v['size']) for v in versions]
+        if any(size>formats.PARSE_BYTES for _,size in keys):
+            raise ValueError('超过 32 MiB 内容解析上限')
+        checked={key:self.checked_object(*key) for key in dict.fromkeys(keys)}
+        yield tuple(checked[key][0] for key in keys)
+        if any(signature(obj.stat())!=state for obj,state in checked.values()):
+            raise ValueError('历史对象在解析期间变化，校验未通过')
+
     def checked_version(self,db,vid):
         v=db.execute('SELECT id,file_id,num,size,sha FROM versions WHERE id=?',(vid,)).fetchone()
         if not v:raise ValueError('历史版本不存在或校验未通过')
-        obj=self.obj(v['sha'])
-        ensure_plain(obj,self.home)
-        if not obj.is_file() or obj.stat().st_size!=v['size'] or digest(obj)!=v['sha']:
-            raise ValueError('历史版本不存在或校验未通过')
+        self.checked_object(v['sha'],v['size'])
         return v
 
     def restore_target(self,db,file_id):

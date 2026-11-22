@@ -380,7 +380,7 @@ class Service:
 
     def comparison(self,db,a):
         left,right = int(a['old']),int(a['new'])
-        fields = 'id,file_id,num,parent_id,sha,ext,status,error'
+        fields = 'id,file_id,num,parent_id,sha,size,ext,status,error'
         u = db.execute('SELECT '+fields+' FROM versions WHERE id=?',(left,)).fetchone()
         v = db.execute('SELECT '+fields+' FROM versions WHERE id=?',(right,)).fetchone()
         if not v or not u or v['file_id']!=u['file_id']:
@@ -401,7 +401,7 @@ class Service:
             status,details,error = v['status'],json.loads(payload),v['error']
         else:
             try:
-                status,details = formats.compare(self.s.obj(u['sha']),self.s.obj(v['sha']),v['ext'],mode)
+                status,details = self.s.compare_versions(u,v,mode)
             except Exception as exc:
                 status,details,error = '解析失败',[],str(exc)
         result = Comparison(details,status=status,error=error,is_excel=is_excel,is_word=is_word,is_tabular=is_tabular,ext=v['ext'],is_source=v['ext'] in formats.SOURCE_FORMATS,mode=mode,
@@ -415,14 +415,15 @@ class Service:
         mode=args.get('mode','aligned')
         if mode not in ('aligned','coordinate'):
             raise ValueError('无效的行对齐方式')
-        versions={r['id']:r for r in db.execute('SELECT id,file_id,sha,ext FROM versions WHERE id IN (?,?)',(left,right))}
+        versions={r['id']:r for r in db.execute('SELECT id,file_id,sha,size,ext FROM versions WHERE id IN (?,?)',(left,right))}
         if len(versions)!=2 or versions[left]['file_id']!=versions[right]['file_id'] or any(
                 r['ext'] not in formats.excel_diff.EXTENSIONS for r in versions.values()):
             raise ValueError('请选择同一 Excel 文件的两个工作簿版本')
         key=(left,right,mode)
         with self._sheet_lock:
             if not self._sheet_cache or self._sheet_cache[0]!=key:
-                view=WorkbookView(self.s.obj(versions[left]['sha']),self.s.obj(versions[right]['sha']),versions[right]['ext'],mode)
+                with self.s.parsing_paths(versions[left],versions[right]) as (a,b):
+                    view=WorkbookView(a,b,versions[right]['ext'],mode)
                 self._sheet_cache=(key,view)
             view=self._sheet_cache[1]
             return view.sheet(args)[1].search(args) if search else view.page(args)

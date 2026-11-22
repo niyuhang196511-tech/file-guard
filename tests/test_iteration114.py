@@ -154,7 +154,7 @@ class Inputs(Workspace):
         self.file('f.txt','新文')
         self.scan()
         with self.store.db() as db:
-            db.execute('DROP TABLE IF EXISTS data_migrations')
+            db.execute("DELETE FROM data_migrations WHERE name='csv_logical_records'")
             db.execute("UPDATE versions SET details=? WHERE ext='.csv' AND parent_id IS NOT NULL",
                        (json.dumps([{'field':'旧缓存'}]),))
 
@@ -177,6 +177,33 @@ class Inputs(Workspace):
         cached,=json.loads(versions[1]['details'])
         self.assertEqual((change['field'],change['old'],change['new']),('数量','2','3'))
         self.assertEqual((cached['field'],cached['old'],cached['new']),('数量','2','3'))
+
+    def test_upgrade_requeues_unverified_content_but_keeps_metadata_only_versions(self):
+        for text in ('old','new'):
+            self.file('tracked.txt',text)
+            self.file('attributes.bin',text)
+            self.scan()
+        with self.store.db() as db:
+            db.execute("DELETE FROM data_migrations WHERE name='verified_comparison_sources'")
+            old_id,new_id=[row[0] for row in db.execute("SELECT id FROM versions WHERE ext='.txt' ORDER BY num")]
+            db.execute("UPDATE versions SET details=? WHERE id=?",
+                       (json.dumps([{'sheet':'文本','location':'新 1 行','old':'bad','new':'new','kind':'修改'}]), new_id))
+        self.assertEqual(self.call('finder',q='bad')['total'],1)
+
+        self.store=Store(self.store.home)
+        self.api=Service(self.store)
+        self.assertEqual(self.call('finder',q='bad')['total'],0)
+        with self.store.db() as db:
+            states=[(row['ext'],row['status'],row['details']) for row in db.execute(
+                'SELECT ext,status,details FROM versions WHERE parent_id IS NOT NULL ORDER BY ext')]
+        self.assertEqual(states,[('.bin','属性对比','[]'),('.txt','待解析','[]')])
+        self.assertTrue(self.store.parse_one())
+
+        self.store=Store(self.store.home)
+        self.api=Service(self.store)
+        self.assertFalse(self.store.parse_one())
+        change,=self.call('compare',old=old_id,new=new_id)['items']
+        self.assertEqual((change['old'],change['new']),('old','new'))
 
     def test_tsv_and_legacy_chinese_encoding(self):
         self.file('单.tsv','编号\t领料\nA\t包装盒'.encode('gb18030'));self.scan()
