@@ -5,7 +5,7 @@ from fractions import Fraction
 from pathlib import Path
 import re
 
-from .comparison import csv_cell,new_csv
+from .comparison import csv_cell,new_csv,page_integer
 from .store import within
 
 PATTERN=re.compile(r'[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d{1,3})?')
@@ -89,6 +89,6 @@ def query(store,db,comparison,args,export=False):
                 out.writerow([meta['old_number'],meta['new_number'],*[csv_cell(row[k]) for k in COLUMNS]])
         store.audit(db,'导出数值差异',f"版本 #{args['old']} → #{args['new']} · {len(data)} 项")
         return str(path)
-    pages=max(1,(len(data)+24)//25);p=min(pages,max(1,int(args.get('page',1))))
+    pages=max(1,(len(data)+24)//25);p=min(pages,max(1,page_integer(args,'page',1)))
     items=[{k:r[k] for k in COLUMNS} for r in data[(p-1)*25:p*25]]
     return dict(items=items,total=len(data),counts=dict(counts),skips=dict(skips),groups=list(groups.values()),page=p,pages=pages)

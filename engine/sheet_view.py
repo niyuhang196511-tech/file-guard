@@ -2,6 +2,7 @@
 import re
 from openpyxl.utils.cell import column_index_from_string
 from . import excel_diff as excel
+from .comparison import page_integer
 from .formats import extract
 
 ROW_PAGE=30
@@ -139,7 +140,7 @@ class Sheet:
             value=row['value'] or ''
             if not args.get('sensitive'):value=value.casefold()
             return q==value if args.get('exact') else q in value
-        offset=max(0,int(args.get('offset',0)))
+        offset=max(0,page_integer(args,'offset',0))
         selected=islice((r for r in self.cell_entries() if matches(r)),offset,offset+21)
         hits=list(selected)
         return dict(items=hits[:20],offset=offset,more=len(hits)>20)
@@ -174,9 +175,9 @@ class Sheet:
         if focus:expanded=False
         count=len(selected) if focus else len(self.pairs) if expanded else len(self.compact)
         pages=max(1,(count+ROW_PAGE-1)//ROW_PAGE)
-        page=max(1,min(pages,int(args.get('page',1))))
+        page=max(1,min(pages,page_integer(args,'page',1)))
         colpages=max(1,(len(self.cols)+COL_PAGE-1)//COL_PAGE)
-        cp=max(1,min(colpages,int(args.get('col_page',1))))
+        cp=max(1,min(colpages,page_integer(args,'col_page',1)))
         target=None
         if args.get('target'):
             target,column=self.locate(args.get('locate','new'),args['target'])

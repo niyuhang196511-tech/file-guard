@@ -735,6 +735,10 @@ class Variances(Work):
         result=self.call('variance',page=2,**args);self.assertEqual(len(result['items']),7)
         p=self.base/'variance.csv';self.call('variance_csv',path=str(p),page=2,**args)
         self.assertEqual(len(self.csv(p)),33);self.assertEqual(self.csv(p)[0][-3:],['差额','变化率百分数','方向'])
+
+        for bad in ({'page':None},{'page':5.5},{'page':'1.5'},{'page':'1_0'}):
+            with self.subTest(bad=bad), self.assertRaisesRegex(ValueError,'分页条件无效'):
+                self.call('variance',**args,**bad)
     def test_excel_numeric_types_and_record_alignment(self):
         def save(n):
             b=Workbook();s=b.active;s.title='库存';s.append(['编码','数量','公式','备注']);s.append(['A',n,'=B2*'+str(n),str(n)])

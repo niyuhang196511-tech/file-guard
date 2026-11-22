@@ -208,6 +208,9 @@ class Journal(Work):
         self.assertEqual(self.call('history',id=1)[0]['num'],2);self.assertEqual(self.call('waiting_files',root=self.rid)['total'],0)
         root=self.call('roots')[0];self.assertEqual((root['settle_ms'],root['all_types']),(3000,1))
         with self.assertRaises(ValueError):self.call('capture_policy',root=self.rid,settle_ms=-1)
+        for args in ({'settle_ms':None},{'settle_ms':1.5},{'settle_ms':'1_500'},{'all_types':'true'}):
+            with self.subTest(args=args), self.assertRaises(ValueError):
+                self.call('capture_policy',root=self.rid,**args)
     def test_entire_waiting_queue_and_pause(self):
         self.call('capture_policy',root=self.rid,all_types=True)
         for i in range(38):(self.directory/f'bulk{i}.txt').write_text('open')
@@ -292,6 +295,12 @@ class Office(Work):
         self.assertEqual(search(q='SUM',type='公式')['items'][0]['address'],'C2')
         page=self.call('sheet_rows',**args,locate='new',target=hit['address'])
         self.assertGreater(page['page'],1);self.assertGreater(page['col_page'],1)
+        for options in ({'offset':None},{'offset':5.5},{'offset':'1_0'}):
+            with self.subTest(search=options), self.assertRaisesRegex(ValueError,'分页条件无效'):
+                search(q='alpha',**options)
+        for options in ({'page':None},{'page':5.5},{'col_page':'1_0'}):
+            with self.subTest(rows=options), self.assertRaisesRegex(ValueError,'分页条件无效'):
+                self.call('sheet_rows',**args,**options)
         with self.assertRaises(ValueError):search(q='')
     def test_chart_picture_and_macro_metadata(self):
         files=[]

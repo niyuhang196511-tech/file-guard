@@ -244,6 +244,14 @@ class Reports(unittest.TestCase):
         with self.assertRaises(ValueError):self.period(start='2026-12-01')
         self.assertEqual(self.period(start='2026-11-01',end='2026-11-01')['total'],0)
 
+    def test_reports_reject_malformed_page_arguments(self):
+        self.make()
+        for args in ({'page':None},{'page':5.5},{'page':'1.5'},{'page':'1_0'}):
+            with self.subTest(args=args), self.assertRaisesRegex(ValueError,'分页条件无效'):
+                self.period(**args)
+            with self.subTest(trace=args), self.assertRaisesRegex(ValueError,'分页条件无效'):
+                self.trace(**args)
+
     def test_trace_return_scope_order_before_and_after_filter(self):
         self.make();rows=self.trace()['items']
         self.assertEqual([r['version'] for r in rows],[3,2])

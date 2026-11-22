@@ -62,7 +62,7 @@ class ScanDiagnosticsTests(unittest.TestCase):
             {'start': '2024-03-01', 'end': '2024-02-29'}, {'state': '错误'},
             {'waiting': 'false'}, {'skips': 1}, {'detail': 1}, {'problem': True},
             {'skip_reason': []}, {'source': 123}, {'sort': 'unknown'}, {'sort': []},
-            {'page': 1.2}, {'size': 25}, {'root': True}, {'root': 2**63},
+            {'page': 1.2}, {'page': '1_0'}, {'size': 25}, {'root': True}, {'root': 2**63},
         )
         for args in invalid:
             with self.subTest(args=args), self.assertRaises(ValueError):

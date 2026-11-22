@@ -3,7 +3,7 @@ from collections import Counter
 from datetime import date
 import json
 from pathlib import Path
-from .comparison import csv_cell, new_csv
+from .comparison import csv_cell, new_csv, page_integer
 from .store import within
 
 STATES=('进行中','完成','等待保存','有异常','中断')
@@ -29,12 +29,16 @@ def _text(args, key):
 
 def _integer(args, key, default=None):
     value = args.get(key, default)
-    if type(value) not in (int, str):
+    if type(value) is str:
+        raw=value.strip()
+        digits=raw[1:] if raw[:1] in ('+','-') else raw
+        if not digits or any(char<'0' or char>'9' for char in digits):
+            raise ValueError(f'无效的整数条件：{key}')
+        number=int(raw)
+    elif type(value) is int:
+        number=value
+    else:
         raise ValueError(f'无效的整数条件：{key}')
-    try:
-        number = int(value)
-    except ValueError as exc:
-        raise ValueError(f'无效的整数条件：{key}') from exc
     if not -(2**63) <= number < 2**63:
         raise ValueError(f'无效的整数条件：{key}')
     return number
@@ -147,10 +151,12 @@ def query(db,store,args,export=False):
 
 
 def set_policy(db,store,args):
-    window=int(args.get('settle_ms',1500))
+    window=page_integer(args,'settle_ms',1500)
     if window not in (500,1500,3000,5000,10000):raise ValueError('无效的稳定等待时长')
-    all_types=int(bool(args.get('all_types')))
-    rid=int(args['root'])
+    all_types=args.get('all_types',False)
+    if type(all_types) is not bool:raise ValueError('无效的文件格式开关')
+    rid=page_integer(args,'root',0)
+    if not rid:raise ValueError('目录已移除')
     with store.lock:
         db.execute('BEGIN IMMEDIATE')
         if not db.execute('SELECT 1 FROM roots WHERE id=? AND NOT removed',(rid,)).fetchone():raise ValueError('目录已移除')

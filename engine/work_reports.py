@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import re
 
-from .comparison import csv_cell, new_csv
+from .comparison import csv_cell, new_csv, page_integer
 from .store import within
 
 PERIOD_COLUMNS = {'label':'分组','before':'上期次数','after':'本期次数','delta':'增减次数','files':'本期文件数','days':'本期活跃天数','first':'本期首次','last':'本期最近'}
@@ -27,7 +27,7 @@ def publish(store,db,args,rows,columns):
 
 def page(rows,args):
     pages=max(1,(len(rows)+24)//25)
-    number=max(1,min(pages,int(args.get('page',1))))
+    number=max(1,min(pages,page_integer(args,'page',1)))
     return dict(items=rows[(number-1)*25:number*25],total=len(rows),page=number,pages=pages)
 
 
