@@ -600,8 +600,9 @@ window.exampleRequest=async function(cmd,a={}){
   if(cmd==='checkpoint_diff'||cmd==='checkpoint_export'){
     const rows=d.cpDiff[a.old+'-'+a.new];
     if(!rows)throw Error('请选择同一目录的两份不同清单');
-    const q=(a.q||'').trim().replaceAll('\\','/').toLowerCase();
-    const found=rows.filter(r=>[r.old_path,r.new_path].some(p=>p&&p.toLowerCase().includes(q)));
+    const fold=text=>Array.from(text,c=>d.textSearch.fold[c]??c.toLowerCase()).join('');
+    const q=fold((a.q||'').trim().replaceAll('\\','/'));
+    const found=rows.filter(r=>[r.old_path,r.new_path].some(p=>p&&fold(p).includes(q)));
     const counts={};
     found.forEach(r=>counts[r.kind]=(counts[r.kind]||0)+1);
     const selected=found.filter(r=>a.kind?r.kind===a.kind:a.unchanged||r.kind!=='相同');

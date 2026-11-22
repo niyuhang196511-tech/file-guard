@@ -361,6 +361,84 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   appVm.dialog.reason='恢复测试';await appVm.submitDialog();assert.equal(appVm.list.total,1);
   await appVm.go('目录清单');await ctx.Vue.nextTick();
   assert(root.textContent.includes('保存与选择清单'));assert(appVm.cpData.total>0);
+  appVm.demo=false;
+  const savingRoot=appVm.cpRoot;
+  const otherRoot=appVm.s.roots.find(r=>r.id!==savingRoot).id;
+  const checkpointSaves=[], checkpointLoads=[];
+  let finishCheckpointSave, newCheckpoint, deferCheckpointList, finishCheckpointList;
+  ctx.exampleRequest=(cmd,args)=>{
+    if(cmd==='checkpoint_create'){
+      checkpointSaves.push(args);
+      return new Promise(resolve=>{finishCheckpointSave=resolve;});
+    }
+    if(cmd==='checkpoints'){
+      checkpointLoads.push(args.root);
+      if(args.root===savingRoot&&deferCheckpointList){
+        deferCheckpointList=false;
+        const previous=originalRequest(cmd,args);
+        return new Promise(resolve=>{finishCheckpointList=()=>resolve(previous);});
+      }
+      if(args.root===savingRoot&&newCheckpoint)return originalRequest(cmd,args).then(items=>[newCheckpoint,...items]);
+    }
+    if(cmd==='checkpoint_diff'&&newCheckpoint?.id===args.new){
+      return originalRequest('checkpoints',{root:savingRoot}).then(([latest, previous])=>
+        originalRequest(cmd,{...args,old:previous.id,new:latest.id}));
+    }
+    return originalRequest(cmd,args);
+  };
+  const saveCheckpointButton=()=>findNode(root,node=>node.tag==='button'&&
+    ['保存当前在册清单','正在保存目录清单…'].includes(node.textContent));
+  appVm.cpLabel='原目录保存点';await ctx.Vue.nextTick();
+  const saveFromOldRoot=saveCheckpointButton().props.onClick();
+  await appVm.loadCheckpointDiff();await ctx.Vue.nextTick();
+  assert(saveCheckpointButton().props.disabled,'比较请求完成后仍应等待清单保存');
+  await appVm.saveCheckpoint();assert.equal(checkpointSaves.length,1);
+  appVm.cpRoot=otherRoot;appVm.cpLabel='';await appVm.loadCheckpoints();
+  appVm.cpLabel='另一目录的清单草稿';
+  const readsForOtherRoot=checkpointLoads.length;
+  finishCheckpointSave(1001);await saveFromOldRoot;
+  assert.equal(checkpointSaves[0].root,savingRoot);
+  assert.equal(appVm.cpLabel,'另一目录的清单草稿');
+  assert.equal(checkpointLoads.length,readsForOtherRoot);
+
+  appVm.cpRoot=savingRoot;await appVm.loadCheckpoints();
+  appVm.cpLabel='同目录保存点';await ctx.Vue.nextTick();
+  const savingWithChangedComparison=saveCheckpointButton().props.onClick();
+  [appVm.cpNew,appVm.cpOld]=[appVm.cpOld,appVm.cpNew];await appVm.loadCheckpointDiff();
+  const pickedPair=[appVm.cpOld,appVm.cpNew], pickedComparison=appVm.cpData;
+  newCheckpoint={...appVm.checkpoints[0],id:1002,label:'同目录保存点'};
+  finishCheckpointSave(newCheckpoint.id);await savingWithChangedComparison;
+  assert.deepEqual([appVm.cpOld,appVm.cpNew],pickedPair);
+  assert.equal(appVm.cpData,pickedComparison);
+  assert.equal(appVm.checkpoints[0].id,newCheckpoint.id);
+  assert.equal(appVm.cpLabel,'');
+
+  newCheckpoint=null;
+  appVm.cpLabel='回到原目录前保存';await ctx.Vue.nextTick();
+  const saveBeforeReturning=saveCheckpointButton().props.onClick();
+  appVm.cpRoot=otherRoot;appVm.cpLabel='';await appVm.loadCheckpoints();
+  appVm.cpRoot=savingRoot;await appVm.loadCheckpoints();
+  const reopenedPair=[appVm.cpOld,appVm.cpNew], reopenedDiff=appVm.cpData;
+  appVm.cpLabel='重新进入后的草稿';
+  newCheckpoint={...appVm.checkpoints[0],id:1003,label:'回到原目录前保存'};
+  finishCheckpointSave(newCheckpoint.id);await saveBeforeReturning;
+  assert.equal(appVm.checkpoints[0].id,newCheckpoint.id,'返回原目录后仍应列出已经保存的清单');
+  assert.deepEqual([appVm.cpOld,appVm.cpNew],reopenedPair);
+  assert.equal(appVm.cpData,reopenedDiff);
+  assert.equal(appVm.cpLabel,'重新进入后的草稿');
+
+  newCheckpoint=null;
+  appVm.cpLabel='列表加载前保存';
+  const savedBeforeListCompletes=appVm.saveCheckpoint();
+  appVm.cpRoot=otherRoot;appVm.cpLabel='';await appVm.loadCheckpoints();
+  appVm.cpRoot=savingRoot;deferCheckpointList=true;
+  const staleCheckpointList=appVm.loadCheckpoints();
+  newCheckpoint={id:1004,label:'列表加载前保存',files:2};
+  finishCheckpointSave(newCheckpoint.id);await savedBeforeListCompletes;
+  finishCheckpointList();await staleCheckpointList;
+  assert.equal(appVm.checkpoints[0].id,newCheckpoint.id,'旧清单响应不得覆盖保存后的列表');
+  assert.equal(appVm.cpNew,newCheckpoint.id);
+  ctx.exampleRequest=originalRequest;appVm.demo=true;await appVm.loadCheckpoints();
   const forward=appVm.cpData.delta;
   [appVm.cpNew,appVm.cpOld]=[appVm.cpOld,appVm.cpNew];await appVm.loadCheckpointDiff();
   assert.equal(appVm.cpData.delta,-forward);

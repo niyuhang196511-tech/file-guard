@@ -240,7 +240,7 @@ const app = createApp({
             snapshotApplied:null,snapshotBusy:false,snapshotError:'',snapshotBack:'',
             reviewStates:['待复核','需跟进','已复核'],historyReview:'',storageData:null,
             gridFilter:'',gridTarget:'',gridLocate:'new',
-            cpRoot:0,cpOld:0,cpNew:0,checkpoints:[],cpLabel:'',cpKind:'',cpQ:'',cpSort:'',cpSame:false,cpData:null,cpPage:1,cpBusy:false,
+            cpRoot:0,cpOld:0,cpNew:0,checkpoints:[],cpLabel:'',cpKind:'',cpQ:'',cpSort:'',cpSame:false,cpData:null,cpPage:1,cpBusy:false,cpSaving:false,
             runtime:null,ruleHistory:null,
             rootQuery: '',
             rootScope: '全部',
@@ -1533,12 +1533,32 @@ const app = createApp({
             await this.loadCheckpointDiff();
         },
         async saveCheckpoint () {
-            if(this.cpBusy||!this.cpLabel.trim())return;
-            this.cpBusy=true;
-            try{
-                const saved=await this.safe(()=>request('checkpoint_create',{root:this.cpRoot,label:this.cpLabel}));
-                if(saved){this.cpLabel='';await this.loadCheckpoints();this.toast('目录清单已保存');}
-            }finally{this.cpBusy=false;}
+            const root=this.cpRoot, label=this.cpLabel;
+            if(this.cpSaving||!root||!label.trim())return;
+            const navigation=this.flags.navigation, listing=this.flags.cpList, comparison=this.flags.cpDiff;
+            const isCurrentRoot=()=>this.page==='目录清单'&&this.cpRoot===root;
+            this.cpSaving=true;
+            try {
+                await request('checkpoint_create',{root,label});
+                this.toast('目录清单已保存');
+                if(!isCurrentRoot())return;
+                const viewNavigation=this.flags.navigation, viewListing=this.flags.cpList;
+                const originalView=viewNavigation===navigation&&viewListing===listing;
+                if(originalView&&this.cpLabel===label)this.cpLabel='';
+                const items=await request('checkpoints',{root});
+                if(!isCurrentRoot()||this.flags.navigation!==viewNavigation||this.flags.cpList!==viewListing)return;
+                this.flags.cpList=(viewListing||0)+1;
+                this.checkpoints=items;
+                if(!this.cpNew||(originalView&&this.flags.cpDiff===comparison)){
+                    this.cpNew=items[0]?.id||0;
+                    this.cpOld=items[1]?.id||0;
+                    await this.loadCheckpointDiff();
+                }
+            } catch(e) {
+                this.toast(String(e?.message||e));
+            } finally {
+                this.cpSaving=false;
+            }
         },
         cpArgs () {return {old:this.cpOld,new:this.cpNew,q:this.cpQ,kind:this.cpKind,unchanged:this.cpSame,sort:this.cpSort,page:this.cpPage,size:25};},
         async loadCheckpointDiff (page=1) {

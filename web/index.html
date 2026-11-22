@@ -486,7 +486,7 @@
 </template>
 <template v-if="page==='目录清单'">
 <section class="card settings"><h2>保存与选择清单</h2><button class="btn" @click="fromCheckpointThree">打开清单三方对照</button><button class="btn" :disabled="!cpNew" @click="inventoryDialog">查看目标清单成员与交付</button><label>监控目录<select v-model.number="cpRoot" @change="cpLabel='';loadCheckpoints()"><option v-for="r in s.roots" :value="r.id">{{r.path}}</option></select></label>
-<div v-if="!demo"><label>新清单名称<input v-model="cpLabel" maxlength="80" placeholder="例如 月末交接前"></label><button class="btn" @click="saveCheckpoint" :disabled="!cpRoot||!cpLabel.trim()||cpBusy">保存当前在册清单</button></div>
+<div v-if="!demo"><label>新清单名称<input v-model="cpLabel" maxlength="80" placeholder="例如 月末交接前"></label><button class="btn" @click="saveCheckpoint" :disabled="!cpRoot||!cpLabel.trim()||cpSaving">{{cpSaving?'正在保存目录清单…':'保存当前在册清单'}}</button></div>
 <p v-if="checkpoints.length<2">至少需要同一目录的两份清单才能对照。</p>
 <div class="pair"><label>原清单<select v-model.number="cpOld" @change="loadCheckpointDiff()"><option v-for="c in checkpoints" :value="c.id">{{c.label}} · {{c.files}} 个文件</option></select></label>
 <button class="btn" :disabled="!cpOld||!cpNew||cpOld===cpNew" @click="[cpOld,cpNew]=[cpNew,cpOld];loadCheckpointDiff()">交换</button>

@@ -64,9 +64,11 @@ def compare(db,store,args,export=False):
     if len(roots)!=2 or roots[0][0]!=roots[1][0]:
         raise ValueError('请选择同一目录的两份不同清单')
     predicates, params = [], list(pair)
-    keyword = args.get('q','').strip().replace('\\','/')
+    keyword = args.get('q','').strip().replace('\\','/').casefold()
     if keyword:
-        predicates.append("(instr(lower(coalesce(old_path,'')),lower(?)) OR instr(lower(coalesce(new_path,'')),lower(?)))")
+        db.create_function('fg_checkpoint_fold', 1, str.casefold, deterministic=True)
+        predicates.append("(instr(fg_checkpoint_fold(coalesce(old_path,'')),?) "
+                          "OR instr(fg_checkpoint_fold(coalesce(new_path,'')),?))")
         params.extend((keyword,keyword))
     counts = dict(db.execute(QUERY+'SELECT kind,count(*) FROM diff'+(' WHERE '+predicates[0] if predicates else '')+' GROUP BY kind',params))
     kind = args.get('kind','')

@@ -68,6 +68,31 @@ class Checkpoints(Work):
         self.assertEqual(diff(q='%')['total'],0)
         self.assertEqual(self.api('checkpoints',root=self.rid)[0]['files'],5)
         with self.assertRaises(ValueError):diff(sort='unknown')
+    def test_unicode_path_search_matches_both_sides_and_csv(self):
+        original = self.write('Änderungen/Straße%.txt', 'renamed content')
+        nearby = self.write('Änderungen/StraßeX.txt', 'nearby content')
+        self.scan()
+        first = self.snap('筛选前')
+        original.rename(original.with_name('Όρος%.txt'))
+        nearby.write_text('nearby content changed', encoding='utf-8')
+        self.scan()
+        last = self.snap('筛选后')
+
+        for query in ('  änderungen\\STRASSE%.TXT  ', 'ÄNDERUNGEN/ΌΡΟΣ%.TXT'):
+            with self.subTest(query=query):
+                result = self.api('checkpoint_diff', old=first, new=last, q=query)
+                self.assertEqual(result['total'], 1)
+                self.assertEqual(result['counts'], {'路径变更': 1})
+                self.assertEqual(result['items'][0]['old_path'], 'Änderungen/Straße%.txt')
+                self.assertEqual(result['items'][0]['new_path'], 'Änderungen/Όρος%.txt')
+
+        dest = self.base/'unicode.csv'
+        self.api('checkpoint_export', old=first, new=last, q='änderungen\\STRASSE%.TXT', path=str(dest))
+        with dest.open(encoding='utf-8-sig', newline='') as src:
+            row, = csv.DictReader(src)
+        self.assertEqual(row['原路径'], 'Änderungen/Straße%.txt')
+        self.assertEqual(row['现路径'], 'Änderungen/Όρος%.txt')
+
     def test_snapshot_constraints_and_archived_content(self):
         with self.assertRaises(ValueError):self.snap('过早')
         self.scan();empty=self.snap('空')

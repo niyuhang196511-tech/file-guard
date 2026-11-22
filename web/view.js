@@ -4744,8 +4744,8 @@ return function render(_ctx, _cache) {
                         }, null, 8, _hoisted_774), [[_vModelText, cpLabel]])]), _createElementVNode("button", {
                           class: "btn",
                           onClick: saveCheckpoint,
-                          disabled: !cpRoot||!cpLabel.trim()||cpBusy
-                        }, "保存当前在册清单", 8, _hoisted_775)]))
+                          disabled: !cpRoot||!cpLabel.trim()||cpSaving
+                        }, _toDisplayString(cpSaving?'正在保存目录清单…':'保存当前在册清单'), 9, _hoisted_775)]))
                       : _createCommentVNode("", true),
                     (checkpoints.length<2)
                       ? (_openBlock(), _createElementBlock("p", _hoisted_776, "至少需要同一目录的两份清单才能对照。"))
