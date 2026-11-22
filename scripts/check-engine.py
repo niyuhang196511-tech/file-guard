@@ -16,6 +16,17 @@ from openpyxl import Workbook
 from docx import Document
 
 
+def replace_with_retry(source, destination):
+    for attempt in range(50):
+        try:
+            os.replace(source, destination)
+            return
+        except PermissionError:
+            if os.name != 'nt' or attempt == 49:
+                raise
+            time.sleep(.1)
+
+
 def verify(command):
     with tempfile.TemporaryDirectory() as temp:
         location=Path(temp)
@@ -30,7 +41,7 @@ def verify(command):
                 sheet.append([code,10])
             workbook.save(location/'待提交.xlsx')
             workbook.close()
-            os.replace(location/'待提交.xlsx',source)
+            replace_with_retry(location/'待提交.xlsx',source)
         save(['A','B'])
         cwd=Path(__file__).resolve().parents[1] if command[0]==sys.executable else location
         process=subprocess.Popen(command,cwd=cwd,
@@ -130,7 +141,7 @@ def verify(command):
                 doc.sections[0].footer.paragraphs[0].text='版次 B' if revised else '版次 A'
                 stage=location/'待提交.docx'
                 doc.save(stage)
-                os.replace(stage,word)
+                replace_with_retry(stage,word)
             save_word(False)
             call('scan',id=rid)
             doc_id=wait_for(lambda:call('files',q=word.name)['items'])[0]['id']
