@@ -210,6 +210,7 @@ const app = createApp({
                 '#aab8cb'
             ],
             list: emptyList(),
+            listTable: '',
             findForm:freshFinder(),findApplied:null,found:null,finderBusy:false,presets:[],presetName:'',presetId:0,
             textForm:freshTextHistory(),textApplied:null,textFileLabel:'',textResult:null,textCursors:[],
             textBusy:false,textError:'',textReturn:false,
@@ -747,6 +748,10 @@ const app = createApp({
                 '审计中心': 'audit'
             }[this.page];
             if (!table) return;
+            if (table!==this.listTable) {
+                this.listTable=table;
+                this.list=emptyList();
+            }
             const marker = (this.flags.list || 0) + 1;
             this.flags.list = marker;
             if (this.rangeError) {
