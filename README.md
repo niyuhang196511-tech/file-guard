@@ -182,7 +182,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-windows.ps1
 
 脚本顺序执行后端回归、PyInstaller 引擎构建、打包引擎协议检查、TypeScript 检查、界面编译和 Tauri 打包。构建成功后，`release/1.23.0` 下包含中文 NSIS 安装 EXE、MSI 和 `FileGuard-Portable-x64.zip`，并生成 SHA256SUMS.txt 校验清单。便携版需要本机已安装 WebView2，解压完整文件夹后启动 FileGuard.exe。请保留同目录的引擎和 portable.flag。
 
-项目也含手动启动的 Windows CI 工作流，可在 GitHub Actions 生成安装包和便携包。
+Windows 打包工作流可手动触发，也会在桌面或打包配置变更推送到 `main` 时运行。构建使用 npm 和 Cargo 锁文件固定前端及 Rust 依赖。GitHub Actions 分别上传 MSI、NSIS 和便携包，每份产物附带 SHA-256 清单。两个安装程序会在独立 Windows 运行器上核对摘要，并验证静默安装、已安装引擎的协议、桌面启动引擎和卸载流程。
 
 构建器与离线 WebView2 配置参见 [Tauri Windows Installer](https://v2.tauri.app/distribute/windows-installer/) 和 [Tauri Sidecar](https://v2.tauri.app/develop/sidecar/)。
 
