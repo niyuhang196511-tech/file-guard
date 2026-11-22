@@ -7,7 +7,7 @@ from pathlib import Path
 if __package__ in (None,''):
     sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
 from engine.store import Store
-from engine.maintenance import workspace_lock,restore_backup
+from engine.maintenance import workspace_lock,restore_backup,restore_lock
 from engine.service import Service
 
 
@@ -46,7 +46,8 @@ def main():
 if __name__=='__main__':
     if sys.argv[1:]==['--record-admin']:
         from engine.record_admin import initialize
-        initialize(Store(data_dir()))
+        with restore_lock(data_dir()):
+            initialize(Store(data_dir()))
         print('已配置本机仓库的记录管理口令。')
     elif len(sys.argv)==3 and sys.argv[1]=='--inspect-backup':
         from engine.backup_check import inspect

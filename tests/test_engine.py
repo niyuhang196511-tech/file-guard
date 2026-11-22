@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -23,7 +24,8 @@ from engine import formats
 from engine.store import FileChanging,Store,digest
 from engine.shared_read import open_snapshot_source,replace_guarded_file
 from engine.service import Service
-from engine.maintenance import restore_backup,workspace_lock
+from engine.maintenance import restore_backup,workspace_lock,restore_lock
+from tests_helper import RpcProcess
 
 
 def xlsx(path,qty):
@@ -320,10 +322,75 @@ class EngineTest(unittest.TestCase):
                 dst.writestr(name,b'broken' if name.startswith('objects/') else src.read(name))
         with self.assertRaises(ValueError):restore_backup(bad,self.store.home)
         self.assertEqual(len(self.versions()),2)
+
+    def test_startup_recovers_after_restore_process_dies_during_swap(self):
+        target = self.root/'source.txt'
+        target.write_bytes(b'old backup')
+        self.scan()
+        self.store.root_action(self.rid,'暂停')
+        backup = self.base/'备份.zip'
+        self.store.backup(backup)
+        self.store.root_action(self.rid,'继续')
+        target.write_bytes(b'current data')
+        self.scan()
+        self.store.root_action(self.rid,'暂停')
+
+        script = """
+import os
+from pathlib import Path
+import sys
+from engine.maintenance import restore_backup
+
+phase, destination, archive = sys.argv[1:]
+home = Path(destination).resolve()
+rename = Path.rename
+
+def interrupt(path, target):
+    result = rename(path, target)
+    if (phase == 'retained' and path == home) or (phase == 'installed' and Path(target) == home):
+        os._exit(57)
+    return result
+
+Path.rename = interrupt
+restore_backup(archive, home)
+"""
+        for phase, expected in (('retained',2),('installed',1)):
+            with self.subTest(phase=phase):
+                home = self.base/('仓库-'+phase)
+                shutil.copytree(self.store.home,home)
+                child = subprocess.run([sys.executable,'-c',script,phase,str(home),str(backup)],
+                                       cwd=Path(__file__).resolve().parents[1],timeout=20)
+                self.assertEqual(child.returncode,57)
+                self.assertEqual(home.exists(),phase=='installed')
+                with RpcProcess(home) as engine:
+                    self.assertEqual(engine.call('summary')['versions'],expected)
+                retained = list(home.parent.glob(home.name+'-还原前-*'))
+                if phase == 'retained':
+                    self.assertEqual(retained,[])
+                else:
+                    prior, = retained
+                    self.assertEqual(Service(Store(prior)).dispatch('summary',{})['versions'],2)
+                self.assertFalse(list(home.parent.glob('.'+home.name+'.fileguard-restore')))
+
+    def test_startup_does_not_initialize_when_interrupted_restore_has_no_copy(self):
+        home = self.base/'缺少旧仓库'
+        marker = home.with_name('.'+home.name+'.fileguard-restore')
+        marker.write_text('20261122-010203-000000',encoding='utf-8')
+        with self.assertRaisesRegex(ValueError,'离线还原'):
+            with workspace_lock(home):
+                Store(home)
+        self.assertFalse(home.exists())
+        self.assertTrue(marker.is_file())
+
     def test_workspace_guard(self):
         with workspace_lock(self.store.home):
             with self.assertRaises(ValueError):
                 with workspace_lock(self.store.home): pass
+            with restore_lock(self.store.home):
+                self.assertTrue(self.store.home.is_dir())
+        with restore_lock(self.store.home):
+            with self.assertRaisesRegex(ValueError,'配置管理口令'):
+                restore_backup(self.base/'unused.zip',self.store.home)
     def test_overlap_rejected(self):
         for path in [self.root,self.base,self.store.objects]:
             with self.assertRaises(ValueError):self.store.configure(path)
