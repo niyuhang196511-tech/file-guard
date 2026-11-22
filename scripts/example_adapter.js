@@ -862,7 +862,7 @@ window.exampleRequest=async function(cmd,a={}){
     const q=(a.q||'').trim().toLowerCase();
     const found=d.audit.filter(r=>(!q||[r.action,r.note].some(v=>v.toLowerCase().includes(q)))&&
       (!a.action||r.action===a.action)&&inRange(r.stamp));
-    if(a.sort==='oldest')found.sort((l,r)=>l.stamp.localeCompare(r.stamp)||r.id-l.id);
+    if(a.sort==='oldest')found.sort((l,r)=>Date.parse(l.stamp)-Date.parse(r.stamp)||r.id-l.id);
     if(cmd==='export_audit')return csvText([['编号','时间','操作','内容'],...found.map(r=>[r.id,r.stamp,r.action,r.note])]);
     return {...paginate(found,a.size||25),actions:[...new Set(d.audit.map(r=>r.action))].sort()};
   }
