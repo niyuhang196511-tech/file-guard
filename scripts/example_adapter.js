@@ -405,7 +405,7 @@ window.exampleRequest=async function(cmd,a={}){
     const exts=String(a.ext||'').toLowerCase().split(/[,，;；\s]+/).filter(Boolean).map(v=>'.'+v.replace(/^\.+/,''));
     const fold=text=>Array.from(text,c=>d.textSearch.fold[c]??c.toLowerCase()).join('');
     const q=fold(String(a.q||'').trim().replaceAll('\\','/')),mode=a.group||'file';
-    for(const e of d.events.map(publicEvent).filter(x=>x?.file_id).sort((x,y)=>x.stamp.localeCompare(y.stamp)||x.id-y.id)){
+    for(const e of d.events.map(publicEvent).filter(x=>x?.file_id).sort((x,y)=>Date.parse(x.stamp)-Date.parse(y.stamp)||x.id-y.id)){
       const day=e.stamp.slice(0,10);if(day<previous||day>end||(!a.initial&&e.kind==='初始建档'))continue;
       if(a.root_id&&+a.root_id!==e.root_id||a.kind&&a.kind!==e.kind||a.source&&a.source!==e.source||exts.length&&!exts.includes(e.ext))continue;
       if(q&&![e.rel,e.old_rel].some(x=>fold(String(x||'')).includes(q)))continue;

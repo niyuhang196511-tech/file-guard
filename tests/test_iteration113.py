@@ -203,6 +203,34 @@ class Reports(unittest.TestCase):
             exported, = csv.DictReader(stream)
         self.assertEqual((exported['分组'],exported['本期次数']),(row['label'],'1'))
 
+    def test_period_identifies_latest_event_across_clock_fallback(self):
+        path = self.root/'Before.txt'
+        path.write_text('first', encoding='utf-8')
+        self.scan(1)
+        first = '2026-11-01T01:55:00-04:00'
+        last = '2026-11-01T01:05:00-05:00'
+        path.write_text('changed', encoding='utf-8')
+        with patch('engine.store.now',return_value=first):
+            self.store.scan(self.rid)
+        path.rename(self.root/'After.txt')
+        with patch('engine.store.now',return_value=last):
+            self.store.scan(self.rid)
+
+        dates = dict(start='2026-11-01',end='2026-11-01')
+        report = self.period(**dates)
+        row, = report['items']
+        self.assertEqual((row['after'],row['days'],row['first'],row['last']),(2,1,first,last))
+        self.assertTrue(row['label'].endswith('After.txt'))
+        event, = self.call('events',event_id=row['event_id'])['items']
+        self.assertEqual((event['kind'],event['stamp']),('重命名',last))
+        hour, = self.period(group='hour',**dates)['items']
+        self.assertEqual((hour['label'],hour['after']),('01 时',2))
+        destination = self.base/'period.csv'
+        self.call('period_csv',path=str(destination),**dates)
+        with destination.open(encoding='utf-8-sig',newline='') as stream:
+            exported, = csv.DictReader(stream)
+        self.assertEqual((exported['本期首次'],exported['本期最近']),(first,last))
+
     def test_period_date_edges_missing_extensions_and_csv(self):
         for i in range(31):(self.root/f'f{i}').write_text('a')
         self.scan(1)

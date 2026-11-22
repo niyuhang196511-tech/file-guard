@@ -326,6 +326,10 @@ const app = createApp({
             const {actions,sources}=result.data;
             return {...empty,actions,sources};
         },
+        healthData () {
+            const d=this.dialog;
+            return d?.type==='health'&&!d.loading&&d.applied?.id===d.id?d.data:null;
+        },
         journalComparison () {
             if(this.dialog?.type!=='scan_log'||this.dialog.selectedRuns.length!==2)return null;
             const [before,after]=[...this.dialog.selectedRuns].sort((a,b)=>a.id-b.id);
@@ -1931,7 +1935,8 @@ const app = createApp({
             if(this.demo)await this.submitDialog();
         },
         async healthDialog () {
-            this.dialog={type:'health',title:'仓库体检',reports:[],id:0,data:null,q:'',change:'',status:'',job:{state:'空闲'},refs:null};
+            this.dialog={type:'health',title:'仓库体检',reports:[],id:0,data:null,applied:null,q:'',change:'',status:'',
+                job:{state:'空闲'},loading:false,refs:null,refsLoading:false};
             await this.refreshHealth();
         },
         async refreshHealth (cmd              ='health_state') {
@@ -1944,23 +1949,51 @@ const app = createApp({
             const reports=await this.safe(()=>request('health_reports'));
             if(this.dialog!==d||seq!==this.flags.health||!reports)return;
             d.reports=reports;
+            const selected=d.id;
             if(!reports.some(r=>r.id===d.id)||completed)d.id=reports[0]?.id||0;
-            if(d.id)await this.loadHealth();
+            if(d.id!==selected){d.status='';d.change='';}
+            if(d.id&&(d.id!==selected||(!d.data&&!d.loading)))await this.loadHealth();
+            if(this.dialog!==d||seq!==this.flags.health)return;
             clearTimeout(this._healthTimer);
             if(job.state==='检查中'&&this.dialog===d)this._healthTimer=setTimeout(()=>{if(this.dialog===d)this.refreshHealth();},800);
         },
-        async loadHealth (page=1) {
-            const d=this.dialog,seq=(this.flags.healthPage||0)+1;this.flags.healthPage=seq;d.refs=null;
-            const args={id:d.id,q:d.q,status:d.status,change:d.change};
-            const data=await this.safe(()=>request('health_results',{...args,page}));
-            if(this.dialog===d&&seq===this.flags.healthPage){d.data=data;d.applied=args;}
+        async loadHealth (page=1, applied=null) {
+            const d=this.dialog;
+            if(d?.type!=='health'||!d.id)return;
+            const args=applied||{id:d.id,q:d.q,status:d.status,change:d.change};
+            if(args.id!==d.id)return;
+            const seq=(this.flags.healthPage||0)+1;
+            this.flags.healthPage=seq;
+            const isCurrent=()=>this.dialog===d&&seq===this.flags.healthPage&&d.id===args.id;
+            d.loading=true;d.refs=null;d.refsLoading=false;d.error='';
+            try {
+                const data=await request('health_results',{...args,page});
+                if(isCurrent()){d.data=data;d.applied=args;}
+            } catch(e) {
+                if(isCurrent()){d.data=null;d.applied=null;d.error=String(e?.message||e);}
+            } finally {
+                if(isCurrent())d.loading=false;
+            }
         },
         async affectedVersions (row,page=1) {
-            const d=this.dialog,seq=(this.flags.affected||0)+1;this.flags.affected=seq;
-            const data=await this.safe(()=>request('health_references',{id:row.report_id,key:row.object_key,page}));
-            if(this.dialog===d&&data&&this.flags.affected===seq)d.refs={row,...data};
+            const current=this.healthData;
+            if(!current?.items.includes(row))return;
+            const d=this.dialog, seq=(this.flags.affected||0)+1, report=this.flags.healthPage;
+            this.flags.affected=seq;
+            const isCurrent=()=>this.dialog===d&&this.healthData===current&&
+                seq===this.flags.affected&&report===this.flags.healthPage;
+            d.refs=null;d.refsLoading=true;d.error='';
+            try {
+                const data=await request('health_references',{id:row.report_id,key:row.object_key,page});
+                if(isCurrent())d.refs={row,...data};
+            } catch(e) {
+                if(isCurrent())d.error=String(e?.message||e);
+            } finally {
+                if(isCurrent())d.refsLoading=false;
+            }
         },
         async healthExport () {
+            if(!this.healthData)return;
             const args=this.dialog.applied;
             if(this.demo)await this.downloadCsv('health_csv',args,'仓库体检.csv');
             else await this.saveFile('health_csv','仓库体检.csv',null,args);

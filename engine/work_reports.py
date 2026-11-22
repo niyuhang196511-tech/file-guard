@@ -59,7 +59,9 @@ def period(db,store,args,export=False):
         conditions.append('e.ext IN ('+','.join('?' for _ in exts)+')');params.extend(exts)
     db.execute('BEGIN')
     sql="""SELECT e.id,e.file_id,e.root_id,e.rel,e.stamp,e.kind,e.ext,e.source,r.path
-           FROM visible_events e JOIN roots r ON e.root_id=r.id WHERE """+' AND '.join(conditions)+' ORDER BY e.stamp,e.id'
+           FROM visible_events e JOIN roots r ON e.root_id=r.id WHERE """+' AND '.join(conditions)
+    # Keep grouping by the recorded local day, but find the earliest and latest instants.
+    sql+=' ORDER BY unixepoch(e.stamp),e.id'
     grouped={};totals=[0,0];unique=[set(),set()]
     for r in db.execute(sql,params):
         day=r['stamp'][:10]; current=day>=start.isoformat()
