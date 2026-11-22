@@ -44,6 +44,19 @@ def listing(db, root):
 KINDS = ('新增','移出','内容修改','路径变更','路径与内容变更','相同')
 FIELDS = ('kind','old_path','new_path','old_num','new_num','old_size','new_size','delta','old_sha','new_sha')
 HEADERS = ('变化','原路径','现路径','旧版本','新版本','旧字节','新字节','字节变化','旧摘要','新摘要')
+
+
+def _page_integer(args, key, default):
+    value = args.get(key, default)
+    if type(value) is str:
+        raw=value.strip()
+        digits=raw[1:] if raw[:1] in ('+','-') else raw
+        if not digits or any(char<'0' or char>'9' for char in digits):
+            raise ValueError('分页条件无效')
+        return int(raw)
+    if type(value) is int:
+        return value
+    raise ValueError('分页条件无效')
 QUERY = """WITH a AS (SELECT * FROM checkpoint_files WHERE checkpoint=?),
 b AS (SELECT * FROM checkpoint_files WHERE checkpoint=?),
 ids AS (SELECT file_id FROM a UNION SELECT file_id FROM b),
@@ -96,7 +109,7 @@ def compare(db,store,args,export=False):
         store.audit(db,'导出目录清单对照',f'清单 #{pair[0]} → #{pair[1]}')
         return str(dest)
     total,delta = db.execute(QUERY+'SELECT count(*),coalesce(sum(delta),0)'+source,params).fetchone()
-    size = min(100,max(1,int(args.get('size',25))))
-    page = min(max(1,int(args.get('page',1))),max(1,(total+size-1)//size))
+    size = min(100,max(1,_page_integer(args,'size',25)))
+    page = min(max(1,_page_integer(args,'page',1)),max(1,(total+size-1)//size))
     items = [dict(r) for r in db.execute(select+' LIMIT ? OFFSET ?', [*params,size,(page-1)*size])]
     return dict(items=items,total=total,delta=delta,counts=counts,page=page,size=size)

@@ -68,6 +68,13 @@ class Checkpoints(Work):
         self.assertEqual(diff(q='%')['total'],0)
         self.assertEqual(self.api('checkpoints',root=self.rid)[0]['files'],5)
         with self.assertRaises(ValueError):diff(sort='unknown')
+
+    def test_diff_rejects_malformed_page_arguments(self):
+        self.write('file.txt','before');self.scan();first=self.snap('前')
+        self.write('file.txt','after');self.scan();last=self.snap('后')
+        for args in ({'size':None},{'size':5.5},{'page':None},{'page':'1.5'},{'page':'1_0'}):
+            with self.subTest(args=args), self.assertRaisesRegex(ValueError,'分页条件无效'):
+                self.api('checkpoint_diff',old=first,new=last,**args)
     def test_unicode_path_search_matches_both_sides_and_csv(self):
         original = self.write('Änderungen/Straße%.txt', 'renamed content')
         nearby = self.write('Änderungen/StraßeX.txt', 'nearby content')

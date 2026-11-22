@@ -305,7 +305,14 @@ class Store:
         if not p.is_dir() or within(p,self.home) or within(self.home,p):
             raise ValueError('请选择与版本仓库分开的目录')
         patterns = ", ".join(exclusion_patterns(patterns))
-        max_mb = int(max_mb)
+        if type(max_mb) is str:
+            raw=max_mb.strip()
+            digits=raw[1:] if raw[:1] in ('+','-') else raw
+            if not digits or any(char<'0' or char>'9' for char in digits):
+                raise ValueError('大小上限应为整数')
+            max_mb=int(raw)
+        elif type(max_mb) is not int:
+            raise ValueError('大小上限应为整数')
         if not 0<=max_mb<=1048576:
             raise ValueError('大小上限应在 0 到 1048576 MiB 之间')
         with self.lock,self.db() as db:

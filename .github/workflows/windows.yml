@@ -7,11 +7,18 @@ on:
     paths:
       - '.github/workflows/windows.yml'
       - 'src-tauri/**'
+      - 'engine/**'
+      - 'frontend/**'
+      - 'web/**'
       - 'package.json'
       - 'package-lock.json'
+      - 'requirements.txt'
       - 'scripts/build-windows.ps1'
       - 'scripts/check-windows-install.ps1'
       - 'scripts/windows-python.ps1'
+      - 'scripts/check-engine.py'
+      - 'scripts/compile-app.cjs'
+      - 'scripts/compile-view.cjs'
       - '构建Windows版本.cmd'
       - 'FileGuard-RecordAdmin.cmd'
 

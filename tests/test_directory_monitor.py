@@ -45,6 +45,13 @@ class DirectoryMonitorTests(unittest.TestCase):
             with self.subTest(args=args), self.assertRaisesRegex(ValueError,'设置值无效'):
                 self.api.dispatch('settings',args)
 
+    def test_configure_rejects_fractional_size_limits(self):
+        for value in (None, True, 1.5, '', '1.5', '1_0'):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                self.api.dispatch('configure', {'id':self.rid, 'path':str(self.root), 'max_mb':value})
+        self.api.dispatch('configure', {'id':self.rid, 'path':str(self.root), 'max_mb':' 2 '})
+        self.assertEqual(self.roots()[self.rid]['max_mb'], 2)
+
     def test_single_scan_is_atomic_and_source_survives_background_queue(self):
         second=self.base/'第二';second.mkdir()
         another=self.store.configure(second)
