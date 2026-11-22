@@ -11,7 +11,7 @@ from openpyxl.comments import Comment
 from engine import backup_check, formats, record_admin, rules
 from engine.service import Service
 from engine.sheet_view import WorkbookView
-from engine.store import FileChanging, Store
+from engine.store import FileChanging, Store, digest
 from tests_helper import RpcProcess
 
 
@@ -146,6 +146,42 @@ class Checkpoints(Work):
         after = self.snap('编辑后')
         items = self.api('checkpoint_diff',old=before,new=after)['items']
         self.assertEqual([(row['new_path'],row['new_num']) for row in items], [('first.txt',2),('locked.txt',2)])
+
+    def test_snapshot_waits_for_pending_restore_of_same_directory(self):
+        target = self.write('note.txt', 'original').resolve()
+        self.scan()
+        file, = self.api('files')['items']
+        original, = self.api('history', id=file['id'])
+        self.write('note.txt', 'updated contents')
+        self.scan()
+        before = self.snap('恢复前')
+
+        def temporarily_unreadable(path):
+            if path == target and path.read_bytes() == b'original':
+                raise PermissionError('写回后短时间无法读取')
+            return digest(path)
+
+        with patch('engine.store.digest', side_effect=temporarily_unreadable):
+            with self.assertRaises(PermissionError):
+                self.api('restore', id=original['id'])
+
+        self.assertEqual(target.read_bytes(), b'original')
+        self.assertEqual(self.api('summary')['recovery'], 1)
+        with self.assertRaisesRegex(ValueError, '恢复.*核对'):
+            self.snap('恢复后')
+        self.assertEqual([row['id'] for row in self.api('checkpoints', root=self.rid)], [before])
+
+        peer = self.base / 'other'
+        peer.mkdir()
+        peer_id = self.store.configure(peer)
+        self.store.scan(peer_id)
+        self.assertTrue(self.api('checkpoint_create', root=peer_id, label='其他目录'))
+
+        self.api('retry_recovery')
+        self.assertEqual(self.api('summary')['recovery'], 0)
+        after = self.snap('恢复后')
+        item, = self.api('checkpoint_diff', old=before, new=after)['items']
+        self.assertEqual((item['old_num'], item['new_num'], item['new_sha']), (2, 3, original['sha']))
 
 
 class Monitoring(Work):

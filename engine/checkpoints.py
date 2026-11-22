@@ -19,6 +19,10 @@ def create(db, store, args):
         raise ValueError('上次扫描仍有文件等待保存，请完成复查后再保存目录清单')
     if scan and scan['status']!='完成':
         raise ValueError('请先完成一次成功的目录扫描')
+    pending_restore = db.execute('''SELECT 1 FROM restores i JOIN files f ON f.id=i.file_id
+                                    WHERE f.root_id=? LIMIT 1''',(root['id'],)).fetchone()
+    if pending_restore:
+        raise ValueError('此目录仍有恢复任务待核对，请在系统设置中完成核对后再保存目录清单')
     try:
         checkpoint = db.execute('INSERT INTO checkpoints(root_id,label,stamp,last_scan) VALUES (?,?,?,?)',
                                 (root['id'],label,now(),root['last_scan'])).lastrowid
