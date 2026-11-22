@@ -121,6 +121,46 @@ class PathHistoryTests(unittest.TestCase):
         deletion=report['items'][1]
         self.assertEqual((deletion['prior'],deletion['version']),(1,None))
 
+    def test_directory_occupancy_separates_recreated_file_history(self):
+        path = self.put('报告', '原文件')
+        self.scan()
+        original, = self.service.dispatch('files', {})['items']
+        path.unlink()
+        path.mkdir()
+
+        with patch('engine.store.time.monotonic', return_value=10):
+            self.scan(source='文件监听')
+        wait, = self.service.dispatch('waiting_files', {'root': self.rid})['items']
+        self.assertEqual((wait['rel'], wait['reason']), ('报告', '等待路径替换完成'))
+        self.assertEqual(self.path(rel='报告', kind='删除')['total'], 0)
+
+        with patch('engine.store.time.monotonic', return_value=12):
+            self.scan(source='保存复查')
+        removed, = self.service.dispatch('files', {'scope': 'deleted'})['items']
+        self.assertEqual(removed['id'], original['id'])
+
+        path.rmdir()
+        self.put('报告', '后来的文件')
+        self.scan()
+        current, = self.service.dispatch('files', {})['items']
+        self.assertNotEqual(current['id'], original['id'])
+        self.assertEqual(current['version'], 1)
+        self.assertEqual([row['kind'] for row in self.path(rel='报告', sort='oldest')['items']],
+                         ['初始建档', '删除', '新增'])
+
+    def test_rename_preserves_identity_when_source_path_becomes_directory(self):
+        self.put('旧名.txt')
+        self.scan()
+        original, = self.service.dispatch('files', {})['items']
+        self.move('旧名.txt', '新名.txt')
+        (self.root / '旧名.txt').mkdir()
+        self.scan()
+
+        moved, = self.service.dispatch('files', {'scope': 'all'})['items']
+        self.assertEqual((moved['id'], moved['rel'], moved['version']), (original['id'], '新名.txt', 1))
+        self.assertEqual([row['kind'] for row in self.path(rel='旧名.txt', sort='oldest')['items']],
+                         ['初始建档', '重命名'])
+
     def test_folder_membership_boundary_handles_enter_internal_leave(self):
         self.put('外/资料.txt')
         self.put('归档二/同款.txt')

@@ -17,6 +17,9 @@ from . import exchange_formats, semantic, package_details, message_formats
 
 LIMIT = 250_000
 PARSE_BYTES = 32 * 1024 * 1024
+# CSV parsing already has a file-size budget. Configure the process-wide reader limit once
+# so that background parsing and table views can read long fields concurrently.
+csv.field_size_limit(PARSE_BYTES)
 plugins = {}
 SOURCE_FORMATS=exchange_formats.TEXT_EXTENSIONS | {'.gpx','.ini','.toml','.srt','.ipynb','.svg','.xsd','.xsl','.xslt','.csproj','.props','.targets'}
 ITERATION_111={'.xlsx','.xlsm','.xltx','.xltm','.eml','.gpx','.epub'}
@@ -194,23 +197,30 @@ def xml(path):
     yield from walk(root,'/'+root.tag)
 
 
-def csv_sample_has_columns(stream, start, delimiter):
+def csv_column_consistency(stream, start, delimiter):
     stream.seek(start)
     try:
         rows=csv.reader(stream,delimiter=delimiter,strict=True)
         # Sample complete records so quoted line breaks or long cells do not split the sample.
         widths=[len(row) for row in islice(rows,32) if row]
     except csv.Error:
-        return False
-    return len(widths)>1 and widths[0]>1 and len(set(widths))==1
+        return 0
+    if len(widths)<2 or widths[0]<2:
+        return 0
+    header_width=widths[0]
+    full_rows=widths.count(header_width)
+    if full_rows==len(widths):
+        return 2
+    # Some exports omit trailing empty fields. Prefer exact widths over this weaker evidence.
+    return int(full_rows*2>len(widths) and max(widths)==header_width)
 
 
 def csv_delimiter(text, stream):
     start=re.match(r'[\r\n]*',text).end()
-    semicolon=csv_sample_has_columns(stream,start,';')
-    comma=csv_sample_has_columns(stream,start,',')
+    semicolon=csv_column_consistency(stream,start,';')
+    comma=csv_column_consistency(stream,start,',')
     if semicolon!=comma:
-        return ';' if semicolon else ','
+        return ';' if semicolon>comma else ','
     try:
         return csv.Sniffer().sniff(text[start:start+8192],delimiters=',;').delimiter
     except csv.Error:

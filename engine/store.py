@@ -145,6 +145,14 @@ class Store:
                 db.execute(f"""UPDATE versions SET status='待解析',details='[]',error=''
                                WHERE parent_id IS NOT NULL AND status='已解析'
                                AND ext IN ({placeholders})""", extensions)
+            migration = db.execute("INSERT OR IGNORE INTO data_migrations VALUES ('delimited_compatibility') RETURNING name").fetchone()
+            if migration and previous_schema:
+                db.execute("""UPDATE versions SET status='待解析',details='[]',error=''
+                              WHERE parent_id IS NOT NULL AND (
+                                  (ext='.csv' AND status='已解析') OR
+                                  (ext IN ('.csv','.tsv') AND status='解析失败'
+                                   AND error='field larger than field limit (131072)')
+                              )""")
 
     @contextlib.contextmanager
     def db(self):
@@ -358,6 +366,7 @@ class Store:
         patterns=exclusion_patterns(root['patterns'])
         reasons=Counter()
         pruned=set()
+        walked_dirs=set()
 
         def excluded(rel):
             return bool(match(rel,patterns)[0])
@@ -368,6 +377,7 @@ class Store:
         self.progress[rid]=f'{source} · 正在枚举文件'
         for parent,dirs,names in os.walk(base,onerror=lambda e:errors.append(str(e))):
             parent=Path(parent)
+            walked_dirs.add(parent)
             included_dirs=[]
             for name in dirs:
                 path=parent/name
@@ -413,6 +423,20 @@ class Store:
         stats.update(candidates=len(found),skipped=sum(reasons.values()),skip_reasons=json.dumps(reasons,ensure_ascii=False))
         if errors:
             raise OSError('目录未完整读取：'+errors[0])
+
+        def file_absent(path):
+            if path not in walked_dirs:
+                return not os.path.lexists(path)
+            # An observed directory can later be replaced by a file or junction.
+            try:
+                info=path.lstat()
+            except (FileNotFoundError,NotADirectoryError):
+                return True
+            except OSError:
+                return False
+            return (stat.S_ISDIR(info.st_mode)
+                    and not getattr(info,'st_file_attributes',0) & stat.FILE_ATTRIBUTE_REPARSE_POINT)
+
         old_keys=Counter(r['fkey'] for r in old.values())
         found_paths={}
         for rel,s in found.items():
@@ -425,7 +449,7 @@ class Store:
             if rel in found or rel in ignored or rel in unavailable or outside_scope(rel):
                 continue
             path=base/rel
-            absent=not os.path.lexists(path)
+            absent=file_absent(path)
             if absent:
                 missing[rel]=row
             key=row['fkey']
@@ -516,7 +540,7 @@ class Store:
             db.executemany('UPDATE files SET tracked=0 WHERE id=?',excluded_ids)
             db.executemany('UPDATE files SET tracked=1 WHERE id=?',[(old[k]['id'],) for k in found if k in old and not old[k]['tracked']])
             for rel,r in missing.items():
-                if os.path.lexists(base/rel):
+                if not file_absent(base/rel):
                     continue
                 if (watch_scan or rel in observed) and settling(rel,'missing'):
                     waiting[rel]='等待路径替换完成'

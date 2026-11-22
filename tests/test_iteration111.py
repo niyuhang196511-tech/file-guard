@@ -98,6 +98,45 @@ class Finder(Work):
         self.assertEqual(self.find()['total'],3)
 
 
+class DelimitedUpgrade(Work):
+    def test_refreshes_csv_details_and_retries_only_delimited_field_limit_errors(self):
+        sources = {'ledger.csv': ',', 'ledger.tsv': '\t', 'other.tsv': '\t', 'other.txt': ','}
+        for value in (10, 20):
+            for name, delimiter in sources.items():
+                (self.directory / name).write_text(
+                    f'编号{delimiter}数量\nA{delimiter}{value}\n', encoding='utf-8')
+            self.scan()
+
+        with self.store.db() as db:
+            db.execute("DELETE FROM data_migrations WHERE name='delimited_compatibility'")
+            pairs = {row['rel']: (row['parent_id'], row['id']) for row in db.execute(
+                'SELECT f.rel,v.parent_id,v.id FROM versions v JOIN files f ON f.id=v.file_id WHERE v.parent_id IS NOT NULL')}
+            fake = [{'sheet':'数据表','location':'第 2 行 · 第 1 列','old':'旧缓存','new':'A','kind':'修改'}]
+            db.execute('UPDATE versions SET details=? WHERE id=?', (json.dumps(fake), pairs['ledger.csv'][1]))
+            db.executemany("UPDATE versions SET status='解析失败',details='[]',error=? WHERE id=?", [
+                ('field larger than field limit (131072)', pairs['ledger.tsv'][1]),
+                ('其他格式错误', pairs['other.tsv'][1]),
+            ])
+        self.assertEqual(self.call('finder',q='旧缓存')['total'],1)
+
+        self.store=Store(self.store.home)
+        self.service=Service(self.store)
+        self.assertEqual(self.call('finder',q='旧缓存')['total'],0)
+        with self.store.db() as db:
+            pending = {row[0] for row in db.execute("SELECT id FROM versions WHERE status='待解析'")}
+        self.assertEqual(pending, {pairs['ledger.csv'][1], pairs['ledger.tsv'][1]})
+        self.assertTrue(self.store.parse_one())
+        self.assertTrue(self.store.parse_one())
+
+        self.store=Store(self.store.home)
+        self.service=Service(self.store)
+        self.assertFalse(self.store.parse_one())
+        for name in ('ledger.csv', 'ledger.tsv'):
+            old, new = pairs[name]
+            change, = self.call('compare',old=old,new=new)['items']
+            self.assertEqual((change['field'],change['old'],change['new']),('数量','10','20'))
+
+
 class Journal(Work):
     def test_activity_reuse_omissions_and_offline(self):
         (self.directory/'document').write_bytes(b'abc')

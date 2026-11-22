@@ -146,6 +146,52 @@ class Inputs(Workspace):
             [['文本','A'],['文本','完成']],
         ])
 
+    def test_long_csv_and_tsv_field_survives_history_and_comparison(self):
+        old_note='首行\r\n'+'x'*150_000+'\r\n旧备注'
+        new_note=old_note.removesuffix('旧备注')+'新备注'
+        for extension,delimiter in (('csv',','),('tsv','\t')):
+            filename=f'台账.{extension}'
+            with self.subTest(extension=extension):
+                for note in (old_note,new_note):
+                    self.file(filename,f'编号{delimiter}备注\r\nA{delimiter}"{note}"\r\n')
+                    self.scan()
+                file,=self.call('files',q=filename)['items']
+                latest,prior=self.call('history',id=file['id'])
+                source=self.call('table_source',id=latest['id'])
+                self.assertEqual(source['width'],2)
+                self.assertTrue(source['rows'][1]==[['文本','A'],['文本',new_note]])
+                comparison=self.call('compare',old=prior['id'],new=latest['id'])
+                self.assertEqual(comparison['status'],'已解析')
+                change,=comparison['items']
+                self.assertEqual((change['record_key'],change['field']),('A','备注'))
+                self.assertTrue((change['old'],change['new'])==(old_note,new_note))
+
+    def test_ragged_semicolon_csv_keeps_quoted_multiline_fields(self):
+        old_note='首行\r\n'+'x'*9_000+'\r\n旧备注'
+        new_note=old_note.removesuffix('旧备注')+'新备注'
+        for note in (old_note,new_note):
+            self.file('f.csv',f'\ufeff编号;备注;状态\r\nA;"{note}";归档\r\nB;待填\r\nC;已填;归档\r\n')
+            self.scan()
+        source=self.source()
+        self.assertEqual((source['width'],[len(row) for row in source['rows']]),(3,[3,3,2,3]))
+        self.assertEqual(source['rows'][1][1],['文本',old_note])
+        self.assertEqual(source['rows'][2][-1],['文本','待填'])
+        change,=self.call('compare',old=1,new=2)['items']
+        self.assertEqual((change['record_key'],change['field'],change['old'],change['new']),
+                         ('A','备注',old_note,new_note))
+
+    def test_delimiter_recovery_keeps_consistent_comma_rows_with_semicolons(self):
+        self.file('f.csv','编号;分类,备注\r\nA;新,已填\r\nB,待填\r\nC;旧,已填\r\n')
+        self.scan()
+        source=self.source()
+        self.assertEqual(source['width'],2)
+        self.assertEqual(source['rows'],[
+            [['文本','编号;分类'],['文本','备注']],
+            [['文本','A;新'],['文本','已填']],
+            [['文本','B'],['文本','待填']],
+            [['文本','C;旧'],['文本','已填']],
+        ])
+
     def test_existing_cached_csv_differences_are_reparsed_once(self):
         self.file('f.csv','编号;数量\r\nA;2\r\n')
         self.file('f.txt','原文')
