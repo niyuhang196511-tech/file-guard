@@ -287,6 +287,47 @@ class EngineTest(unittest.TestCase):
     def test_restore_deleted_file(self):
         f=self.edit_file();v,u=self.versions();f.unlink();self.scan();self.assertEqual(self.files(),[])
         self.store.restore(u['id']);self.assertEqual(digest(f),u['sha']);self.assertEqual(self.versions()[0]['num'],3)
+
+    def test_restore_write_verification_drifts_to_a_newer_edit(self):
+        path = self.root/'工单.txt'
+        path.write_bytes(b'initial')
+        self.scan()
+        path.write_bytes(b'second saved version')
+        self.scan()
+        latest, original = self.versions()
+        preview = self.api.dispatch('restore_info', {'id': original['id']})
+        newer = b'new content saved before restore verification finished'
+        published = False
+
+        def replace_then_allow_edit(source, target):
+            nonlocal published
+            replace_guarded_file(source, target)
+            published = True
+
+        def read_digest_then_edit(target):
+            nonlocal published
+            sha = digest(target)
+            if published and target == path:
+                published = False
+                self.assertEqual(sha, original['sha'])
+                path.write_bytes(newer)
+            return sha
+
+        with (patch('engine.store.replace_guarded_file', side_effect=replace_then_allow_edit),
+              patch('engine.store.digest', side_effect=read_digest_then_edit)):
+            with self.assertRaisesRegex(ValueError, '写回校验期间文件已变化'):
+                self.api.dispatch('restore', {'id': original['id'], 'preview': preview['preview']})
+
+        self.assertEqual(path.read_bytes(), newer)
+        self.assertEqual(self.versions()[0]['id'], latest['id'])
+        self.assertEqual(self.api.dispatch('summary', {})['recovery'], 1)
+        self.scan()
+        version = self.versions()[0]
+        self.assertEqual((version['num'], version['size']), (3, len(newer)))
+        self.assertEqual(self.store.obj(version['sha']).read_bytes(), newer)
+        self.assertEqual(self.events()[0]['kind'], '内容修改')
+        self.assertEqual(self.api.dispatch('summary', {})['recovery'], 0)
+
     def test_restore_rejects_corrupt_object(self):
         f=self.edit_file();v,u=self.versions();self.store.obj(u['sha']).write_bytes(b'bad')
         with self.assertRaises(ValueError): self.store.restore(u['id'])

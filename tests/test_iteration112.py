@@ -16,6 +16,7 @@ import zipfile
 from openpyxl import Workbook
 from engine import backup_check,formats,handoff,health,variance
 from engine.service import Service
+from engine.shared_read import open_snapshot_source
 from engine.store import Store
 
 
@@ -71,6 +72,60 @@ class Restore(Work):
         dest=self.base/'copy'
         with self.assertRaises(ValueError):self.call('copy',id=1,path=str(dest))
         self.assertFalse(dest.exists())
+
+    def test_listener_reconciles_pending_restore_once_and_records_later_edits(self):
+        target = self.write('note.txt', b'old').resolve()
+        self.scan()
+        file, = self.call('files')['items']
+        original, = self.call('history', id=file['id'])
+        self.write('note.txt', b'current contents')
+        self.scan()
+
+        def temporarily_unreadable(path):
+            if path == target and path.read_bytes() == b'old':
+                raise PermissionError('写回后短时间无法读取')
+            return open_snapshot_source(path)
+
+        with patch('engine.store.open_snapshot_source', side_effect=temporarily_unreadable):
+            with self.assertRaises(PermissionError):
+                self.call('restore', id=original['id'])
+            self.write('peer.txt', b'other file')
+            self.store.scan(self.rid, '文件监听')
+            pending = self.call('waiting_files', root=self.rid)
+            self.assertEqual([row['rel'] for row in pending['items']], ['note.txt'])
+            self.assertEqual(self.call('history', id=file['id'])[0]['num'], 2)
+            self.assertEqual(self.call('files', q='peer.txt')['total'], 1)
+            self.assertEqual(self.call('summary')['recovery'], 1)
+            with self.assertRaises(ValueError):
+                self.checkpoint('仍待核对')
+
+        self.store.scan(self.rid, '保存复查')
+        self.call('retry_recovery')
+        self.assertEqual(self.call('summary')['recovery'], 0)
+        self.assertEqual(self.call('waiting_files', root=self.rid)['total'], 0)
+        self.assertEqual(self.call('history', id=file['id'])[0]['num'], 3)
+        self.checkpoint('恢复完成')
+
+        self.write('note.txt', b'edited after restore')
+        self.store.scan(self.rid, '文件监听')
+        history = self.call('history', id=file['id'])
+        self.assertEqual([(row['num'], row['sha']) for row in history[:2]], [
+            (4, hashlib.sha256(b'edited after restore').hexdigest()), (3, original['sha']),
+        ])
+        events = sorted(self.call('events', q='note.txt')['items'], key=lambda row: row['id'])
+        self.assertEqual([row['kind'] for row in events], ['初始建档', '内容修改', '历史恢复', '内容修改'])
+
+        with patch('engine.store.open_snapshot_source', side_effect=temporarily_unreadable):
+            with self.assertRaises(PermissionError):
+                self.call('restore', id=original['id'])
+        latest = b'edited before the retry could check the restore'
+        self.write('note.txt', latest)
+        self.store.scan(self.rid, '文件监听')
+        self.assertEqual(self.call('summary')['recovery'], 0)
+        newest = self.call('history', id=file['id'])[0]
+        self.assertEqual((newest['num'], newest['sha']), (5, hashlib.sha256(latest).hexdigest()))
+        self.assertEqual(self.call('events', kind='历史恢复')['total'], 1)
+
     def test_copy_is_only_published_after_verification(self):
         self.write('a','a');self.scan();dest=self.base/'expected'
         def partial(src,out):

@@ -362,11 +362,17 @@ class Store:
             root=db.execute('SELECT r.*,coalesce(c.settle_ms,1500) AS settle_ms,coalesce(c.all_types,0) AS all_types FROM roots r LEFT JOIN capture_policy c ON c.root_id=r.id WHERE r.id=? AND r.active=1 AND r.removed=0',(rid,)).fetchone()
             if not root:
                 return
+            base=Path(root['path'])
+            if not base.is_dir() or linklike(base):
+                raise OSError('目录离线或不可访问')
+            # Recover published bytes before the scanner can classify them as a normal edit.
+            restores = db.execute('''SELECT i.id,f.rel FROM restores i JOIN files f ON f.id=i.file_id
+                                     WHERE f.root_id=? AND (f.live OR i.prior_sha IS NULL) ORDER BY i.id''',
+                                  (rid,)).fetchall()
+            restore_waiting = {item['rel'] for item in restores
+                               if not self._try_reconcile_restore(item['id'], existing_only=True)}
             old={r['rel']:r for r in db.execute('SELECT * FROM files WHERE root_id=? AND live=1',(rid,))}
             pending=dict(db.execute('SELECT rel,reason FROM waiting_files WHERE root_id=?', (rid,)))
-        base=Path(root['path'])
-        if not base.is_dir() or linklike(base):
-            raise OSError('目录离线或不可访问')
         found,ignored={},set()
         errors=[]
         waiting={}
@@ -496,8 +502,13 @@ class Store:
             candidates[key]=(row, not absent)
         initially_missing=set(missing)
         full=source not in ('文件监听',)
+        restore_aliases = {Path(rel) for rel in restore_waiting
+                           if rel not in found and os.path.lexists(base/rel)}
         for i,(rel,s) in enumerate(found.items(),1):
             self.progress[rid]=f'{source} · 正在核对第 {i} / {len(found)} 个文件'
+            if rel in restore_waiting or (restore_aliases and Path(rel) in restore_aliases):
+                waiting[rel]='等待恢复核对'
+                continue
             previous=old.get(rel)
             moved,case_alias=(None,False) if previous else candidates.get(self.fkey(s),(None,False))
             unchanged=previous and s.st_size==previous['size'] and s.st_mtime_ns==previous['mtime'] and self.fkey(s)==previous['fkey']
@@ -759,9 +770,13 @@ class Store:
                         else:
                             os.link(tmp,target)
                     published=True
-                    if digest(target)!=v['sha']:
+                    published_state=target.stat()
+                    written_sha=digest(target)
+                    if signature(target.stat())!=signature(published_state):
+                        raise ValueError('写回校验期间文件已变化，请在系统设置中核对恢复任务')
+                    if written_sha!=v['sha']:
                         raise ValueError('写回校验失败，已保留历史版本')
-                    self.version(db,f['id'],f['root_id'],f['rel'],v['sha'],target.stat(),'历史恢复','用户恢复')
+                    self.version(db,f['id'],f['root_id'],f['rel'],v['sha'],published_state,'历史恢复','用户恢复')
                     db.execute('DELETE FROM restores WHERE id=?',(intent,))
                     self.audit(db,'恢复历史版本',f"{target} · 来源 V{v['num']}")
                 except Exception:
@@ -780,21 +795,24 @@ class Store:
             with self.db() as db:
                 pending=[row[0] for row in db.execute('SELECT id FROM restores ORDER BY id')]
             for intent in pending:
-                try:
-                    with self.db() as db:
-                        self.reconcile_restore(db,intent)
-                except (OSError,ValueError):
-                    # A busy, unstable or inaccessible path can be checked again later.
-                    continue
+                self._try_reconcile_restore(intent)
             with self.db() as db:
                 return db.execute('SELECT count(*) FROM restores').fetchone()[0]
 
-    def reconcile_restore(self,db,intent):
+    def _try_reconcile_restore(self, intent, *, existing_only=False):
+        try:
+            with self.db() as db:
+                return self.reconcile_restore(db, intent, existing_only=existing_only)
+        except (OSError,ValueError):
+            # A busy, unstable or inaccessible path can be checked again later.
+            return False
+
+    def reconcile_restore(self,db,intent,*,existing_only=False):
         item=db.execute("""SELECT i.prior_sha,i.version_id,f.*,r.path,r.removed
                            FROM restores i JOIN files f ON f.id=i.file_id
                            JOIN roots r ON r.id=f.root_id WHERE i.id=?""",(intent,)).fetchone()
         if not item:
-            return
+            return True
         base=Path(item['path'])
         target=base/item['rel']
         other=db.execute('SELECT id FROM files WHERE root_id=? AND rel=? AND live AND id!=?',
@@ -803,7 +821,7 @@ class Store:
             self.audit(db,'恢复核对终止',f'{target} · 目录已移除或路径已由另一文件使用')
         else:
             if not base.is_dir():
-                return
+                return False
             ensure_plain(target,base)
             try:
                 before=target.stat()
@@ -811,12 +829,15 @@ class Store:
                 before=None
             sha=db.execute('SELECT sha FROM versions WHERE id=?',(item['version_id'],)).fetchone()[0]
             if before is None or not stat.S_ISREG(before.st_mode):
+                if existing_only:
+                    # Leave missing paths to the scanner's normal deletion and replacement logic.
+                    return False
                 self.audit(db,'恢复中断',target)
             else:
                 observed=digest(target)
                 after=target.stat()
                 if signature(before)!=signature(after):
-                    return
+                    return False
                 if observed!=sha:
                     self.audit(db,'恢复中断',target)
                 elif item['prior_sha']==sha:
@@ -825,6 +846,7 @@ class Store:
                     self.version(db,item['id'],item['root_id'],item['rel'],sha,after,'历史恢复','恢复任务核对')
                     self.audit(db,'核对恢复结果',target)
         db.execute('DELETE FROM restores WHERE id=?',(intent,))
+        return True
 
     def export_copy(self,vid,target):
         dest=Path(target).resolve()
