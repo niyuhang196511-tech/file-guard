@@ -24,6 +24,7 @@
 
 
 
+
 const { createApp, h, nextTick } = Vue;
 const Ledger=window.FileGuardLedger;
 const ledgerExt=['.xlsx','.xlsm','.xltx','.xltm','.csv','.tsv'];
@@ -207,6 +208,7 @@ const app = createApp({
             page: '系统总览',
             days: 7,
             theme: '浅色',
+            settingsSaving: false,
             prefs: {
                 ...blank.settings
             },
@@ -1652,10 +1654,18 @@ const app = createApp({
         },
         async previewRules () {
             const d=this.dialog;
+            if(d?.type!=='root')return;
             d.error='';d.samples=null;
             const args={paths:d.paths||'',patterns:d.patterns||'',max_mb:d.max_mb,bytes:d.probeBytes};
-            const result=await this.safe(()=>request('rule_preview',args));
-            if(this.dialog===d&&this.ruleSignature(d)===JSON.stringify(args)){d.samples=result;d.probed=this.ruleSignature(d);}
+            const signature=JSON.stringify(args), seq=(this.flags.rulePreview||0)+1;
+            this.flags.rulePreview=seq;
+            const isCurrent=()=>this.dialog===d&&this.flags.rulePreview===seq&&this.ruleSignature(d)===signature;
+            try {
+                const result=await request('rule_preview',args);
+                if(isCurrent()){d.samples=result;d.probed=signature;}
+            } catch(e) {
+                if(isCurrent())d.error=String(e?.message||e);
+            }
         },
         ruleSignature (d) {return JSON.stringify({paths:d.paths||'',patterns:d.patterns||'',max_mb:d.max_mb,bytes:d.probeBytes});},
         async exportReviews () {
@@ -2396,26 +2406,28 @@ const app = createApp({
             }
         },
         async toggleTheme () {
-            let theme = this.theme === '浅色' ? '深色' : '浅色';
-            await this.safe(async ()=>{
-                await request('settings', {
-                    ...this.s.settings,
-                    theme
-                });
-                this.theme = theme;
-                this.prefs.theme = theme;
-                await this.refresh();
-            });
+            const theme=this.theme==='浅色'?'深色':'浅色';
+            await this.persistSettings({...this.s.settings,theme},true);
         },
         async savePrefs () {
-            await this.safe(async ()=>{
-                await request('settings', {
-                    ...this.prefs
-                });
-                this.theme = this.prefs.theme;
+            await this.persistSettings({...this.prefs});
+        },
+        async persistSettings (settings         , themeOnly=false) {
+            if(this.settingsSaving)return;
+            const priorTheme=this.theme;
+            this.settingsSaving=true;
+            try {
+                await request('settings',settings);
+                this.s={...this.s,settings:{...this.s.settings,...settings}};
+                this.theme=settings.theme;
+                if(themeOnly&&this.prefs.theme===priorTheme)this.prefs.theme=settings.theme;
                 await this.refresh();
-                this.toast('设置已保存');
-            });
+                if(!themeOnly)this.toast('设置已保存');
+            } catch(e) {
+                this.toast(String(e?.message||e));
+            } finally {
+                this.settingsSaving=false;
+            }
         }
     },
     async mounted () {

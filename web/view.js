@@ -17,7 +17,7 @@ const _hoisted_12 = {
   key: 0,
   class: "reddot"
 }
-const _hoisted_13 = ["title", "onClick"]
+const _hoisted_13 = ["title", "disabled", "onClick"]
 const _hoisted_14 = {
   key: 0,
   class: "notice"
@@ -1113,7 +1113,7 @@ const _hoisted_804 = ["value"]
 const _hoisted_805 = ["onUpdate:modelValue"]
 const _hoisted_806 = { key: 0 }
 const _hoisted_807 = ["onUpdate:modelValue"]
-const _hoisted_808 = ["onClick"]
+const _hoisted_808 = ["disabled", "onClick"]
 const _hoisted_809 = { class: "card settings" }
 const _hoisted_810 = { class: "actions" }
 const _hoisted_811 = ["onClick"]
@@ -1717,6 +1717,7 @@ return function render(_ctx, _cache) {
           class: "iconbtn",
           title: theme==='浅色'?'切换深色':'切换浅色',
           "aria-label": "切换主题",
+          disabled: settingsSaving,
           onClick: toggleTheme
         }, [_createVNode(_component_ico, { n: theme==='浅色'?'moon':'sun' }, null, 8, ["n"])], 8, _hoisted_13)])]),
         notifications
@@ -4902,8 +4903,9 @@ return function render(_ctx, _cache) {
                       : _createCommentVNode("", true),
                     _createElementVNode("div", null, [_cache[294] || (_cache[294] = _createElementVNode("span", null, null, -1)), _createElementVNode("button", {
                       class: "primary",
+                      disabled: settingsSaving,
                       onClick: savePrefs
-                    }, "保存设置", 8, _hoisted_808)])
+                    }, _toDisplayString(settingsSaving?'正在保存设置…':'保存设置'), 9, _hoisted_808)])
                   ]), _createElementVNode("section", _hoisted_809, [
                     _cache[304] || (_cache[304] = _createElementVNode("h2", null, "存储与维护", -1)),
                     _createElementVNode("div", _hoisted_810, [_createElementVNode("button", {

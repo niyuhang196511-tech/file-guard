@@ -189,6 +189,34 @@ class Workflow(Work):
         s=self.call('storage');self.assertEqual(s['logical']-s['unique'],self.file.stat().st_size)
         self.assertEqual(s['saved'],self.file.stat().st_size);self.assertTrue(s['free']>0 and s['database']>0)
         self.assertEqual(sum(r['bytes'] for r in s['by_root']),s['logical'])
+
+    def test_review_and_export_sort_by_actual_save_and_review_time(self):
+        target = self.root/'时区复核.txt'
+        early = '2026-11-01T01:58:00-04:00'
+        late = '2026-11-01T01:03:00-05:00'
+        for number, stamp in enumerate((early, late), 1):
+            target.write_text(f'实际保存 {number}', encoding='utf-8')
+            with patch('engine.store.now', return_value=stamp):
+                self.s.scan(self.rid)
+        filters = dict(q='时区复核', baseline=True)
+        versions = {row['num']:row['id'] for row in self.call('review_queue', **filters)['items']}
+        for number, stamp in ((2, '2027-11-07T01:58:00-04:00'), (1, '2027-11-07T01:03:00-05:00')):
+            with patch('engine.service.now', return_value=stamp):
+                self.call('save_review', id=versions[number], state='已复核', note=f'复核 V{number}', revision=0)
+
+        for sort, expected in (('', [2, 1]), ('oldest', [1, 2]), ('reviewed', [1, 2])):
+            with self.subTest(sort=sort):
+                args = dict(filters, sort=sort, size=1)
+                first = self.call('review_queue', **args)
+                second = self.call('review_queue', **args, page=2)
+                self.assertEqual(first['total'], 2)
+                paged = [first['items'][0]['num'], second['items'][0]['num']]
+                dest = self.base/f'review-{sort}.csv'
+                self.call('export_review', **args, page=2, path=str(dest))
+                with dest.open(encoding='utf-8-sig', newline='') as src:
+                    exported = [int(row['版本号']) for row in csv.DictReader(src)]
+                self.assertEqual((paged, exported), (expected, expected))
+
     def test_admin_withdraw_every_public_event_surface_and_restore(self):
         password=self.admin();evt=self.call('events')['items'][0];eid=evt['id']
         def amend(rev,action,caption=''):

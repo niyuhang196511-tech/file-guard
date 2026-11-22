@@ -2,6 +2,7 @@
 type EngineCommand = 'summary' | 'roots' | 'folders' | 'open_dir' | 'files' | 'events' | 'audit' | 'history' | 'compare' | 'configure' | 'root_action' | 'scan' | 'restore' | 'copy' | 'verify' | 'backup' | 'retry' | 'settings' | 'export' | 'sheet_rows' | 'export_files' | 'export_audit' | 'export_diff' | 'restore_info' | 'retry_recovery' | 'review_queue' | 'save_review' | 'star_file' | 'export_review' | 'storage' | 'record_detail' | 'record_amend' | 'inspect_backup' | 'finder' | 'waiting_files' | 'capture_policy' | 'finder_presets' | 'finder_save' | 'finder_forget' | 'finder_export' | 'scan_log' | 'scan_log_export' | 'sheet_find' | 'private_records' | 'runtime' | 'rule_preview' | 'rule_history' | 'checkpoints' | 'checkpoint_create' | 'checkpoint_diff' | 'checkpoint_export' | 'checkpoint_inventory' | 'inventory_csv' | 'handoff_create' | 'handoff_verify' | 'checkpoint_disk' | 'health_start' | 'health_cancel' | 'health_state' | 'health_results' | 'health_reports' | 'health_csv' | 'health_references' | 'variance' | 'variance_csv' | 'period_report' | 'period_csv' | 'field_trace' | 'trace_csv' | 'save_receipt' | 'table_source' | 'ledger_csv' | 'ledger_templates' | 'ledger_save' | 'ledger_remove' | 'text_search' | 'text_search_csv' | 'content_groups' | 'content_refs' | 'content_groups_csv' | 'content_refs_csv' | 'content_verify' | 'line_origins' | 'line_origins_csv' | 'review_batch_preview' | 'review_batch_apply' | 'version_bundle_preview' | 'version_bundle_create' | 'version_bundle_csv' | 'version_bundle_verify' | 'path_history' | 'path_history_csv' | 'checkpoint_three' | 'checkpoint_three_csv' | 'snapshot_preview' | 'snapshot_preview_csv';
 type Arguments = Record<string, unknown>;
 type DiffFocus = {sheet: string; location: string};
+type Settings = {theme: string; interval: number; autostart: boolean};
 type TextHistoryFilter = {
     q:string; filename:string; ext:string; root:number; file:number; scope:string;
     start:string; end:string; context:number; latest:boolean; starred:boolean; exact:boolean; sensitive:boolean;
@@ -206,6 +207,7 @@ const app = createApp({
             page: '系统总览',
             days: 7,
             theme: '浅色',
+            settingsSaving: false,
             prefs: {
                 ...blank.settings
             },
@@ -1651,10 +1653,18 @@ const app = createApp({
         },
         async previewRules () {
             const d=this.dialog;
+            if(d?.type!=='root')return;
             d.error='';d.samples=null;
             const args={paths:d.paths||'',patterns:d.patterns||'',max_mb:d.max_mb,bytes:d.probeBytes};
-            const result=await this.safe(()=>request('rule_preview',args));
-            if(this.dialog===d&&this.ruleSignature(d)===JSON.stringify(args)){d.samples=result;d.probed=this.ruleSignature(d);}
+            const signature=JSON.stringify(args), seq=(this.flags.rulePreview||0)+1;
+            this.flags.rulePreview=seq;
+            const isCurrent=()=>this.dialog===d&&this.flags.rulePreview===seq&&this.ruleSignature(d)===signature;
+            try {
+                const result=await request('rule_preview',args);
+                if(isCurrent()){d.samples=result;d.probed=signature;}
+            } catch(e) {
+                if(isCurrent())d.error=String(e?.message||e);
+            }
         },
         ruleSignature (d) {return JSON.stringify({paths:d.paths||'',patterns:d.patterns||'',max_mb:d.max_mb,bytes:d.probeBytes});},
         async exportReviews () {
@@ -2395,26 +2405,28 @@ const app = createApp({
             }
         },
         async toggleTheme () {
-            let theme = this.theme === '浅色' ? '深色' : '浅色';
-            await this.safe(async ()=>{
-                await request('settings', {
-                    ...this.s.settings,
-                    theme
-                });
-                this.theme = theme;
-                this.prefs.theme = theme;
-                await this.refresh();
-            });
+            const theme=this.theme==='浅色'?'深色':'浅色';
+            await this.persistSettings({...this.s.settings,theme},true);
         },
         async savePrefs () {
-            await this.safe(async ()=>{
-                await request('settings', {
-                    ...this.prefs
-                });
-                this.theme = this.prefs.theme;
+            await this.persistSettings({...this.prefs});
+        },
+        async persistSettings (settings:Settings, themeOnly=false) {
+            if(this.settingsSaving)return;
+            const priorTheme=this.theme;
+            this.settingsSaving=true;
+            try {
+                await request('settings',settings);
+                this.s={...this.s,settings:{...this.s.settings,...settings}};
+                this.theme=settings.theme;
+                if(themeOnly&&this.prefs.theme===priorTheme)this.prefs.theme=settings.theme;
                 await this.refresh();
-                this.toast('设置已保存');
-            });
+                if(!themeOnly)this.toast('设置已保存');
+            } catch(e) {
+                this.toast(String(e?.message||e));
+            } finally {
+                this.settingsSaving=false;
+            }
         }
     },
     async mounted () {

@@ -54,8 +54,8 @@ def query(db,args,export=False):
     if state:
         if state not in STATES:raise ValueError('复核状态无效')
         terms.append("coalesce(m.state,'待复核')=?");params.append(state)
-    order={'':'v.stamp DESC,v.id DESC','oldest':'v.stamp,v.id','changes':'changes DESC,v.id DESC',
-           'reviewed':'reviewed_at DESC,v.id DESC'}.get(args.get('sort',''))
+    order={'':'unixepoch(v.stamp) DESC,v.id DESC','oldest':'unixepoch(v.stamp),v.id','changes':'changes DESC,v.id DESC',
+           'reviewed':'unixepoch(m.stamp) DESC,v.id DESC'}.get(args.get('sort',''))
     if not order:raise ValueError('复核排序无效')
     sql='SELECT '+FIELDS+BASE+where(terms)+' ORDER BY '+order
     if export:

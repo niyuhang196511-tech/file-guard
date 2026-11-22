@@ -800,8 +800,13 @@ window.exampleRequest=async function(cmd,a={}){
       .map(v=>({...v,rel:f.rel,root:f.root,ext:v.ext||f.ext,starred:f.starred})));
     const counts=Object.fromEntries(['待复核','需跟进','已复核'].map(state=>[state,items.filter(r=>r.review===state).length]));
     const selected=items.filter(v=>!a.state||a.state===v.review);
-    selected.sort((x,y)=>a.sort==='changes'?y.changes-x.changes||y.id-x.id:a.sort==='reviewed'?y.reviewed_at.localeCompare(x.reviewed_at)||y.id-x.id:
-      a.sort==='oldest'?x.stamp.localeCompare(y.stamp)||x.id-y.id:y.stamp.localeCompare(x.stamp)||y.id-x.id);
+    const timestamp=v=>{
+      const value=Date.parse(a.sort==='reviewed'?v.reviewed_at:v.stamp);
+      return Number.isFinite(value)?value:-Infinity;
+    };
+    const newest=(x,y)=>timestamp(y)-timestamp(x)||y.id-x.id;
+    selected.sort(a.sort==='changes'?(x,y)=>y.changes-x.changes||y.id-x.id:
+      a.sort==='oldest'?(x,y)=>newest(y,x):newest);
     if(cmd==='export_review')return csvText([['文件','监控目录','版本号','保存时间','复核状态','复核备注','最近复核时间','解析状态','差异条数','SHA-256'],
       ...selected.map(v=>[v.rel,v.root,v.num,v.stamp,v.review,v.note,v.reviewed_at,v.status,v.changes,v.sha])]);
     const result=paginate(selected,a.size||25);
