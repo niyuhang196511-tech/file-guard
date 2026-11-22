@@ -119,6 +119,7 @@ def results(db,store,args,export=False):
 
 
 def references(db,args):
+    db.execute('BEGIN')
     opts=(args['id'],args['key'])
     if not db.execute('SELECT 1 FROM health_findings WHERE report_id=? AND object_key=?',opts).fetchone():
         raise ValueError('该报告没有此对象')

@@ -288,6 +288,31 @@ class Health(Work):
         self.assertEqual(len(Service(Store(self.store.home)).dispatch('health_reports',{})),5)
         with self.assertRaises(ValueError):self.call('health_results',id=first)
         with self.store.db() as db:self.assertFalse(db.execute('SELECT 1 FROM health_findings WHERE report_id=?',(first,)).fetchone())
+
+    def test_reference_total_and_page_share_snapshot_during_scan(self):
+        content = b'previously unreferenced'
+        sha = hashlib.sha256(content).hexdigest()
+        obj = self.store.obj(sha)
+        obj.parent.mkdir()
+        obj.write_bytes(content)
+        report = health.run(self.store)
+        self.assertEqual(self.call('health_results', id=report)['counts'], {'未被版本引用': 1})
+        scanned = []
+
+        def complete_another_scan(statement):
+            if not scanned and ' FROM versions v JOIN files f ' in statement and ' ORDER BY v.id DESC ' in statement:
+                self.write('new.txt', content)
+                self.scan()
+                scanned.append(True)
+
+        with self.store.db() as db:
+            db.set_trace_callback(complete_another_scan)
+            page = health.references(db, {'id': report, 'key': sha})
+        self.assertTrue(scanned)
+        self.assertEqual((page['total'], page['items']), (0, []))
+        latest = self.call('health_references', id=report, key=sha)
+        self.assertEqual((latest['total'], [item['rel'] for item in latest['items']]), (1, ['new.txt']))
+
     def test_background_cancellation_keeps_prior_and_allows_scans(self):
         self.write('a','ok');self.scan();prior=health.run(self.store)
         entered=threading.Event();resume=threading.Event();orig=health.assess
