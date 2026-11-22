@@ -1,11 +1,12 @@
 """持有工作区锁后离线还原。每个历史对象均按数据库摘要校验。"""
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from .backup_check import validate
 from .publication import new_path
 import datetime
 import os
 from pathlib import Path
 import re
+import sqlite3
 import tempfile
 
 
@@ -83,12 +84,25 @@ def workspace_lock(home):
         yield
 
 
+def _check_restore_destination(database, home):
+    with closing(sqlite3.connect(database.as_uri()+'?mode=ro', uri=True)) as db:
+        db.execute('PRAGMA trusted_schema=OFF')
+        for path, in db.execute('SELECT path FROM roots WHERE removed=0'):
+            try:
+                monitored = Path(path).resolve()
+            except (OSError, RuntimeError) as exc:
+                raise ValueError(f'无法核对备份中的监控目录：{path}') from exc
+            if home.is_relative_to(monitored) or monitored.is_relative_to(home):
+                raise ValueError(f'还原目标与备份中的监控目录重叠：{path}。请选择独立的仓库目录')
+
+
 def restore_backup(archive_path,home):
     home=Path(home).resolve()
     with workspace_lock(home),restore_lock(home),tempfile.TemporaryDirectory(dir=home.parent) as scratch:
         stage=Path(scratch)/'Data'
         stage.mkdir()
         validate(archive_path,stage,True)
+        _check_restore_destination(stage/'fileguard.db',home)
         if not home.exists():
             stage.rename(home)
             return ''

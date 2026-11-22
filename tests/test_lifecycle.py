@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -36,6 +37,37 @@ class LifecycleTest(unittest.TestCase):
             with store.db() as db:
                 tasks=list(db.execute('SELECT source FROM tasks'))
             self.assertEqual([r[0] for r in tasks],['手动扫描'])
+
+    def test_relocated_repository_does_not_monitor_its_own_data(self):
+        from tests_helper import RpcProcess
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            monitored = base / '业务'
+            monitored.mkdir()
+            (monitored / '记录.txt').write_bytes(b'original content')
+            store = Store(base / 'Data')
+            rid = store.configure(monitored)
+            store.scan(rid)
+            nested = Store(monitored / 'RestoredData')
+            with store.db() as source, nested.db() as destination:
+                source.backup(destination)
+            shutil.copytree(store.objects, nested.objects, dirs_exist_ok=True)
+
+            with RpcProcess(nested.home) as process:
+                def scan_finished():
+                    report = process.call('scan_log', {'root': rid})['items'][0]
+                    return report['id'] > 1 and report['status'] != '进行中'
+
+                process.until(scan_finished)
+                items = process.call('files', {'root': rid, 'scope': 'all'})['items']
+                self.assertEqual([(file['rel'], file['version']) for file in items], [('记录.txt', 1)])
+                first_root = process.call('roots')[0]
+                self.assertIn('重叠', first_root['error'])
+                process.until(lambda: '重叠' in process.call('roots')[0]['watch_mode'])
+                self.assertIn('1 个历史对象', process.call('verify'))
+                with self.assertRaisesRegex(RuntimeError, '重叠'):
+                    process.call('restore_info', {'id': items[0]['vid']})
 
     def test_hidden_by_rule_keeps_history(self):
         with tempfile.TemporaryDirectory() as tmp:

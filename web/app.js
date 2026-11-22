@@ -2137,7 +2137,10 @@ const app = createApp({
             if (d && ['period','trace'].includes(d.type)){if(!d.loading)await this.runReport();return;}
             if(d?.type==='inspect'||d?.type==='delivery_check'){await this.verifyArchive(d);return;}
             if (!d || ['receipt','ledger','inventory','health','variance','delivery_result','backup_result'].includes(d.type)) return;
-            if (d.type==='restore_preview' && (this.demo || d.loading || !d.info || d.info.identical)) return;
+            if(d.type==='restore_preview'){
+                if(!this.demo&&!d.loading&&d.info&&!d.info.identical)await this.submitRestore(d);
+                return;
+            }
             this.busy = true;
             d.error = '';
             try {
@@ -2167,8 +2170,6 @@ const app = createApp({
                         ...d.args,
                         path: d.path
                     });
-                } else if (d.type === 'restore_preview' && !this.demo) {
-                    msg=await request('restore',d.args);
                 } else if (d.type === 'confirm') {
                     msg = await request(d.cmd, d.args);
                 }
@@ -2176,13 +2177,33 @@ const app = createApp({
                 clearTimeout(this._adminTimer);
                 this.dialog = null;
                 await this.refresh();
-                if (d.cmd === 'restore') await this.selectFile(this.file, '历史版本');
                 this.toast(msg || '操作完成');
             } catch (e) {
                 d.error = String(e.message || e);
             } finally{
                 if('password' in d)d.password='';
                 this.busy = false;
+            }
+        },
+        async submitRestore (d) {
+            const file=this.file, page=this.page;
+            const navigation=this.flags.navigation, history=this.flags.history;
+            this.busy=true;d.error='';
+            try {
+                const msg=await request('restore',d.args);
+                const ownsDialog=this.dialog===d;
+                if(ownsDialog)this.dialog=null;
+                await this.refresh();
+                if(ownsDialog&&!this.dialog&&file&&file===this.file&&page===this.page&&
+                    navigation===this.flags.navigation&&history===this.flags.history)
+                    await this.selectFile(file,'历史版本');
+                this.toast(msg||'操作完成');
+            } catch(e) {
+                const error=String(e?.message||e);
+                if(this.dialog===d)d.error=error;
+                else this.toast(error);
+            } finally {
+                this.busy=false;
             }
         },
         async saveFile (cmd, name, id, options = null) {

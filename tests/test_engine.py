@@ -21,6 +21,7 @@ from docx import Document
 from pptx import Presentation
 from pypdf import PdfWriter
 from engine import formats
+from engine.backup_check import MANIFEST
 from engine.store import FileChanging,Store,digest
 from engine.shared_read import open_snapshot_source,replace_guarded_file
 from engine.service import Service
@@ -388,6 +389,82 @@ class EngineTest(unittest.TestCase):
                 dst.writestr(name,b'broken' if name.startswith('objects/') else src.read(name))
         with self.assertRaises(ValueError):restore_backup(bad,self.store.home)
         self.assertEqual(len(self.versions()),2)
+
+    def test_offline_restore_cli_preserves_workspace_inside_paused_monitored_root(self):
+        self.edit_file()
+        self.store.root_action(self.rid, '暂停')
+        archive = self.base / '旧备份.zip'
+        self.api.dispatch('backup', {'path': str(archive)})
+        home = self.root / '还原位置'
+        current = Store(home)
+        marker = home / '现有仓库'
+        marker.write_bytes(b'leave this repository untouched')
+        before = current.dbfile.read_bytes()
+        result = subprocess.run(
+            [sys.executable, '-X', 'utf8', '-m', 'engine.main', '--restore-backup', str(archive)],
+            cwd=Path(__file__).resolve().parents[1], env=os.environ | {'FILEGUARD_DATA': str(home)},
+            capture_output=True, text=True, encoding='utf-8', timeout=20,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('还原目标与备份中的监控目录重叠', result.stderr)
+        self.assertEqual(marker.read_bytes(), b'leave this repository untouched')
+        self.assertEqual(current.dbfile.read_bytes(), before)
+        self.assertFalse(list(home.parent.glob(home.name+'-还原前-*')))
+
+    def test_offline_restore_rejects_monitor_at_or_below_destination(self):
+        for same in (False, True):
+            with self.subTest(same=same):
+                parent = self.base / str(same)
+                home = parent / '仓库目录'
+                monitored = home if same else home / '监控'
+                monitored.mkdir(parents=True)
+                archived_store = Store(parent / '来源')
+                archived_id = archived_store.configure(monitored)
+                source = monitored / '原监控文件.txt'
+                source.write_bytes(b'original monitored content')
+                archived_store.scan(archived_id)
+                archive = parent / '备份.zip'
+                archived_store.backup(archive)
+
+                with self.assertRaisesRegex(ValueError, '还原目标与备份中的监控目录重叠'):
+                    restore_backup(archive, home)
+                self.assertEqual(source.read_bytes(), b'original monitored content')
+                self.assertFalse(list(parent.glob(home.name+'-还原前-*')))
+
+    def test_offline_restore_checks_current_alias_of_archived_monitored_root(self):
+        self.edit_file()
+        archive = self.base / '旧路径备份.zip'
+        self.store.backup(archive)
+        physical = self.root.rename(self.base / '现有监控位置')
+        if os.name == 'nt':
+            created = subprocess.run(['cmd.exe', '/d', '/c', 'mklink', '/J', str(self.root), str(physical)],
+                                     capture_output=True, timeout=10)
+            if created.returncode:
+                self.skipTest('当前文件系统无法创建目录联接')
+            self.addCleanup(self.root.rmdir)
+        else:
+            self.root.symlink_to(physical, target_is_directory=True)
+            self.addCleanup(self.root.unlink)
+        home = physical / '还原位置'
+        with self.assertRaisesRegex(ValueError, '还原目标与备份中的监控目录重叠'):
+            restore_backup(archive, home)
+        self.assertFalse(home.exists())
+
+    def test_offline_restore_legacy_archive_allows_removed_monitored_root(self):
+        self.edit_file()
+        self.store.root_action(self.rid, '移除')
+        archive = self.base / '有清单.zip'
+        legacy = self.base / '无清单.zip'
+        self.store.backup(archive)
+        with zipfile.ZipFile(archive) as source, zipfile.ZipFile(legacy, 'w') as copy:
+            for name in source.namelist():
+                if name != MANIFEST:
+                    copy.writestr(name, source.read(name))
+        home = self.root / '旧版还原'
+        self.assertEqual(restore_backup(legacy, home), '')
+        restored = Service(Store(home))
+        self.assertEqual(restored.dispatch('summary', {})['versions'], 2)
+        self.assertEqual(restored.dispatch('roots', {}), [])
 
     def test_startup_recovers_after_restore_process_dies_during_swap(self):
         target = self.root/'source.txt'

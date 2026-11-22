@@ -664,8 +664,9 @@ window.exampleRequest=async function(cmd,a={}){
     };
     const order=a.sort??'';
     if(!Object.hasOwn(orders,order))throw Error('无效的等待队列排序');
-    const q=lower((a.q??'').trim().replaceAll('\\','/'));
-    const matching=rows.filter(r=>lower(r.rel).includes(q));
+    const fold=value=>Array.from(value,c=>d.textSearch.fold[c]??c.toLowerCase()).join('');
+    const q=fold((a.q??'').trim().replaceAll('\\','/'));
+    const matching=rows.filter(r=>!q||fold(r.rel).includes(q));
     const counts=Object.create(null);
     for(const row of matching)counts[row.reason]=(counts[row.reason]??0)+1;
     const filtered=matching.filter(r=>!a.reason||r.reason===a.reason).sort(orders[order]);

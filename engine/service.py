@@ -177,8 +177,11 @@ class Service:
             with self.s.db() as db:
                 for rid,path in db.execute('SELECT id,path FROM roots WHERE active=1 AND removed=0'):
                     try:
-                        st=Path(path).stat()
-                        if stat.S_ISDIR(st.st_mode):
+                        root=Path(path)
+                        st=root.stat()
+                        if self.s.root_overlaps_repository(root):
+                            modes[rid]='目录与版本仓库重叠'
+                        elif stat.S_ISDIR(st.st_mode):
                             roots[rid]=(path,st.st_dev,st.st_ino)
                         else:modes[rid]='目录路径已被替换'
                     except OSError:

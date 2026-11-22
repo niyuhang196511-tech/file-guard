@@ -762,10 +762,14 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   await appVm.navVersion('历史版本');
   const [restoreFirst,restoreSecond]=appVm.versions;
   const firstRestoreInfo=await originalRequest('restore_info',{id:restoreFirst.id});
-  let finishRestore, rejectRestore;
+  let finishRestore, rejectRestore, finishRestoreWrite;
+  let delayRestoreWrite=false;
   const restoreCalls=[];
   ctx.exampleRequest=(cmd,args)=>{
-    if(cmd==='restore'){restoreCalls.push(args);return Promise.resolve('已恢复');}
+    if(cmd==='restore'){
+      restoreCalls.push(args);
+      return delayRestoreWrite?new Promise(resolve=>{finishRestoreWrite=resolve;}):Promise.resolve('已恢复');
+    }
     if(cmd==='restore_info'&&args.id===restoreFirst.id)
       return new Promise((resolve,reject)=>{finishRestore=resolve;rejectRestore=reject;});
     return originalRequest(cmd,args);
@@ -787,6 +791,19 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   assert.equal(restoreCalls[0].id,restoreSecond.id);
   assert.equal(restoreCalls[0].preview,secondPreview.info.preview);
 
+  delayRestoreWrite=true;
+  await appVm.restoreDialog(restoreSecond);await ctx.Vue.nextTick();
+  const restoreSubmit=findNode(root,node=>node.tag==='form'&&node.textContent.includes('确认恢复'));
+  const pendingRestoreWrite=restoreSubmit.props.onSubmit({preventDefault(){}});
+  const auditNav=findNode(root,node=>node.tag==='button'&&node.props['aria-label']==='审计中心');
+  await auditNav.props.onClick();await appVm.fileDialog();
+  const afterRestorePicker=appVm.dialog;
+  finishRestoreWrite('已恢复');await pendingRestoreWrite;
+  assert.equal(appVm.page,'审计中心','旧文件恢复完成不得跳离当前页面');
+  assert.equal(appVm.dialog,afterRestorePicker);
+  assert.equal(appVm.message,'已恢复');
+  await appVm.go('历史版本');
+
   const dismissedRestore=appVm.restoreDialog(restoreFirst);
   appVm.dialog=null;
   finishRestore(firstRestoreInfo);await dismissedRestore;
@@ -796,7 +813,7 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   const selectedPicker=appVm.dialog;
   rejectRestore(Error('恢复预览失败'));await departedRestore;
   assert.equal(appVm.dialog,selectedPicker);assert.equal(selectedPicker.error,undefined);
-  assert.equal(restoreCalls.length,1);
+  assert.equal(restoreCalls.length,2);
   appVm.demo=true;ctx.exampleRequest=originalRequest;
   appVm.dialog=null;await appVm.go('变更记录');await appVm.reportDialog('period');
   const periodReport=appVm.dialog;

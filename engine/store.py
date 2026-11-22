@@ -400,6 +400,8 @@ class Store:
             base=Path(root['path'])
             if not base.is_dir() or linklike(base):
                 raise OSError('目录离线或不可访问')
+            if self.root_overlaps_repository(base):
+                raise ValueError('监控目录与版本仓库重叠，请调整仓库位置')
             # Recover published bytes before the scanner can classify them as a normal edit.
             restores = db.execute('''SELECT i.id,f.rel FROM restores i JOIN files f ON f.id=i.file_id
                                      WHERE f.root_id=? AND (f.live OR i.prior_sha IS NULL) ORDER BY i.id''',
@@ -781,6 +783,10 @@ class Store:
         self.checked_object(v['sha'],v['size'])
         return v
 
+    def root_overlaps_repository(self, root):
+        resolved = root.resolve()
+        return within(resolved, self.home) or within(self.home, resolved)
+
     @staticmethod
     def _restore_path_claimed(db, file, target, base):
         query = 'SELECT 1 FROM files WHERE root_id=? AND rel=? AND live=1 AND id!=?'
@@ -823,6 +829,8 @@ class Store:
         base=Path(f['path'])
         if f['removed'] or not base.is_dir():
             raise ValueError('请先重新接入原目录')
+        if self.root_overlaps_repository(base):
+            raise ValueError('监控目录与版本仓库重叠，请另存历史副本')
         target=base/f['rel']
         ensure_plain(target,base)
         if self._restore_path_claimed(db,f,target,base) or (not f['live'] and os.path.lexists(target)):
@@ -968,7 +976,7 @@ class Store:
         target=base/item['rel']
         terminated = item['removed'] or self._restore_path_claimed(db,item,target,base)
         if not terminated:
-            if not base.is_dir():
+            if not base.is_dir() or self.root_overlaps_repository(base):
                 return False
             ensure_plain(target,base)
             try:

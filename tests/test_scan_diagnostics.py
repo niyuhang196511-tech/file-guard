@@ -179,6 +179,22 @@ class ScanDiagnosticsTests(unittest.TestCase):
         self.assertNotIn('等待文件解除占用', filtered['reasons'])
         self.assertEqual(self.api.dispatch('waiting_files', dict(base, q='%'))['counts'], {})
 
+    def test_waiting_path_search_matches_unicode_and_literal_percent(self):
+        folder = self.base / '待监控' / 'Änderungen'
+        folder.mkdir()
+        (folder/'Straße%.txt').write_text('waiting', encoding='utf-8')
+        (folder/'StraßeX.txt').write_text('other waiting file', encoding='utf-8')
+        self.api.dispatch('capture_policy', {'root': self.root, 'all_types': True})
+        self.store.scan(self.root, '文件监听')
+
+        options = {'root': self.root, 'q': '  änderungen\\STRASSE%.TXT  '}
+        unfiltered = self.api.dispatch('waiting_files', {'root': self.root})
+        self.assertEqual(unfiltered['counts'], {'等待保存稳定': 2})
+        matches = self.api.dispatch('waiting_files', dict(options, reason='等待保存稳定'))
+        self.assertEqual(matches['total'], 1)
+        self.assertEqual(matches['counts'], {'等待保存稳定': 1})
+        self.assertEqual([row['rel'] for row in matches['items']], ['Änderungen/Straße%.txt'])
+
     def test_growth_after_enumeration_obeys_size_limit_and_preserves_scope(self):
         folder = (self.base / '待监控').resolve()
         self.api.dispatch('configure', {'id': self.root, 'path': str(folder), 'max_mb': 1})

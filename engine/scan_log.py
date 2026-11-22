@@ -163,7 +163,7 @@ def set_policy(db,store,args):
 
 def waits(db,args):
     root = _integer(args, 'root')
-    q = _text(args, 'q').strip().replace('\\', '/')
+    q = _text(args, 'q').strip().replace('\\', '/').casefold()
     reason = _text(args, 'reason')
     sort = _text(args, 'sort')
     requested_page = _integer(args, 'page', 1)
@@ -175,7 +175,8 @@ def waits(db,args):
     sql = ' FROM waiting_files WHERE root_id=?'
     params = [root]
     if q:
-        sql += ' AND instr(lower(rel),lower(?))>0'
+        db.create_function('fg_wait_fold', 1, str.casefold, deterministic=True)
+        sql += ' AND instr(fg_wait_fold(rel),?)>0'
         params.append(q)
     counts = dict(db.execute('SELECT reason,count(*)'+sql+' GROUP BY reason ORDER BY reason', params))
     total = counts.get(reason, 0) if reason else sum(counts.values())
