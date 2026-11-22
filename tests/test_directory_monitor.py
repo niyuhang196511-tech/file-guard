@@ -1,6 +1,8 @@
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from engine.service import Service
 from engine.store import Store, exclusion_patterns
@@ -99,6 +101,51 @@ class DirectoryMonitorTests(unittest.TestCase):
         self.store.scan(self.rid)
         self.assertEqual(self.api.dispatch('events',{'kind':'删除'})['total'],0)
         self.assertEqual(self.roots()[self.rid]['skip_counts'],{'链接目录':1})
+
+    def test_vanishing_child_does_not_block_peer_capture_or_delete_old_records(self):
+        root = self.root.resolve()
+        child = root / '子目录'
+        child.mkdir()
+        nested = child / '原件.txt'
+        nested.write_bytes(b'known content')
+        peer = root / '同级.txt'
+        peer.write_bytes(b'baseline')
+        self.store.scan(self.rid)
+        original = {row['rel']: row['id'] for row in self.api.dispatch('files', {})['items']}
+        walk = os.walk
+        temporary_home = self.base / '暂移'
+
+        for phase, modified in (('before stat', b'updated'), ('before descent', b'latest content')):
+            with self.subTest(phase=phase):
+                peer.write_bytes(modified)
+
+                def disappear_during_walk(path, **options):
+                    for directory, dirs, names in walk(path, **options):
+                        if Path(directory) != root:
+                            yield directory, dirs, names
+                        elif phase == 'before stat':
+                            child.rename(temporary_home)
+                            yield directory, dirs, names
+                        else:
+                            yield directory, dirs, names
+                            child.rename(temporary_home)
+
+                with patch('engine.store.os.walk', side_effect=disappear_during_walk):
+                    self.store.scan(self.rid, '手动扫描')
+                files = {row['rel']: row for row in self.api.dispatch('files', {})['items']}
+                self.assertEqual({rel: row['id'] for rel, row in files.items()}, original)
+                self.assertEqual(self.store.obj(files['同级.txt']['sha']).read_bytes(), modified)
+                self.assertEqual(self.api.dispatch('events', {'kind': '删除'})['total'], 0)
+                waiting, = self.api.dispatch('waiting_files', {'root': self.rid})['items']
+                self.assertEqual((waiting['rel'], waiting['reason']), ('子目录', '等待目录复查'))
+                scan = self.api.dispatch('scan_log', {'root': self.rid})['items'][0]
+                self.assertEqual((scan['status'], scan['problem'], scan['waiting']), ('等待保存', '', 1))
+                self.assertEqual(self.roots()[self.rid]['queued_source'], '保存复查')
+
+                temporary_home.rename(child)
+                self.store.scan(self.rid, '保存复查')
+                self.assertEqual(self.api.dispatch('waiting_files', {'root': self.rid})['total'], 0)
+                self.assertEqual(self.api.dispatch('events', {'kind': '删除'})['total'], 0)
 
     def test_subtree_counts_match_file_query(self):
         for rel in ['A/根.txt','A/B/二.txt','A/B/C/三.txt','同级.txt']:

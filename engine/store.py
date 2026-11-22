@@ -435,6 +435,7 @@ class Store:
         reasons=Counter()
         pruned=set()
         walked_dirs=set()
+        unstable_dirs=set()
 
         def excluded(rel):
             return bool(match(rel,patterns)[0])
@@ -442,15 +443,32 @@ class Store:
         def outside_scope(rel):
             return excluded(rel) or any(p.as_posix() in pruned for p in Path(rel).parents)
 
+        def defer_directory(path):
+            rel = path.relative_to(base)
+            unstable_dirs.add(rel)
+            waiting[rel.as_posix()] = '等待目录复查'
+
+        def walk_error(exc):
+            if isinstance(exc, (FileNotFoundError, NotADirectoryError)) and exc.filename:
+                path = Path(exc.filename)
+                if base in path.parents:
+                    defer_directory(path)
+                    return
+            errors.append(str(exc))
+
         self.progress[rid]=f'{source} · 正在枚举文件'
-        for parent,dirs,names in os.walk(base,onerror=lambda e:errors.append(str(e))):
+        for parent,dirs,names in os.walk(base,onerror=walk_error):
             parent=Path(parent)
             walked_dirs.add(parent)
             included_dirs=[]
             for name in dirs:
                 path=parent/name
                 rel=path.relative_to(base).as_posix()
-                reason='链接目录' if linklike(path) else '规则排除目录' if excluded(rel) else ''
+                try:
+                    reason='链接目录' if linklike(path) else '规则排除目录' if excluded(rel) else ''
+                except (FileNotFoundError, NotADirectoryError):
+                    defer_directory(path)
+                    continue
                 if reason:
                     pruned.add(rel)
                     reasons[reason]+=1
@@ -491,6 +509,10 @@ class Store:
         stats.update(candidates=len(found),skipped=sum(reasons.values()),skip_reasons=json.dumps(reasons,ensure_ascii=False))
         if errors:
             raise OSError('目录未完整读取：'+errors[0])
+
+        def unstable_path(rel):
+            path = Path(rel)
+            return path in unstable_dirs or any(parent in unstable_dirs for parent in path.parents)
 
         def file_absent(path):
             if path not in walked_dirs:
@@ -654,10 +676,13 @@ class Store:
         deferred_aliases = {row['rel'] for row,case_alias in candidates.values() if case_alias}
         with self.db() as db:
             excluded_ids=[(r['id'],) for rel,r in old.items() if rel not in found and rel not in initially_missing
-                          and rel not in unavailable and rel not in deferred_aliases]
+                          and rel not in unavailable and rel not in deferred_aliases
+                          and not (unstable_dirs and unstable_path(rel))]
             db.executemany('UPDATE files SET tracked=0 WHERE id=?',excluded_ids)
             db.executemany('UPDATE files SET tracked=1 WHERE id=?',[(old[k]['id'],) for k in found if k in old and not old[k]['tracked']])
             for rel,r in missing.items():
+                if unstable_dirs and unstable_path(rel):
+                    continue
                 if not file_absent(base/rel):
                     continue
                 if (watch_scan or rel in observed) and settling(rel,'missing'):
