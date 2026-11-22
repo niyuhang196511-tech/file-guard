@@ -1,7 +1,9 @@
+import csv
 import tempfile
 import unittest
 from pathlib import Path
 
+from engine import record_admin
 from engine.service import Service
 from engine.store import Store
 
@@ -50,6 +52,57 @@ class FileLookupTests(unittest.TestCase):
         query=dict(q=r'计划\记录',root=self.rid,scope='all')
         self.assertEqual(self.files(**query,prefix='归档')['items'][0]['matched_path'],'计划/记录.txt')
         self.assertEqual(self.files(**query,prefix='计划')['total'],0)
+
+    def test_unicode_queries_find_current_and_former_paths_in_lists_and_csv(self):
+        folder = self.root/'Änderungen'
+        folder.mkdir()
+        original = folder/'Straße%.txt'
+        original.write_text('first', encoding='utf-8')
+        (folder/'StraßeX.txt').write_text('other', encoding='utf-8')
+        self.scan()
+
+        filters = dict(q='änderungen\\STRASSE%.TXT', root=self.rid)
+        first, = self.files(**filters)['items']
+        self.assertEqual(first['rel'],'Änderungen/Straße%.txt')
+        self.assertIsNone(first['matched_path'])
+        events = self.api.dispatch('events',filters)['items']
+        self.assertEqual([event['file_id'] for event in events],[first['id']])
+
+        original.rename(folder/'Current.txt')
+        self.scan()
+        current, = self.files(**filters)['items']
+        self.assertEqual((current['id'],current['rel'],current['matched_path']),
+                         (first['id'],'Änderungen/Current.txt',first['rel']))
+        events = self.api.dispatch('events',{**filters,'kind':'重命名'})['items']
+        self.assertEqual([event['old_rel'] for event in events],[first['rel']])
+        for command in ('export_files','export'):
+            destination = self.root.parent/(command+'.csv')
+            options = {**filters,'path':str(destination)}
+            if command=='export':
+                options['kind']='重命名'
+            self.api.dispatch(command,options)
+            with destination.open(encoding='utf-8-sig', newline='') as stream:
+                exported, = csv.DictReader(stream)
+            self.assertEqual(exported['文件'],current['rel'])
+
+    def test_unicode_caption_and_audit_search_preserves_retraction(self):
+        (self.root/'Note.txt').write_text('first', encoding='utf-8')
+        self.scan()
+        event = self.api.dispatch('events',{})['items'][0]
+        password = 'local test password'
+        salt = b'test salt'
+        with self.store.db() as db:
+            db.execute('INSERT INTO record_admin VALUES (1,?,?)',(salt,record_admin.derive(password,salt)))
+            self.store.audit(db,'Übergabe','Prüfung')
+        amend = dict(id=event['id'], password=password, reason='测试')
+        self.api.dispatch('record_amend',dict(amend,action='更正',caption='Freigabe Straße',revision=0))
+
+        self.assertEqual(self.api.dispatch('events',{'caption':'STRASSE'})['total'],1)
+        for q in ('übergabe','prüfung'):
+            self.assertEqual(self.api.dispatch('audit',{'q':q})['total'],1)
+        self.api.dispatch('record_amend',dict(amend,action='撤回',revision=1))
+        self.assertEqual(self.api.dispatch('events',{'caption':'STRASSE'})['total'],0)
+        self.assertEqual(self.api.dispatch('events',{'q':'已撤回'})['total'],1)
 
     def test_recreated_name_preserves_two_distinct_histories(self):
         file=self.root/'交接单.txt'

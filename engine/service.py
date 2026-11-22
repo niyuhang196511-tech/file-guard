@@ -243,7 +243,7 @@ class Service:
                     recovery=one('SELECT count(*) FROM restores'),line_origin_exts=sorted(line_origins.EXTENSIONS),
                     record_admin_ready=bool(one('SELECT count(*) FROM record_admin')),watch=self.watch_status,settings=settings(db),home=str(self.s.home),stamp=now())
 
-    def page(self,db,table,a):
+    def list_query(self,db,table,a):
         lookup={
           'events':('visible_events x LEFT JOIN files f ON f.id=x.file_id LEFT JOIN roots r ON r.id=x.root_id LEFT JOIN versions v ON v.id=x.new_v LEFT JOIN versions p ON p.id=x.old_v',
                     'x.*,r.path AS root,f.rel AS current_rel,f.ext AS current_ext,f.live,f.tracked,r.removed AS root_removed,r.active AS root_active,v.status,v.num AS version,p.num AS prior,v.sha,v.error,json_array_length(v.details) AS changes','x.rel','x.root_id','x.stamp','x.ext'),
@@ -267,23 +267,29 @@ class Service:
                 cond.append(scopes[scope])
         if table=='files' and a.get('prefix'):
             cond.append('substr(x.rel,1,length(?))=?');params.extend([a['prefix']+'/',a['prefix']+'/'])
-        if q:=a.get('q','').strip():
+        q=a.get('q','').strip()
+        caption=a.get('caption','').strip() if table=='events' else ''
+        if q or caption:
+            db.create_function('fg_list_fold',1,lambda value:value.casefold() if value is not None else None,
+                               deterministic=True)
+        if q:
             if table in ('files','events'):
                 q=q.replace('\\','/')
-            criteria="instr(lower("+search+"),lower(?))>0"
+            q=q.casefold()
+            criteria="instr(fg_list_fold("+search+"),?)>0"
             if table=='files':
                 source+=""" LEFT JOIN visible_events former ON former.id=(
                     SELECT e.id FROM visible_events e WHERE e.file_id=x.id
-                    AND instr(lower(x.rel),lower(?))=0 AND e.kind IN ('重命名','移动')
-                    AND instr(lower(e.old_rel),lower(?))>0 ORDER BY e.id DESC LIMIT 1)"""
+                    AND instr(fg_list_fold(x.rel),?)=0 AND e.kind IN ('重命名','移动')
+                    AND instr(fg_list_fold(e.old_rel),?)>0 ORDER BY e.id DESC LIMIT 1)"""
                 fields+=',former.old_rel AS matched_path'
                 source_params=[q,q]
                 criteria='('+criteria+' OR former.id IS NOT NULL)'
             if table=='events':
-                criteria='('+criteria+' OR instr(lower(x.old_rel),lower(?))>0)'
+                criteria='('+criteria+' OR instr(fg_list_fold(x.old_rel),?)>0)'
                 params.append(q)
             if table=='audit':
-                criteria='('+criteria+' OR instr(lower(x.action),lower(?))>0)'
+                criteria='('+criteria+' OR instr(fg_list_fold(x.action),?)>0)'
                 params.append(q)
             cond.append(criteria)
             params.append(q)
@@ -312,8 +318,8 @@ class Service:
                 cond.append('x.id=?');params.append(int(a['event_id']))
             if a.get('amended'):
                 cond.append('x.revision>0')
-            if caption:=a.get('caption','').strip():
-                cond.append('instr(lower(x.caption),lower(?))>0');params.append(caption)
+            if caption:
+                cond.append('instr(fg_list_fold(x.caption),?)>0');params.append(caption.casefold())
         if table=='events' and a.get('with_diff'):
             cond.append("x.old_v!=x.new_v AND v.status='已解析' AND json_array_length(v.details)>0")
         if table in ('files','events') and a.get('sha'):
@@ -346,25 +352,25 @@ class Service:
             cond.append('substr('+date+',1,10)=?');params.append(a['day'])
         if table=='events' and a.get('activity'):
             cond.append("x.kind!='初始建档'")
-        where=(' WHERE '+' AND '.join(cond)) if cond else ''
-        size=min(100,max(1,int(a.get('size',25))))
-        page=max(1,int(a.get('page',1)))
-        params=source_params+params
-        count=db.execute('SELECT count(*) FROM '+source+where,params).fetchone()[0]
-        page=min(page,max(1,(count+size-1)//size))
+        query=' FROM '+source
+        if cond:
+            query+=' WHERE '+' AND '.join(cond)
         orders={'':date+' DESC','oldest':date+' ASC'}
         if table=='files':
             orders.update(size='x.size DESC',versions='v.num DESC',name='x.rel COLLATE NOCASE ASC')
         order=orders.get(a.get('sort',''))
         if not order:
             raise ValueError('无效的排序方式')
-        result=rows(db.execute('SELECT '+fields+' FROM '+source+where+' ORDER BY '+order+',x.id DESC LIMIT ? OFFSET ?',params+[size,(page-1)*size]))
-        if table in ('files','events'):
-            for record in result:
+        return 'SELECT '+fields+query+' ORDER BY '+order+',x.id DESC', 'SELECT count(*)'+query, source_params+params
+
+    @staticmethod
+    def list_records(table,cursor):
+        for row in cursor:
+            record=dict(row)
+            if table in ('files','events'):
                 if table=='events' and not record['file_id']:
-                    record['file_state']='已撤回'
-                    continue
-                if not record['live']:
+                    state='已撤回'
+                elif not record['live']:
                     state='已删除'
                 elif record['root_removed']:
                     state='目录已移除'
@@ -373,7 +379,18 @@ class Service:
                 else:
                     state='当前在册' if record['root_active'] else '目录已暂停'
                 record['file_state']=state
-        response=dict(items=result,total=count,page=page,size=size)
+            yield record
+
+    def page(self,db,table,a):
+        select,count_query,params=self.list_query(db,table,a)
+        size=min(100,max(1,int(a.get('size',25))))
+        page=max(1,int(a.get('page',1)))
+        if not db.in_transaction:
+            db.execute('BEGIN')
+        count=db.execute(count_query,params).fetchone()[0]
+        page=min(page,max(1,(count+size-1)//size))
+        cursor=db.execute(select+' LIMIT ? OFFSET ?',params+[size,(page-1)*size])
+        response=dict(items=list(self.list_records(table,cursor)),total=count,page=page,size=size)
         if table=='events':
             response['sources']=[r[0] for r in db.execute("SELECT DISTINCT source FROM visible_events WHERE source!='' ORDER BY source")]
         if table=='audit':
@@ -619,22 +636,16 @@ class Service:
                 if within(dest,self.s.home):
                     raise ValueError('请在仓库之外保存')
                 db.execute('BEGIN')
-                opts={**a,'size':100,'page':1}
                 table={'export':'events','export_files':'files','export_audit':'audit'}[cmd]
                 headers,keys={'events':('编号 时间 目录 文件 原路径 类型 旧版本 新版本 摘要 来源 解析状态 公开更正','id stamp root rel old_rel kind prior version sha source status caption'),
                               'files':('编号 目录 文件 大小字节 版本 更新时间 SHA-256 在册状态 解析状态','id root rel size version updated sha file_state status'),
                               'audit':('编号 时间 操作 内容','id stamp action note')}[table]
-                page=self.page(db,table,opts)
+                select,_,params=self.list_query(db,table,a)
+                fields=keys.split()
                 with new_csv(dest) as writer:
                     writer.writerow(headers.split())
-                    while page['items']:
-                        for r in page['items']:
-                            cells=[r.get(k) for k in keys.split()]
-                            writer.writerow([csv_cell(value) for value in cells])
-                        if page['page']*page['size']>=page['total']:
-                            break
-                        opts['page']+=1
-                        page=self.page(db,table,opts)
+                    for record in self.list_records(table,db.execute(select,params)):
+                        writer.writerow([csv_cell(record.get(key)) for key in fields])
                 db.commit()
                 self.s.audit(db,{'events':'导出变更记录','files':'导出文件清单','audit':'导出审计记录'}[table],dest)
                 return str(dest)

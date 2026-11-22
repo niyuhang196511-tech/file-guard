@@ -1,4 +1,5 @@
 import csv
+from contextlib import contextmanager
 import os
 from pathlib import Path
 import tempfile
@@ -362,6 +363,47 @@ class OpenFilesAndSearch(Work):
             dest=self.base/(table+'.csv');n=self.api(table)['total']
             self.api(cmd,path=str(dest),sort='oldest')
             with dest.open(encoding='utf-8-sig') as f:self.assertEqual(len(list(csv.reader(f))),n+1)
+
+    def test_listing_total_and_rows_use_one_snapshot_during_capture(self):
+        (self.root/'first.txt').write_bytes(b'first')
+        self.scan()
+        scanned = []
+
+        def complete_another_scan(statement):
+            if not scanned and statement.startswith('SELECT x.*,') and ' FROM files x' in statement:
+                (self.root/'second.txt').write_bytes(b'second')
+                self.scan()
+                scanned.append(True)
+
+        with self.store.db() as db:
+            db.set_trace_callback(complete_another_scan)
+            page = self.service.page(db, 'files', {'sort':'name'})
+        self.assertTrue(scanned)
+        self.assertEqual((page['total'], [item['rel'] for item in page['items']]), (1, ['first.txt']))
+        self.assertEqual(self.api('files')['total'], 2)
+
+    def test_audit_export_streams_all_matching_rows_in_one_query(self):
+        notes = [f'batch {i:03d}' for i in range(205)]
+        with self.store.db() as db:
+            db.executemany('INSERT INTO audit(stamp,action,note) VALUES (?,?,?)', (
+                (f'2024-06-01T00:{i//60:02d}:{i%60:02d}', '测试', note) for i,note in enumerate(notes)
+            ))
+        open_db = self.store.db
+        statements = []
+
+        @contextmanager
+        def traced_db():
+            with open_db() as db:
+                db.set_trace_callback(statements.append)
+                yield db
+
+        dest = self.base/'批量审计.csv'
+        with patch.object(self.store,'db',traced_db):
+            self.api('export_audit',path=str(dest),q='batch',sort='oldest',page=2,size=1)
+        with dest.open(encoding='utf-8-sig',newline='') as stream:
+            self.assertEqual([row['内容'] for row in csv.DictReader(stream)],notes)
+        queries = [s for s in statements if s.startswith('SELECT ') and ' FROM audit x' in s]
+        self.assertEqual(len(queries), 1)
 
     def test_diff_search_scope_export_and_history(self):
         p=self.root/'A.xlsx'
