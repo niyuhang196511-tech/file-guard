@@ -297,20 +297,20 @@ class EngineTest(unittest.TestCase):
         latest, original = self.versions()
         preview = self.api.dispatch('restore_info', {'id': original['id']})
         newer = b'new content saved before restore verification finished'
-        published = False
+        published_path = None
 
         def replace_then_allow_edit(source, target):
-            nonlocal published
+            nonlocal published_path
             replace_guarded_file(source, target)
-            published = True
+            published_path = target
 
         def read_digest_then_edit(target):
-            nonlocal published
+            nonlocal published_path
             sha = digest(target)
-            if published and target == path:
-                published = False
+            if target == published_path:
+                published_path = None
                 self.assertEqual(sha, original['sha'])
-                path.write_bytes(newer)
+                target.write_bytes(newer)
             return sha
 
         with (patch('engine.store.replace_guarded_file', side_effect=replace_then_allow_edit),
