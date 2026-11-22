@@ -43,6 +43,33 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{
   await tick();await ctx.Vue.nextTick();
   assert(root.textContent.includes('监控工作台'));assert(appVm.s.files>0);assert.equal(appVm.metrics.length,4);
+  const earlierSave='2025-11-02T01:50:00-04:00',laterSave='2025-11-02T01:10:00-05:00';
+  const exampleData=ctx.FILEGUARD_EXAMPLE;
+  const waitingRoot=900001;
+  const waitRows=[['a-later.txt',laterSave],['b-earlier.txt','2025-11-02T05:50:00+00:00'],
+    ['c-earlier.txt',earlierSave],['d-unknown.txt','unknown a'],['e-unknown.txt','unknown z']];
+  exampleData.waits[waitingRoot]=waitRows.map(([rel,stamp])=>({rel,reason:'等待保存稳定',first_seen:stamp,last_seen:stamp,attempts:2}));
+  for(const [sort,order] of [['',[1,2,0,3,4]],['attempts',[1,2,0,3,4]],['recent',[0,1,2,4,3]]]){
+    const waiting=await ctx.exampleRequest('waiting_files',{root:waitingRoot,sort});
+    assert.deepEqual(Array.from(waiting.items,r=>r.rel),order.map(i=>waitRows[i][0]));
+  }
+  delete exampleData.waits[waitingRoot];
+
+  const timeRows=[{id:900002,rel:'dst-order-fixture-a.txt',stamp:earlierSave},
+    {id:900003,rel:'dst-order-fixture-b.txt',stamp:laterSave}];
+  exampleData.events.push(...timeRows.map(row=>({...row,old_rel:''})));
+  exampleData.files.push(...timeRows.map(row=>({...row,updated:row.stamp,file_state:'当前在册'})));
+  for(const [listing,exporting] of [['events','export'],['files','export_files']]){
+    for(const [sort,rows] of [['',[...timeRows].reverse()],['oldest',timeRows]]){
+      const filters={q:'dst-order-fixture-',sort};
+      const listed=await ctx.exampleRequest(listing,filters);
+      assert.deepEqual(Array.from(listed.items,r=>r.rel),rows.map(r=>r.rel));
+      const csv=await ctx.exampleRequest(exporting,filters);
+      assert(csv.indexOf(rows[0].rel)<csv.indexOf(rows[1].rel));
+    }
+  }
+  exampleData.events.splice(-timeRows.length);
+  exampleData.files.splice(-timeRows.length);
   const pickerRequest=ctx.exampleRequest;
   const defaultFile=await pickerRequest('files',{size:1,history:true});
   let finishDefault, rejectDefault;
@@ -982,6 +1009,23 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   assert.equal(appVm.lineageData.items[0].line,textHit.previews[0].line);
   await appVm.go('复核工作台');appVm.reviewFilter=appVm.freshReviewForm();appVm.reviewFilter.size=10;
   await appVm.loadReview(true);await ctx.Vue.nextTick();assert(root.textContent.includes('批量复核'));
+  {
+    const selected=appVm.reviews.items[0];
+    const data=ctx.FILEGUARD_EXAMPLE;
+    const file=data.files.find(f=>f.id===selected.file_id);
+    const version=data.history[file.id].find(v=>v.id===selected.id);
+    const previousPath=file.rel,previousNote=version.note;
+    file.rel='Änderung/Straße.txt';version.note='Größe\\Status';
+    appVm.reviewFilter.q='  ÄNDERUNG\\STRASSE  ';await appVm.loadReview(true);
+    assert(appVm.reviews.items.some(v=>v.id===selected.id));
+    await appVm.exportReviews();assert((await downloads.at(-1).text()).includes('Änderung/Straße.txt'));
+    appVm.reviewFilter.q='GRÖSSE\\STATUS';await appVm.loadReview(true);
+    assert.equal(appVm.reviews.items[0].id,selected.id);
+    appVm.reviewFilter.q='GRÖSSE/STATUS';await appVm.loadReview(true);
+    assert.equal(appVm.reviews.total,0);
+    file.rel=previousPath;version.note=previousNote;
+    appVm.reviewFilter.q='';await appVm.loadReview(true);
+  }
   appVm.selectReviewRows();assert.equal(appVm.reviewSelected.length,10);
   appVm.clearReviewPage();assert.equal(appVm.reviewSelected.length,0);
   const selectedFirst=appVm.reviews.items[0];appVm.toggleReviewSelection(selectedFirst);

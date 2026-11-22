@@ -657,12 +657,17 @@ window.exampleRequest=async function(cmd,a={}){
     const rows=d.waits[a.root]||[];
     const compare=(l,r)=>l<r?-1:l>r?1:0;
     const lower=value=>value.replace(/[A-Z]/g,c=>c.toLowerCase());
-    const first=(l,r)=>compare(l.first_seen,r.first_seen)||compare(l.rel,r.rel);
+    const compareTime=(l,r,direction)=>{
+      const left=Date.parse(l),right=Date.parse(r);
+      if(!Number.isFinite(left))return Number.isFinite(right)?1:direction*compare(l,r);
+      return Number.isFinite(right)?direction*(left-right):-1;
+    };
+    const first=(l,r)=>compareTime(l.first_seen,r.first_seen,1)||compare(l.rel,r.rel);
     const orders={
       '':first,
       attempts:(l,r)=>r.attempts-l.attempts||first(l,r),
       path:(l,r)=>compare(lower(l.rel),lower(r.rel))||compare(l.rel,r.rel),
-      recent:(l,r)=>compare(r.last_seen,l.last_seen)||compare(l.rel,r.rel),
+      recent:(l,r)=>compareTime(l.last_seen,r.last_seen,-1)||compare(l.rel,r.rel),
     };
     const order=a.sort??'';
     if(!Object.hasOwn(orders,order))throw Error('无效的等待队列排序');
@@ -798,10 +803,13 @@ window.exampleRequest=async function(cmd,a={}){
   }
   if(cmd==='review_queue'||cmd==='export_review'){
     if(a.start&&a.end&&a.start>a.end)throw Error('结束日期不能早于开始日期');
-    const query=(a.q||'').trim().toLowerCase(),ext=(a.ext||'').trim().replace(/^\./,'').toLowerCase();
+    const fold=text=>Array.from(text,c=>d.textSearch.fold[c]??c.toLowerCase()).join('');
+    const query=fold((a.q||'').trim()),pathQuery=query.replaceAll('\\','/');
+    const ext=(a.ext||'').trim().replace(/^\./,'').toLowerCase();
+    const matches=(f,v)=>!query||fold(f.rel).includes(pathQuery)||[v.note,v.error].some(x=>fold(x||'').includes(query));
     const items=d.files.flatMap(f=>d.history[f.id].filter(v=>(a.baseline||v.parent_id)&&(!a.latest||v.num===f.version)
       &&(!a.starred||f.starred)&&(!a.root||+a.root===f.root_id)&&(!ext||v.ext==='.'+ext||(!v.ext&&f.ext==='.'+ext))
-      &&(!a.status||a.status===v.status)&&inRange(v.stamp)&&(!query||[f.rel,v.note,v.error].some(x=>(x||'').toLowerCase().includes(query))))
+      &&(!a.status||a.status===v.status)&&inRange(v.stamp)&&matches(f,v))
       .map(v=>({...v,rel:f.rel,root:f.root,ext:v.ext||f.ext,starred:f.starred})));
     const counts=Object.fromEntries(['待复核','需跟进','已复核'].map(state=>[state,items.filter(r=>r.review===state).length]));
     const selected=items.filter(v=>!a.state||a.state===v.review);
@@ -890,9 +898,18 @@ window.exampleRequest=async function(cmd,a={}){
           (!String(a.max_bytes??'')||x.size<=Number(a.max_bytes))&&inRange(x.updated)))&&
         (!a.day||(x.stamp||x.updated).startsWith(a.day))&&(files?(scope==='all'||states[scope]?.includes(x.file_state)):inRange(x.stamp));
     });
-    const compareText=(l,r)=>l<r?-1:l>r?1:0;
-    if(a.sort)found.sort((l,r)=>({size:r.size-l.size,versions:r.version-l.version,
-      name:compareText(l.rel.toLowerCase(),r.rel.toLowerCase()),oldest:compareText(l.updated||l.stamp,r.updated||r.stamp)})[a.sort]||r.id-l.id);
+    const compare=(l,r)=>l<r?-1:l>r?1:0;
+    const epoch=record=>{
+      const value=Date.parse(files?record.updated:record.stamp);
+      return Number.isFinite(value)?value:-Infinity;
+    };
+    const oldest=(l,r)=>compare(epoch(l),epoch(r));
+    const orders={
+      '':(l,r)=>oldest(r,l),oldest,size:(l,r)=>r.size-l.size,versions:(l,r)=>r.version-l.version,
+      name:(l,r)=>compare(l.rel.toLowerCase(),r.rel.toLowerCase()),
+    };
+    const order=orders[a.sort||''];
+    found.sort((l,r)=>order?.(l,r)||r.id-l.id);
     if(cmd==='export_files')return csvText([['编号','目录','文件','大小字节','版本','更新时间','SHA-256','在册状态','解析状态'],
       ...found.map(r=>[r.id,r.root,r.rel,r.size,r.version,r.updated,r.sha,r.file_state,r.status])]);
     if(cmd==='export'){

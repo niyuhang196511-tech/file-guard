@@ -30,7 +30,8 @@ def catalogue(db,args):
     sha=str(args.get('sha','')).strip().lower()
     if sha and not re.fullmatch('[0-9a-f]{1,64}',sha):raise ValueError('摘要前缀应为 1 至 64 位十六进制')
     items=[]
-    for row in db.execute("""SELECT f.rel,f.file_id,v.id AS vid,v.num,v.size,v.sha,v.stamp,v.ext FROM checkpoint_files f
+    for row in db.execute("""SELECT f.rel,f.file_id,v.id AS vid,v.num,v.size,v.sha,v.stamp,v.ext,
+              unixepoch(v.stamp) AS saved_epoch FROM checkpoint_files f
               JOIN versions v ON v.id=f.version WHERE f.checkpoint=?""",(meta['id'],)):
         rel=row['rel']
         if prefix and not rel.startswith(prefix+'/'):continue
@@ -41,7 +42,12 @@ def catalogue(db,args):
     mode=args.get('sort','')
     if mode not in ('','size','updated','version'):raise ValueError('无效的清单顺序')
     items.sort(key=lambda r:(r['rel'].casefold(),r['rel']))
-    if mode:items.sort(key=lambda r:r[{'size':'size','updated':'stamp','version':'num'}[mode]],reverse=True)
+    if mode=='updated':
+        items.sort(key=lambda r:(r['saved_epoch'] is not None,r['saved_epoch']),reverse=True)
+    elif mode:
+        items.sort(key=lambda r:r[{'size':'size','version':'num'}[mode]],reverse=True)
+    for item in items:
+        del item['saved_epoch']
     return dict(meta),items
 
 

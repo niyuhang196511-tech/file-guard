@@ -14,7 +14,7 @@ EXPORT_FIELDS=('rel','root','num','stamp','review','note','reviewed_at','status'
 EXPORT_HEADER=('文件','监控目录','版本号','保存时间','复核状态','复核备注','最近复核时间','解析状态','差异条数','SHA-256')
 
 
-def selection(a):
+def selection(db,a):
     terms=[];params=[]
     if not a.get('baseline'):
         terms.append('v.parent_id IS NOT NULL')
@@ -28,8 +28,10 @@ def selection(a):
         terms.append('v.status=?');params.append(a['status'])
     if a.get('ext','').strip():
         terms.append('v.ext=?');params.append('.'+a['ext'].strip('. ').lower())
-    if q:=a.get('q','').strip():
-        terms.append("(instr(lower(f.rel),lower(?)) OR instr(lower(m.note),lower(?)) OR instr(lower(v.error),lower(?)))")
+    if q:=a.get('q','').strip().casefold():
+        db.create_function('fg_review_fold',1,lambda value:value.casefold() if value is not None else None,
+                           deterministic=True)
+        terms.append("(instr(fg_review_fold(f.rel),?) OR instr(fg_review_fold(m.note),?) OR instr(fg_review_fold(v.error),?))")
         params.extend([q.replace('\\','/'),q,q])
     start,end=a.get('start',''),a.get('end','')
     for value in (start,end):
@@ -45,7 +47,7 @@ def selection(a):
 
 
 def query(db,args,export=False):
-    terms,params=selection(args)
+    terms,params=selection(db,args)
     where=lambda parts:' WHERE '+' AND '.join(parts) if parts else ''
     counts=dict.fromkeys(STATES,0)
     if not export:

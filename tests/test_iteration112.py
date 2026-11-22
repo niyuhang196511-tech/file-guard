@@ -341,6 +341,28 @@ class Packages(Work):
         self.assertEqual(len(self.inventory(page=300)['items']),7)
         dest=self.base/'inventory.csv';self.call('inventory_csv',id=self.cid,ext='csv',path=str(dest))
         self.assertEqual(len(self.csv(dest)),31)
+
+    def test_inventory_updated_order_uses_actual_save_time(self):
+        earlier = '2025-11-02T01:50:00-04:00'
+        later = '2025-11-02T01:10:00-05:00'
+        with self.store.db() as db:
+            db.executemany('UPDATE versions SET stamp=? WHERE file_id=(SELECT id FROM files WHERE rel=?)',
+                           [(earlier, '明细/甲.csv'), (later, '明细/乙.CSV')])
+        filters = dict(id=self.cid, folder='明细', sort='updated')
+        expected = ['明细/乙.CSV', '明细/甲.csv']
+        for cmd in ('checkpoint_inventory', 'checkpoint_disk'):
+            with self.subTest(cmd=cmd):
+                result = self.call(cmd, **filters)
+                self.assertEqual([row['rel'] for row in result['items']], expected)
+                self.assertEqual([row['stamp'] for row in result['items']], [later, earlier])
+        dest = self.base/'inventory.csv'
+        self.call('inventory_csv', **filters, path=str(dest))
+        self.assertEqual([row[0] for row in self.csv(dest)[1:]], expected)
+        dest = self.base/'handoff.zip'
+        self.call('handoff_create', **filters, path=str(dest))
+        with zipfile.ZipFile(dest) as archive:
+            manifest = json.loads(archive.read(handoff.MANIFEST))
+        self.assertEqual([row['rel'] for row in manifest['files']], expected)
     def test_snapshot_based_filtered_package_and_reference(self):
         dest=self.base/'部分.zip'
         (self.directory/'明细/甲.csv').unlink();self.write('明细/乙.CSV','changed');self.scan()
@@ -606,6 +628,24 @@ class Health(Work):
         self.assertEqual((result['coverage']['shared'],result['coverage']['missing'],result['coverage']['missing_bytes'],result['coverage']['affected_versions']),(1,1,3,2))
         self.assertEqual(result['logical'],6);self.assertEqual(result['files'],1)
         self.assertIsNone(backup_check.inspect(path)['coverage'])
+
+    def test_backup_inspection_uses_actual_save_time_for_bounds(self):
+        destination = self.base / 'empty.zip'
+        self.call('backup', path=str(destination))
+        empty = self.call('inspect_backup', path=str(destination))
+        self.assertEqual((empty['oldest'], empty['latest']), (None, None))
+
+        self.write('tracked.txt', b'first');self.scan()
+        self.write('tracked.txt', b'second');self.scan()
+        earlier = '2025-11-02T01:50:00-04:00'
+        later = '2025-11-02T01:10:00-05:00'
+        with self.store.db() as db:
+            db.executemany('UPDATE versions SET stamp=? WHERE num=?', [(earlier, 1), (later, 2)])
+        destination = self.base / 'versions.zip'
+        self.call('backup', path=str(destination))
+        result = self.call('inspect_backup', path=str(destination))
+        self.assertEqual((result['oldest'], result['latest']), (earlier, later))
+        self.assertEqual((result['versions'], result['logical']), (2, 11))
 
     def test_backup_refuses_invalid_database_snapshot_before_publication(self):
         self.write('tracked.txt', b'contents')

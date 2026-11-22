@@ -167,8 +167,10 @@ def waits(db,args):
     reason = _text(args, 'reason')
     sort = _text(args, 'sort')
     requested_page = _integer(args, 'page', 1)
-    orders = {'': 'first_seen,rel', 'attempts': 'attempts DESC,first_seen,rel',
-              'path': 'rel COLLATE NOCASE,rel', 'recent': 'last_seen DESC,rel'}
+    first = 'unixepoch(first_seen) NULLS LAST,CASE WHEN unixepoch(first_seen) IS NULL THEN first_seen END,rel'
+    recent = 'unixepoch(last_seen) DESC NULLS LAST,CASE WHEN unixepoch(last_seen) IS NULL THEN last_seen END DESC,rel'
+    orders = {'': first, 'attempts': 'attempts DESC,'+first,
+              'path': 'rel COLLATE NOCASE,rel', 'recent': recent}
     if sort not in orders:
         raise ValueError('无效的等待队列排序')
     db.execute('BEGIN')

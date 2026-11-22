@@ -190,6 +190,26 @@ class Workflow(Work):
         self.assertEqual(s['saved'],self.file.stat().st_size);self.assertTrue(s['free']>0 and s['database']>0)
         self.assertEqual(sum(r['bytes'] for r in s['by_root']),s['logical'])
 
+    def test_review_search_folds_unicode_and_accepts_windows_paths(self):
+        folder = self.root/'Änderung'
+        folder.mkdir()
+        (folder/'Straße.txt').write_text('业务内容', encoding='utf-8')
+        self.s.scan(self.rid)
+        version, = self.call('review_queue', q='Straße.txt', baseline=True)['items']
+        self.call('save_review', id=version['id'], state='已复核', note='Größe\\Status', revision=0)
+
+        for query in ('  ÄNDERUNG\\STRASSE  ', 'GRÖSSE\\STATUS'):
+            with self.subTest(query=query):
+                found, = self.call('review_queue', q=query, baseline=True)['items']
+                self.assertEqual(found['id'], version['id'])
+        self.assertEqual(self.call('review_queue', q='GRÖSSE/STATUS', baseline=True)['total'], 0)
+
+        dest = self.base/'复核搜索.csv'
+        self.call('export_review', q='änderung\\STRASSE', baseline=True, path=str(dest))
+        with dest.open(encoding='utf-8-sig', newline='') as src:
+            record, = list(csv.DictReader(src))
+        self.assertEqual(record['文件'], 'Änderung/Straße.txt')
+
     def test_review_and_export_sort_by_actual_save_and_review_time(self):
         target = self.root/'时区复核.txt'
         early = '2026-11-01T01:58:00-04:00'

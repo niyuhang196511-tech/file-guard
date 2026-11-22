@@ -195,6 +195,24 @@ class ScanDiagnosticsTests(unittest.TestCase):
         self.assertEqual(matches['counts'], {'等待保存稳定': 1})
         self.assertEqual([row['rel'] for row in matches['items']], ['Änderungen/Straße%.txt'])
 
+    def test_waiting_queue_sorts_actual_times_and_keeps_stable_ties(self):
+        earlier = '2025-11-02T01:50:00-04:00'
+        same_time = '2025-11-02T05:50:00+00:00'
+        later = '2025-11-02T01:10:00-05:00'
+        with self.store.db() as db:
+            db.executemany('INSERT INTO waiting_files VALUES (?,?,?,?,?,?)', [
+                (self.root, name, '等待保存稳定', stamp, stamp, 2)
+                for name, stamp in [('a-later.txt', later), ('b-earlier.txt', same_time),
+                                    ('c-earlier.txt', earlier), ('d-unknown.txt', 'unknown a'),
+                                    ('e-unknown.txt', 'unknown z')]
+            ])
+        first = ['b-earlier.txt', 'c-earlier.txt', 'a-later.txt', 'd-unknown.txt', 'e-unknown.txt']
+        recent = ['a-later.txt', 'b-earlier.txt', 'c-earlier.txt', 'e-unknown.txt', 'd-unknown.txt']
+        for sort, expected in (('', first), ('attempts', first), ('recent', recent)):
+            with self.subTest(sort=sort):
+                result = self.api.dispatch('waiting_files', {'root': self.root, 'sort': sort})
+                self.assertEqual([row['rel'] for row in result['items']], expected)
+
     def test_growth_after_enumeration_obeys_size_limit_and_preserves_scope(self):
         folder = (self.base / '待监控').resolve()
         self.api.dispatch('configure', {'id': self.root, 'path': str(folder), 'max_mb': 1})

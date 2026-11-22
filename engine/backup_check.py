@@ -85,7 +85,10 @@ def validate(path,scratch,materialize,reference=None):
                         checks['only_backup']+=1;checks['only_backup_bytes']+=hi
             if manifest and (manifest.get('objects'),manifest.get('bytes'),manifest.get('versions'),manifest.get('schema'))!=(objects,size,versions,schema):
                 raise ValueError('备份清单与数据库统计不一致')
-            stats=db.execute('SELECT coalesce(sum(size),0),min(stamp),max(stamp) FROM versions').fetchone()
+            stats=db.execute('''SELECT coalesce(sum(size),0),
+                (SELECT stamp FROM versions ORDER BY unixepoch(stamp) ASC NULLS LAST,id LIMIT 1),
+                (SELECT stamp FROM versions ORDER BY unixepoch(stamp) DESC NULLS LAST,id DESC LIMIT 1)
+                FROM versions''').fetchone()
             coverage=None
             if reference is not None:
                 coverage=dict(checks,missing=len(missing),missing_bytes=sum(v[0] for v in missing.values()),
