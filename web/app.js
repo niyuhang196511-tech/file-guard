@@ -23,6 +23,7 @@
 
 
 
+
 const { createApp, h, nextTick } = Vue;
 const Ledger=window.FileGuardLedger;
 const ledgerExt=['.xlsx','.xlsm','.xltx','.xltm','.csv','.tsv'];
@@ -254,6 +255,7 @@ const app = createApp({
             left: 0,
             right: 0,
             diff: null,
+            diffPair: '',
             diffLoading: false,
             dp: 1,
             sheet: '',
@@ -1324,9 +1326,7 @@ const app = createApp({
             const ok=await this.selectFile({id:r.file_id,rel:r.rel,root:r.root_path,ext:r.ext});
             if(!ok)return;
             this.diffMode='aligned';
-            await this.pair(r.old_v,r.new_v);
-            this.displayMode='detail';this.sheet=r.sheet||'';this.loc=r.location||'';this.exact=true;this.searchIn='location';
-            await this.loadDiff();
+            await this.pair(r.old_v,r.new_v,{sheet:r.sheet||'',location:r.location||''});
         },
         async loadPresets () {this.presets=await this.safe(()=>request('finder_presets'))||[];},
         async savePreset () {
@@ -2150,6 +2150,8 @@ const app = createApp({
             this.resetVersions();
             this.versions=[];
             this.diff=null;
+            this.diffLoading=false;
+            this.flags.diff=(this.flags.diff||0)+1;
             return this.safe(async ()=>{
                 const versions = await request('history', {
                     id: file.id
@@ -2166,19 +2168,22 @@ const app = createApp({
             this.page = page;
             if (page === '版本对比') await this.changePair();
         },
-        async pair (left, right) {
+        async pair (left, right, focus            ) {
             this.left = left;
             this.right = right;
             this.page = '版本对比';
-            await this.changePair();
+            await this.changePair(focus);
         },
-        async changePair () {
+        async changePair (focus            ) {
             this.dp = 1;
-            this.loc = '';
-            this.sheet = '';
+            this.loc = focus?.location || '';
+            this.sheet = focus?.sheet || '';
             this.diffKind = '';
             this.diffCategory = '';
-            this.searchIn='';this.exact=false;this.caseSensitive=false;this.diffField='';this.recordId='';
+            this.searchIn=focus?'location':'';
+            this.exact=!!focus;
+            this.caseSensitive=false;this.diffField='';this.recordId='';
+            if(focus)this.displayMode='detail';
             this.cellHits=null;this.cellSearch=freshCellSearch();this.flags.cell=(this.flags.cell||0)+1;this.cellBusy=false;
             this.gridFilter='';this.gridTarget='';this.gridPage=1;this.gridCol=1;this.gridSheet='';this.expandRows=false;
             await this.loadDiff();
@@ -2257,6 +2262,8 @@ const app = createApp({
             this.grid=null;
             const seq = (this.flags.diff || 0) + 1;
             this.flags.diff = seq;
+            const pair=this.left+':'+this.right;
+            if(pair!==this.diffPair)this.diff=null;
             if (this.left === this.right) {
                 this.diff = null;
                 this.diffLoading = false;
@@ -2269,6 +2276,7 @@ const app = createApp({
             }));
             if (seq === this.flags.diff) {
                 this.diff = result;
+                this.diffPair=pair;
                 this.diffLoading = false;
                 if(result)this.dp=result.page;
                 if(result?.is_excel&&!result.error&&this.presentation==='grid')await this.loadGrid();

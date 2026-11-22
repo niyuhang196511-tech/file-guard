@@ -71,6 +71,26 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   assert.equal(appVm.diff.counts['新增'],1);
   assert(appVm.diff.items.some(r=>r.location==='第 3 行'&&r.record_key==='MD-003'));
   assert(appVm.diff.items.some(r=>r.location==='C3 → C4'&&r.old==='48'&&r.new==='52'));
+  const compareRequest=ctx.exampleRequest;
+  let finishSwap, swapArgs;
+  ctx.exampleRequest=(cmd,args)=>cmd==='compare'
+    ?new Promise(resolve=>{finishSwap=resolve;swapArgs=args;})
+    :compareRequest(cmd,args);
+  const pendingSwap=appVm.swapPair();
+  await ctx.Vue.nextTick();
+  assert(root.textContent.includes('正在比较版本'));
+  assert(!root.textContent.includes('登记新侧版本'));
+  finishSwap(await compareRequest('compare',swapArgs));await pendingSwap;
+  await ctx.Vue.nextTick();
+  const reviewButton=node=>node.tag==='button'&&node.textContent.includes('登记新侧版本')?node
+    :node.children.map(reviewButton).find(Boolean);
+  const swappedReview=reviewButton(root);
+  assert(swappedReview?.textContent.includes('登记新侧版本 V1'));
+  swappedReview.props.onClick();
+  assert.equal(appVm.dialog.id,swapArgs.new);
+  appVm.dialog=null;
+  ctx.exampleRequest=compareRequest;
+  await appVm.swapPair();
   const alignedCount=appVm.diff.total;
   await appVm.filterDiff('新增');
   assert.equal(appVm.diff.total,1);
@@ -276,6 +296,24 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   await appVm.exportFinder();assert((await downloads.at(-1).text()).includes('事件编号'));
   const finding=appVm.found.items.find(r=>r.new_value==='80');await appVm.openFound(finding);
   assert.equal(appVm.page,'版本对比');assert.equal(appVm.left,finding.old_v);assert(appVm.diff.items.some(r=>r.location===finding.location));
+  let finishFinding, findingArgs, findingComparisons=0;
+  ctx.exampleRequest=(cmd,args)=>cmd==='compare'&&args.old===finding.old_v&&args.new===finding.new_v
+    ?++findingComparisons===1
+      ?new Promise(resolve=>{finishFinding=resolve;findingArgs=args;})
+      :originalRequest(cmd,args)
+    :originalRequest(cmd,args);
+  const pendingFinding=appVm.openFound(finding);await tick();
+  await appVm.fileDialog();
+  await appVm.picked(ctx.FILEGUARD_EXAMPLE.files.find(r=>r.rel==='退货轨迹.csv'));
+  const alternativeDiff=appVm.diff;
+  assert(alternativeDiff.total>0);
+  finishFinding(await originalRequest('compare',findingArgs));await pendingFinding;
+  assert.equal(appVm.diff,alternativeDiff);
+  assert.equal(appVm.loc,'');
+  assert.equal(findingArgs.q,finding.location);
+  assert.equal(findingArgs.search_in,'location');
+  assert.equal(findingComparisons,1);
+  ctx.exampleRequest=originalRequest;
   await appVm.go('差异检索');await appVm.forgetPreset();await appVm.submitDialog();assert.equal(appVm.presets.length,0);
   await appVm.fromEvent(recent);appVm.displayMode='auto';await appVm.changePair();appVm.cellSearch.q='80';appVm.cellSearch.side='new';appVm.cellSearch.exact=true;await appVm.searchCells();
   assert(appVm.cellHits.items.some(r=>r.address==='C2'));await appVm.jumpCell(appVm.cellHits.items.find(r=>r.address==='C2'));assert(appVm.grid.rows.some(r=>r.target));

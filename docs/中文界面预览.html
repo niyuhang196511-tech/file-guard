@@ -128,7 +128,7 @@ aside nav{min-height:0;overflow-y:auto}.snippet111{max-width:28ch;overflow-wrap:
 <template v-if="['历史版本','版本对比'].includes(page)"><div class="card picker"><div class="folder-icon"><ico n="files"></ico></div><div class="grow"><b>{{file?base(file.rel):'选择需要追溯的文件'}}</b><small>{{file?parent(file.root,file.rel):'可以查找已删除文件的历史记录'}}</small><span v-if="file&&file.file_state" class="tag" :class="stateTone(file.file_state)">{{file.file_state}}</span></div><button class="btn" @click="fileDialog">选择文件</button></div>
 <template v-if="file&&versions.length"><div class="split-head"><h2>{{page==='历史版本'?'版本时间线':'版本选择'}}</h2><button class="textbtn" @click="navVersion(page==='历史版本'?'版本对比':'历史版本')">{{page==='历史版本'?'比较版本':'查看时间线'}} <ico n="arrow-right"></ico></button></div>
 <section v-if="page==='历史版本'" class="card timeline"><div class="timeline-filters"><label>复核结论<select v-model="historyReview" @change="versionPage=1"><option value="">全部结论</option><option v-for="v in reviewStates">{{v}}</option></select></label><label>版本号或摘要<input v-model="versionQuery" @input="versionPage=1" placeholder="V2 或至少 6 位摘要" aria-label="查找版本号"></label><label>保存日期<input type="date" v-model="versionDay" @change="versionPage=1" aria-label="版本保存日期"></label><label>解析状态<select v-model="versionStatus" @change="versionPage=1"><option value="">全部状态</option><option v-for="v in parseStates">{{v}}</option></select></label><button class="textbtn" v-if="versionQuery||versionDay||versionStatus||historyReview" @click="resetVersions">清除条件</button><small>共 {{matchedVersions.length}} 个版本</small></div><div v-if="!visibleVersions.length" class="empty"><b>没有符合条件的版本</b><small>可清除条件查看完整时间线。</small></div><div class="version" v-for="v in visibleVersions" :key="v.id"><span class="node"></span><div class="grow"><h3>V{{v.num}} <span class="tag neutral">{{v.status}}</span></h3><p>{{fmt(v.stamp)}}　·　{{bytes(v.size)}}<template v-if="v.delta!=null">　·　{{v.delta>=0?'+':'−'}}{{bytes(Math.abs(v.delta))}}</template><template v-if="v.status==='已解析'">　·　{{v.changes}} 项差异</template></p><small v-if="v.note" class="review-note">{{v.note}}</small><small class="hash">SHA-256　{{v.sha}}</small><small class="error" v-if="v.error">{{v.error}}</small></div><div class="actions"><button class="textbtn" v-if="canTraceLines(v)" @click="openLineage(v)">逐行来源</button><button class="textbtn" @click="openSnapshot(v)">预览原件</button><button class="textbtn" :disabled="hasBundleVersion(v.id)" @click="addBundleVersion(v)">{{hasBundleVersion(v.id)?'已在交付篮':'加入交付篮'}}</button><button class="textbtn" @click="go('相同内容追溯',{sha:v.sha})">追溯相同内容</button><button class="textbtn" @click="editReview(v)">{{v.review||'待复核'}} · 登记</button><button v-if="v.num>2" class="textbtn" @click="pair(versions[versions.length-1].id,v.id)">与首版比较</button><button v-if="v.id!==versions[0].id" class="textbtn" @click="pair(v.id,versions[0].id)">与最新版比较</button><button v-if="v.parent_id" class="textbtn" @click="pair(v.parent_id,v.id)">比较</button><button v-if="!demo" class="textbtn" @click="saveFile('copy',base(file.rel),v.id)">另存</button><button class="textbtn" @click="restoreDialog(v)">{{demo?'恢复预览':'恢复'}}</button></div></div><div class="pager" v-if="versionPages>1"><span>第 {{versionPage}} / {{versionPages}} 页</span><div><button class="btn" :disabled="versionPage<=1" @click="versionPage--">上一页</button> <button class="btn" :disabled="versionPage>=versionPages" @click="versionPage++">下一页</button></div></div></section>
-<section v-else class="card"><div class="pair"><label>旧版本<select v-model.number="left" @change="changePair"><option v-for="v in versions" :value="v.id">V{{v.num}}　{{fmt(v.stamp)}}</option></select></label><button class="btn swap-pair" :disabled="left===right||diffLoading" @click="swapPair">交换版本</button><label>新版本<select v-model.number="right" @change="changePair"><option v-for="v in versions" :value="v.id">V{{v.num}}　{{fmt(v.stamp)}}</option></select></label></div><template v-if="left!==right&&diff"><div v-if="diff.is_source" class="diff-options"><div class="mode-switch" aria-label="源文件比较方式"><button :aria-pressed="diffMode==='aligned'" @click="setDiffMode('aligned')">按结构比较</button><button :aria-pressed="diffMode==='coordinate'" @click="setDiffMode('coordinate')">按原文逐行比较</button></div></div><div v-if="diff.is_excel||diff.is_word||diff.is_tabular" class="diff-options"><div class="mode-switch" aria-label="比较方式"><button v-for="m in [['aligned',diff.is_word?'按段落内容对齐':'按编号对齐'],['coordinate',diff.is_word?'按原始位置':'按原始坐标']]" :aria-pressed="diffMode===m[0]" @click="setDiffMode(m[0])">{{m[1]}}</button></div><small v-if="diff.is_word">{{diffMode==='aligned'?'按文档区域核对段落，突出显示修改文字':'逐个段号和表格位置核对'}}</small><small v-else-if="diffMode==='aligned' && Object.keys(diff.aligned).length">按 {{Object.entries(diff.aligned).filter(([name])=>!sheet || sheet===name).map(([name,key])=>name+' · '+key).join('、') || '单元格坐标'}} 核对</small><small v-else>按单元格坐标核对</small></div>
+<section v-else class="card"><div class="pair"><label>旧版本<select v-model.number="left" @change="changePair()"><option v-for="v in versions" :value="v.id">V{{v.num}}　{{fmt(v.stamp)}}</option></select></label><button class="btn swap-pair" :disabled="left===right||diffLoading" @click="swapPair">交换版本</button><label>新版本<select v-model.number="right" @change="changePair()"><option v-for="v in versions" :value="v.id">V{{v.num}}　{{fmt(v.stamp)}}</option></select></label></div><template v-if="left!==right&&diff"><div v-if="diff.is_source" class="diff-options"><div class="mode-switch" aria-label="源文件比较方式"><button :aria-pressed="diffMode==='aligned'" @click="setDiffMode('aligned')">按结构比较</button><button :aria-pressed="diffMode==='coordinate'" @click="setDiffMode('coordinate')">按原文逐行比较</button></div></div><div v-if="diff.is_excel||diff.is_word||diff.is_tabular" class="diff-options"><div class="mode-switch" aria-label="比较方式"><button v-for="m in [['aligned',diff.is_word?'按段落内容对齐':'按编号对齐'],['coordinate',diff.is_word?'按原始位置':'按原始坐标']]" :aria-pressed="diffMode===m[0]" @click="setDiffMode(m[0])">{{m[1]}}</button></div><small v-if="diff.is_word">{{diffMode==='aligned'?'按文档区域核对段落，突出显示修改文字':'逐个段号和表格位置核对'}}</small><small v-else-if="diffMode==='aligned' && Object.keys(diff.aligned).length">按 {{Object.entries(diff.aligned).filter(([name])=>!sheet || sheet===name).map(([name,key])=>name+' · '+key).join('、') || '单元格坐标'}} 核对</small><small v-else>按单元格坐标核对</small></div>
 <button v-if="diff.is_excel||diff.is_tabular" class="btn" @click="varianceDialog">数值差异核对</button><div class="view-tabs" v-if="formatView[0]!=='detail'">
 <button :aria-pressed="displayMode==='auto'" @click="displayMode='auto';changePair()">{{formatView[1]}}</button>
 <button :aria-pressed="displayMode==='detail'" @click="displayMode='detail'">{{diff.is_excel?'单元格与属性明细':'明细表'}} · {{diff.is_excel?'筛选与导出':'并排查看'}}</button></div>
@@ -3627,7 +3627,7 @@ return function render(_ctx, _cache) {
                           ]))
                         : (_openBlock(), _createElementBlock("section", _hoisted_217, [_createElementVNode("div", _hoisted_218, [_createElementVNode("label", null, [_cache[74] || (_cache[74] = _createTextVNode("旧版本")), _withDirectives(_createElementVNode("select", {
                             "onUpdate:modelValue": $event => ((left) = $event),
-                            onChange: changePair
+                            onChange: $event => (changePair())
                           }, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(versions, (v) => {
                             return (_openBlock(), _createElementBlock("option", { value: v.id }, "V" + _toDisplayString(v.num) + "　" + _toDisplayString(fmt(v.stamp)), 9, _hoisted_220))
                           }), 256))], 40, _hoisted_219), [[
@@ -3641,7 +3641,7 @@ return function render(_ctx, _cache) {
                             onClick: swapPair
                           }, "交换版本", 8, _hoisted_221), _createElementVNode("label", null, [_cache[75] || (_cache[75] = _createTextVNode("新版本")), _withDirectives(_createElementVNode("select", {
                             "onUpdate:modelValue": $event => ((right) = $event),
-                            onChange: changePair
+                            onChange: $event => (changePair())
                           }, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(versions, (v) => {
                             return (_openBlock(), _createElementBlock("option", { value: v.id }, "V" + _toDisplayString(v.num) + "　" + _toDisplayString(fmt(v.stamp)), 9, _hoisted_223))
                           }), 256))], 40, _hoisted_222), [[
@@ -8766,6 +8766,7 @@ window.exampleRequest=async function(cmd,a={}){
 
 
 
+
 const { createApp, h, nextTick } = Vue;
 const Ledger=window.FileGuardLedger;
 const ledgerExt=['.xlsx','.xlsm','.xltx','.xltm','.csv','.tsv'];
@@ -8997,6 +8998,7 @@ const app = createApp({
             left: 0,
             right: 0,
             diff: null,
+            diffPair: '',
             diffLoading: false,
             dp: 1,
             sheet: '',
@@ -10067,9 +10069,7 @@ const app = createApp({
             const ok=await this.selectFile({id:r.file_id,rel:r.rel,root:r.root_path,ext:r.ext});
             if(!ok)return;
             this.diffMode='aligned';
-            await this.pair(r.old_v,r.new_v);
-            this.displayMode='detail';this.sheet=r.sheet||'';this.loc=r.location||'';this.exact=true;this.searchIn='location';
-            await this.loadDiff();
+            await this.pair(r.old_v,r.new_v,{sheet:r.sheet||'',location:r.location||''});
         },
         async loadPresets () {this.presets=await this.safe(()=>request('finder_presets'))||[];},
         async savePreset () {
@@ -10893,6 +10893,8 @@ const app = createApp({
             this.resetVersions();
             this.versions=[];
             this.diff=null;
+            this.diffLoading=false;
+            this.flags.diff=(this.flags.diff||0)+1;
             return this.safe(async ()=>{
                 const versions = await request('history', {
                     id: file.id
@@ -10909,19 +10911,22 @@ const app = createApp({
             this.page = page;
             if (page === '版本对比') await this.changePair();
         },
-        async pair (left, right) {
+        async pair (left, right, focus            ) {
             this.left = left;
             this.right = right;
             this.page = '版本对比';
-            await this.changePair();
+            await this.changePair(focus);
         },
-        async changePair () {
+        async changePair (focus            ) {
             this.dp = 1;
-            this.loc = '';
-            this.sheet = '';
+            this.loc = focus?.location || '';
+            this.sheet = focus?.sheet || '';
             this.diffKind = '';
             this.diffCategory = '';
-            this.searchIn='';this.exact=false;this.caseSensitive=false;this.diffField='';this.recordId='';
+            this.searchIn=focus?'location':'';
+            this.exact=!!focus;
+            this.caseSensitive=false;this.diffField='';this.recordId='';
+            if(focus)this.displayMode='detail';
             this.cellHits=null;this.cellSearch=freshCellSearch();this.flags.cell=(this.flags.cell||0)+1;this.cellBusy=false;
             this.gridFilter='';this.gridTarget='';this.gridPage=1;this.gridCol=1;this.gridSheet='';this.expandRows=false;
             await this.loadDiff();
@@ -11000,6 +11005,8 @@ const app = createApp({
             this.grid=null;
             const seq = (this.flags.diff || 0) + 1;
             this.flags.diff = seq;
+            const pair=this.left+':'+this.right;
+            if(pair!==this.diffPair)this.diff=null;
             if (this.left === this.right) {
                 this.diff = null;
                 this.diffLoading = false;
@@ -11012,6 +11019,7 @@ const app = createApp({
             }));
             if (seq === this.flags.diff) {
                 this.diff = result;
+                this.diffPair=pair;
                 this.diffLoading = false;
                 if(result)this.dp=result.page;
                 if(result?.is_excel&&!result.error&&this.presentation==='grid')await this.loadGrid();

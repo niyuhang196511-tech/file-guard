@@ -2575,7 +2575,7 @@ return function render(_ctx, _cache) {
                           ]))
                         : (_openBlock(), _createElementBlock("section", _hoisted_217, [_createElementVNode("div", _hoisted_218, [_createElementVNode("label", null, [_cache[74] || (_cache[74] = _createTextVNode("旧版本")), _withDirectives(_createElementVNode("select", {
                             "onUpdate:modelValue": $event => ((left) = $event),
-                            onChange: changePair
+                            onChange: $event => (changePair())
                           }, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(versions, (v) => {
                             return (_openBlock(), _createElementBlock("option", { value: v.id }, "V" + _toDisplayString(v.num) + "　" + _toDisplayString(fmt(v.stamp)), 9, _hoisted_220))
                           }), 256))], 40, _hoisted_219), [[
@@ -2589,7 +2589,7 @@ return function render(_ctx, _cache) {
                             onClick: swapPair
                           }, "交换版本", 8, _hoisted_221), _createElementVNode("label", null, [_cache[75] || (_cache[75] = _createTextVNode("新版本")), _withDirectives(_createElementVNode("select", {
                             "onUpdate:modelValue": $event => ((right) = $event),
-                            onChange: changePair
+                            onChange: $event => (changePair())
                           }, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(versions, (v) => {
                             return (_openBlock(), _createElementBlock("option", { value: v.id }, "V" + _toDisplayString(v.num) + "　" + _toDisplayString(fmt(v.stamp)), 9, _hoisted_223))
                           }), 256))], 40, _hoisted_222), [[

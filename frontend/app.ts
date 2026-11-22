@@ -1,6 +1,7 @@
 'use strict';
 type EngineCommand = 'summary' | 'roots' | 'folders' | 'open_dir' | 'files' | 'events' | 'audit' | 'history' | 'compare' | 'configure' | 'root_action' | 'scan' | 'restore' | 'copy' | 'verify' | 'backup' | 'retry' | 'settings' | 'export' | 'sheet_rows' | 'export_files' | 'export_audit' | 'export_diff' | 'restore_info' | 'retry_recovery' | 'review_queue' | 'save_review' | 'star_file' | 'export_review' | 'storage' | 'record_detail' | 'record_amend' | 'inspect_backup' | 'finder' | 'waiting_files' | 'capture_policy' | 'finder_presets' | 'finder_save' | 'finder_forget' | 'finder_export' | 'scan_log' | 'scan_log_export' | 'sheet_find' | 'private_records' | 'runtime' | 'rule_preview' | 'rule_history' | 'checkpoints' | 'checkpoint_create' | 'checkpoint_diff' | 'checkpoint_export' | 'checkpoint_inventory' | 'inventory_csv' | 'handoff_create' | 'handoff_verify' | 'checkpoint_disk' | 'health_start' | 'health_cancel' | 'health_state' | 'health_results' | 'health_reports' | 'health_csv' | 'health_references' | 'variance' | 'variance_csv' | 'period_report' | 'period_csv' | 'field_trace' | 'trace_csv' | 'save_receipt' | 'table_source' | 'ledger_csv' | 'ledger_templates' | 'ledger_save' | 'ledger_remove' | 'text_search' | 'text_search_csv' | 'content_groups' | 'content_refs' | 'content_groups_csv' | 'content_refs_csv' | 'content_verify' | 'line_origins' | 'line_origins_csv' | 'review_batch_preview' | 'review_batch_apply' | 'version_bundle_preview' | 'version_bundle_create' | 'version_bundle_csv' | 'version_bundle_verify' | 'path_history' | 'path_history_csv' | 'checkpoint_three' | 'checkpoint_three_csv' | 'snapshot_preview' | 'snapshot_preview_csv';
 type Arguments = Record<string, unknown>;
+type DiffFocus = {sheet: string; location: string};
 type TextHistoryFilter = {
     q:string; filename:string; ext:string; root:number; file:number; scope:string;
     start:string; end:string; context:number; latest:boolean; starred:boolean; exact:boolean; sensitive:boolean;
@@ -253,6 +254,7 @@ const app = createApp({
             left: 0,
             right: 0,
             diff: null,
+            diffPair: '',
             diffLoading: false,
             dp: 1,
             sheet: '',
@@ -1323,9 +1325,7 @@ const app = createApp({
             const ok=await this.selectFile({id:r.file_id,rel:r.rel,root:r.root_path,ext:r.ext});
             if(!ok)return;
             this.diffMode='aligned';
-            await this.pair(r.old_v,r.new_v);
-            this.displayMode='detail';this.sheet=r.sheet||'';this.loc=r.location||'';this.exact=true;this.searchIn='location';
-            await this.loadDiff();
+            await this.pair(r.old_v,r.new_v,{sheet:r.sheet||'',location:r.location||''});
         },
         async loadPresets () {this.presets=await this.safe(()=>request('finder_presets'))||[];},
         async savePreset () {
@@ -2149,6 +2149,8 @@ const app = createApp({
             this.resetVersions();
             this.versions=[];
             this.diff=null;
+            this.diffLoading=false;
+            this.flags.diff=(this.flags.diff||0)+1;
             return this.safe(async ()=>{
                 const versions = await request('history', {
                     id: file.id
@@ -2165,19 +2167,22 @@ const app = createApp({
             this.page = page;
             if (page === '版本对比') await this.changePair();
         },
-        async pair (left, right) {
+        async pair (left, right, focus?: DiffFocus) {
             this.left = left;
             this.right = right;
             this.page = '版本对比';
-            await this.changePair();
+            await this.changePair(focus);
         },
-        async changePair () {
+        async changePair (focus?: DiffFocus) {
             this.dp = 1;
-            this.loc = '';
-            this.sheet = '';
+            this.loc = focus?.location || '';
+            this.sheet = focus?.sheet || '';
             this.diffKind = '';
             this.diffCategory = '';
-            this.searchIn='';this.exact=false;this.caseSensitive=false;this.diffField='';this.recordId='';
+            this.searchIn=focus?'location':'';
+            this.exact=!!focus;
+            this.caseSensitive=false;this.diffField='';this.recordId='';
+            if(focus)this.displayMode='detail';
             this.cellHits=null;this.cellSearch=freshCellSearch();this.flags.cell=(this.flags.cell||0)+1;this.cellBusy=false;
             this.gridFilter='';this.gridTarget='';this.gridPage=1;this.gridCol=1;this.gridSheet='';this.expandRows=false;
             await this.loadDiff();
@@ -2256,6 +2261,8 @@ const app = createApp({
             this.grid=null;
             const seq = (this.flags.diff || 0) + 1;
             this.flags.diff = seq;
+            const pair=this.left+':'+this.right;
+            if(pair!==this.diffPair)this.diff=null;
             if (this.left === this.right) {
                 this.diff = null;
                 this.diffLoading = false;
@@ -2268,6 +2275,7 @@ const app = createApp({
             }));
             if (seq === this.flags.diff) {
                 this.diff = result;
+                this.diffPair=pair;
                 this.diffLoading = false;
                 if(result)this.dp=result.page;
                 if(result?.is_excel&&!result.error&&this.presentation==='grid')await this.loadGrid();
