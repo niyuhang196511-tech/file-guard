@@ -116,17 +116,19 @@ class TextHistoryTests(unittest.TestCase):
         self.assertTrue(preview['tail'])
 
     def test_supported_encodings_and_binary_rejection(self):
-        for name, raw in {
+        fixtures = {
             'bom.txt': codecs.BOM_UTF8+'中文'.encode(),
             'le.txt': codecs.BOM_UTF16_LE+'中文'.encode('utf-16-le'),
             'be.txt': codecs.BOM_UTF16_BE+'中文'.encode('utf-16-be'),
             'le32.txt': codecs.BOM_UTF32_LE+'中文'.encode('utf-32-le'),
             'be32.txt': codecs.BOM_UTF32_BE+'中文'.encode('utf-32-be'),
             'gb.txt': '中文'.encode('gb18030'),
-            'nul.txt': b'hello\0',
+            'embedded-nul.txt': b'hello\0',
             'bad.txt': codecs.BOM_UTF16_BE + b'x',
-        }.items():
+        }
+        for name, raw in fixtures.items():
             self.save(name, raw)
+        self.assertEqual({row['rel'] for row in self.api.dispatch('files', {})['items']}, set(fixtures))
         data = self.search('中文')
         self.assertEqual({v['encoding'] for v in data['items']},
                          {'GB18030','UTF-8 BOM','UTF-16 LE','UTF-16 BE','UTF-32 LE','UTF-32 BE'})
@@ -198,7 +200,7 @@ class TextHistoryTests(unittest.TestCase):
         dest = self.base / '命中.csv'
         query = dict(q='needle', path=str(dest), context=2)
         actual = self.api.dispatch('text_search_csv', query)
-        self.assertEqual(Path(actual), dest)
+        self.assertEqual(Path(actual), dest.resolve())
         self.assertTrue(dest.read_bytes().startswith(codecs.BOM_UTF8))
         with dest.open(encoding='utf-8-sig', newline='') as stream:
             rows = list(csv.DictReader(stream))

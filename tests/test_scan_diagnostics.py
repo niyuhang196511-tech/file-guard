@@ -143,7 +143,7 @@ class ScanDiagnosticsTests(unittest.TestCase):
         csv_outputs = []
         for detail in (False, True):
             path = self.base / f'runs-{detail}.csv'
-            self.assertEqual(self.api.dispatch('scan_log_export', dict(filters, detail=detail, path=str(path))), str(path))
+            self.assertEqual(self.api.dispatch('scan_log_export', dict(filters, detail=detail, path=str(path))), str(path.resolve()))
             with path.open(encoding='utf-8-sig', newline='') as stream:
                 header, *entries = list(csv.reader(stream))
             self.assertEqual(len(entries), 24)

@@ -15,7 +15,7 @@ class Iteration13Tests(unittest.TestCase):
     def setUp(self):
         tmp=tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        self.base=Path(tmp.name)
+        self.base=Path(tmp.name).resolve()
         self.root=self.base/'资料'
         self.root.mkdir()
         self.s=Store(self.base/'库')

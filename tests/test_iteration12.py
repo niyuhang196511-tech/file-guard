@@ -87,7 +87,7 @@ class Iteration12Tests(unittest.TestCase):
     def test_restore_preview_and_restore_keeps_dirty_version(self):
         file=self.root/'批次.txt';file.write_bytes(b'v1');self.store.scan(self.rid)
         info=self.service.dispatch('restore_info',{'id':1})
-        self.assertEqual((info['path'],info['version'],info['size'],info['exists']),(str(file),1,2,True))
+        self.assertEqual((info['path'],info['version'],info['size'],info['exists']),(str(file.resolve()),1,2,True))
         file.write_bytes(b'changed')
         self.service.dispatch('restore',{'id':1})
         self.assertEqual(len(self.versions()),3)

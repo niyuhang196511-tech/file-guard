@@ -156,7 +156,7 @@ class PathHistoryTests(unittest.TestCase):
         self.assertEqual((all_events['roots'],all_events['identities']),(2,2))
         limited=self.path(rel='资料.txt',root=second)
         item,=limited['items']
-        self.assertEqual((item['root_id'],item['root']),(second,str(other)))
+        self.assertEqual((item['root_id'],item['root']),(second,str(other.resolve())))
         self.assertEqual(self.path(rel='资料.txt',root=99999)['total'],0)
 
     def test_removed_root_still_has_ordinary_path_history(self):
