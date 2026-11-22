@@ -145,8 +145,12 @@ class ContentCatalogTests(unittest.TestCase):
         groups = self.groups(mode='all', sort='recent')
         self.assertEqual([row['last_stamp'] for row in groups['items']], [late, early])
         self.assertEqual((groups['items'][0]['first_stamp'], groups['items'][0]['last_stamp']), (late, late))
+        copy = self.root/'early-copy.txt'
+        copy.write_text('early', encoding='utf-8')
+        self.scan(stamp=late)
         refs = self.refs('early', sort='recent')
-        self.assertEqual([row['stamp'] for row in refs['items']], [early])
+        self.assertEqual([row['rel'] for row in refs['items']], ['early-copy.txt', 'early.txt'])
+        self.assertEqual([row['stamp'] for row in refs['items']], [late, early])
         self.assertEqual(self.refs('late', sort='recent')['items'][0]['stamp'], late)
 
     def test_renames_use_registered_path_and_saved_extension(self):
