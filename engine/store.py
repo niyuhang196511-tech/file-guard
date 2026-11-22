@@ -20,8 +20,16 @@ from .publication import new_path
 from .shared_read import open_snapshot_source, replace_guarded_file
 
 
+ARCHIVE_UNVERIFIED = '历史版本不存在或校验未通过'
+ARCHIVE_CHANGED = '历史对象在解析期间变化，校验未通过'
+
+
 class FileChanging(OSError):
     """文件仍在写入或替换，稍后重试。"""
+
+
+class ArchiveVerificationError(ValueError):
+    """解析依赖的原件缺失、不完整或发生变化。"""
 
 
 def now():
@@ -97,6 +105,7 @@ class Store:
             folder.mkdir(exist_ok=True)
         self.dbfile = self.home/'fileguard.db'
         self.lock = threading.RLock()
+        self._archive_repairs = 0
         self.progress = {}
         self.observations = {}
         with self.db() as db:
@@ -208,10 +217,23 @@ class Store:
             if archived is not None and not stat.S_ISREG(archived.st_mode):
                 raise ValueError('历史对象不是普通文件，请检查仓库')
             if archived is None or archived.st_size != before.st_size or digest(dest) != sha:
-                os.replace(tmp, dest)
+                self._publish_capture(tmp, dest, sha)
             return sha,before
         finally:
             tmp.unlink(missing_ok=True)
+
+    def _publish_capture(self, source, dest, sha):
+        with self.lock:
+            with self.db() as db:
+                repairing = db.execute('SELECT 1 FROM versions WHERE sha=? LIMIT 1', (sha,)).fetchone() is not None
+                if repairing:
+                    db.execute("""UPDATE versions SET status='待解析',details='[]',error=''
+                                  WHERE status='解析失败' AND error IN (?,?) AND parent_id IS NOT NULL
+                                  AND (sha=? OR parent_id IN (SELECT id FROM versions WHERE sha=?))""",
+                               (ARCHIVE_UNVERIFIED, ARCHIVE_CHANGED, sha, sha))
+                os.replace(source, dest)
+            if repairing:
+                self._archive_repairs += 1
 
     @staticmethod
     def _queue(db,root,source,delay):
@@ -341,7 +363,7 @@ class Store:
             if not root:
                 return
             old={r['rel']:r for r in db.execute('SELECT * FROM files WHERE root_id=? AND live=1',(rid,))}
-            pending=[r[0] for r in db.execute("SELECT rel FROM waiting_files WHERE root_id=? AND reason IN ('等待保存稳定','等待路径替换完成')",(rid,))]
+            pending=dict(db.execute('SELECT rel,reason FROM waiting_files WHERE root_id=?', (rid,)))
         base=Path(root['path'])
         if not base.is_dir() or linklike(base):
             raise OSError('目录离线或不可访问')
@@ -350,9 +372,12 @@ class Store:
         waiting={}
         unavailable=set()
         observed=self.observations.setdefault(rid,{})
-        for rel in pending:observed.setdefault(rel,(None,0))
+        for rel,reason in pending.items():
+            if reason in ('等待保存稳定','等待路径替换完成'):
+                observed.setdefault(rel,(None,0))
         active_observations=set()
         watch_scan=source in ('文件监听','保存复查')
+        verified_objects={}
 
         def settling(rel, token):
             active_observations.add(rel)
@@ -479,7 +504,7 @@ class Store:
             if (watch_scan or rel in observed) and not unchanged and (root['all_types'] or Path(rel).suffix.lower() in formats.SETTLE_EXTENSIONS) and settling(rel,signature(s)):
                 waiting[rel]='等待保存稳定'
                 continue
-            if unchanged and not full:
+            if unchanged and not full and rel not in pending:
                 continue
             try:
                 ensure_plain(base/rel,base)
@@ -490,6 +515,14 @@ class Store:
                          and self.obj(known['sha']).stat().st_size==s.st_size
                          and digest(base/rel)==known['sha']
                          and signature((base/rel).stat())==signature(s))
+                # An explicit check can repair an unchanged file's archive without a new version.
+                if reuse and (source=='手动扫描' or rel in pending):
+                    sha=known['sha']
+                    if verified_objects.get(sha)!=signature(self.obj(sha).stat()):
+                        try:
+                            _,verified_objects[sha]=self.checked_object(sha,s.st_size)
+                        except ArchiveVerificationError:
+                            reuse=False
                 if reuse:stats['reused']+=1
                 if unchanged and reuse:
                     continue
@@ -575,6 +608,7 @@ class Store:
             db.execute('INSERT OR REPLACE INTO scan_skips(root_id,counts) VALUES (?,?)',(rid,json.dumps(reasons,ensure_ascii=False)))
 
     def parse_one(self):
+        archive_repairs = self._archive_repairs
         with self.db() as db:
             v=db.execute("""SELECT n.id,n.ext,n.sha,n.size,p.sha AS prior,p.size AS prior_size
                             FROM versions n JOIN versions p ON n.parent_id=p.id
@@ -582,11 +616,16 @@ class Store:
         if not v:
             return False
         error=''
+        integrity_failure=False
         try:
             status,details=self.compare_versions(dict(sha=v['prior'],size=v['prior_size']),v)
         except Exception as exc:
             status,details,error='解析失败',[],str(exc)
-        with self.db() as db:
+            integrity_failure=isinstance(exc,ArchiveVerificationError)
+        with (self.lock if integrity_failure else contextlib.nullcontext()), self.db() as db:
+            # A repair may have completed while the parser was still reading the old object.
+            if integrity_failure and archive_repairs!=self._archive_repairs:
+                return True
             db.execute('UPDATE versions SET status=?,details=?,error=? WHERE id=?',(status,json.dumps(details,ensure_ascii=False),error,v['id']))
         return True
 
@@ -608,7 +647,7 @@ class Store:
                     return obj,state
         except FileNotFoundError:
             pass
-        raise ValueError('历史版本不存在或校验未通过')
+        raise ArchiveVerificationError(ARCHIVE_UNVERIFIED)
 
     @contextlib.contextmanager
     def parsing_paths(self,*versions):
@@ -616,9 +655,15 @@ class Store:
         if any(size>formats.PARSE_BYTES for _,size in keys):
             raise ValueError('超过 32 MiB 内容解析上限')
         checked={key:self.checked_object(*key) for key in dict.fromkeys(keys)}
-        yield tuple(checked[key][0] for key in keys)
-        if any(signature(obj.stat())!=state for obj,state in checked.values()):
-            raise ValueError('历史对象在解析期间变化，校验未通过')
+        try:
+            yield tuple(checked[key][0] for key in keys)
+        finally:
+            try:
+                changed=any(signature(obj.stat())!=state for obj,state in checked.values())
+            except FileNotFoundError:
+                changed=True
+            if changed:
+                raise ArchiveVerificationError(ARCHIVE_CHANGED)
 
     def checked_version(self,db,vid):
         v=db.execute('SELECT id,file_id,num,size,sha FROM versions WHERE id=?',(vid,)).fetchone()

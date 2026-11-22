@@ -141,6 +141,97 @@ class EngineTest(unittest.TestCase):
         self.assertEqual([v['num'] for v in self.versions()], [3, 2, 1])
         self.assertEqual(archived.read_bytes(), b'good')
         self.assertEqual(self.api.dispatch('waiting_files', {'root':self.rid})['total'], 0)
+
+    def test_manual_scan_repairs_unchanged_archive_and_retries_after_replace_failure(self):
+        path = self.root/'台账.txt'
+        path.write_bytes(b'good')
+        self.scan()
+        first, = self.versions()
+        archived = self.store.obj(first['sha'])
+        archived.write_bytes(b'bad!')
+
+        for source in ('文件监听', '周期校对'):
+            with patch.object(self.store, 'checked_object', side_effect=AssertionError('自动扫描读取了未变的历史对象')):
+                self.store.scan(self.rid, source)
+            self.assertEqual(archived.read_bytes(), b'bad!')
+
+        with patch('engine.store.os.replace', side_effect=PermissionError('暂不可替换历史对象')):
+            self.store.scan(self.rid)
+        self.assertEqual(archived.read_bytes(), b'bad!')
+        self.assertEqual(self.versions(), [first])
+        waiting, = self.api.dispatch('waiting_files', {'root':self.rid})['items']
+        self.assertEqual(waiting['rel'], path.name)
+
+        self.store.scan(self.rid, '保存复查')
+        self.assertEqual(archived.read_bytes(), b'good')
+        self.assertEqual(self.versions(), [first])
+        self.assertEqual([item['kind'] for item in self.events()], ['初始建档'])
+        self.assertEqual(self.api.dispatch('waiting_files', {'root':self.rid})['total'], 0)
+
+    def test_recreated_archive_requeues_shared_failed_comparisons(self):
+        first_path = self.root/'甲.txt'
+        second_path = self.root/'乙.txt'
+        unrelated = self.root/'其他.xlsx'
+        for path in (first_path, second_path):
+            path.write_bytes(b'good')
+        unrelated.write_bytes(b'not an Excel file')
+        self.scan()
+        sha = next(row['sha'] for row in self.files() if row['rel']==first_path.name)
+        archive = self.store.obj(sha)
+        archive.unlink()
+        for path in (first_path, second_path):
+            path.write_bytes(b'edit')
+        unrelated.write_bytes(b'another invalid workbook')
+        self.scan()
+        ids = {row['rel']:row['id'] for row in self.files()}
+        def history(path):
+            return self.api.dispatch('history', {'id':ids[path.name]})
+        for path in (first_path, second_path):
+            self.assertIn('校验未通过', history(path)[0]['error'])
+        unrelated_failure = history(unrelated)[0]
+        self.assertEqual(unrelated_failure['status'], '解析失败')
+
+        (self.root/'找回.txt').write_bytes(b'good')
+        self.store.scan(self.rid)
+        self.assertEqual(archive.read_bytes(), b'good')
+        for path in (first_path, second_path):
+            self.assertEqual(history(path)[0]['status'], '待解析')
+        self.assertEqual(history(unrelated)[0], unrelated_failure)
+
+        while self.store.parse_one():
+            pass
+        for path in (first_path, second_path):
+            latest, initial = history(path)
+            change, = self.api.dispatch('compare', {'old':initial['id'], 'new':latest['id']})['items']
+            self.assertEqual((change['old'], change['new']), ('good', 'edit'))
+        self.assertEqual(history(unrelated)[0], unrelated_failure)
+
+    def test_repair_between_integrity_check_and_parser_commit_retries(self):
+        path = self.root/'台账.txt'
+        path.write_bytes(b'good')
+        self.scan()
+        first, = self.versions()
+        archived = self.store.obj(first['sha'])
+        archived.write_bytes(b'bad!')
+        path.write_bytes(b'edit')
+        self.store.scan(self.rid)
+        original_check = self.store.checked_object
+        recovered = self.base/'找回.txt'
+        recovered.write_bytes(b'good')
+
+        def check_then_repair(sha, size):
+            try:
+                return original_check(sha, size)
+            except ValueError:
+                self.store.capture(recovered)
+                raise
+
+        with patch.object(self.store, 'checked_object', side_effect=check_then_repair):
+            self.assertTrue(self.store.parse_one())
+        self.assertEqual(archived.read_bytes(), b'good')
+        self.assertEqual(self.versions()[0]['status'], '待解析')
+        self.assertTrue(self.store.parse_one())
+        self.assertEqual(self.versions()[0]['status'], '已解析')
     @unittest.skipUnless(os.name=='nt','需要 Windows 路径和句柄时间语义')
     def test_windows_capture_and_receipt_with_different_ctimes(self):
         path=self.root/'台账.txt'
