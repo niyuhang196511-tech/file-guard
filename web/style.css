@@ -8,6 +8,8 @@
 .kind-chip[aria-pressed=true]{outline:2px solid currentColor;outline-offset:2px}.record-key{margin-top:4px;font-family:Consolas,monospace}
 
 .export-diff{margin-left:auto}.compare td.oldval,.compare td.newval{white-space:pre-wrap;overflow-wrap:anywhere}
+.engine-status{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:15px;overflow-wrap:anywhere}
+.engine-status small{margin-top:4px}
 
 .date-field{display:flex;align-items:center;gap:6px;color:var(--sub);font-size:12px}
 .oldval .text-change{background:#fae0df;color:#843947;border-bottom:2px solid #c78185}

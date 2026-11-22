@@ -27,7 +27,7 @@ def powershell(code):
     return subprocess.check_output(['powershell','-NoProfile','-NonInteractive','-Command',code],text=True).strip()
 
 
-def check(folder):
+def check(folder, missing_engine=False):
     if os.name!='nt':raise SystemExit('请在 Windows 交互式桌面运行。')
     from engine.store import Store
     from engine.service import Service
@@ -43,7 +43,10 @@ def check(folder):
     with tempfile.TemporaryDirectory(prefix='FileGuard-desktop-') as tmp:
         stage=Path(tmp);home=stage/'Data';target=stage/'监控';target.mkdir()
         exe=stage/'FileGuard.exe'
-        shutil.copy2(folder/'FileGuard.exe',exe);shutil.copy2(folder/'fileguard-engine.exe',stage)
+        engine=stage/'fileguard-engine.exe'
+        staged_engine=engine.with_suffix('.pending') if missing_engine else engine
+        shutil.copy2(folder/exe.name,exe)
+        shutil.copy2(folder/engine.name,staged_engine)
         (stage/'portable.flag').touch()
         store=Store(home);service=Service(store);rid=store.configure(target)
         service.dispatch('settings',dict(interval=5,theme='浅色',autostart=False))
@@ -64,11 +67,34 @@ def check(folder):
                 return True
             user.EnumWindows(visit,0)
             return found[0] if found else None
+        def live_window():
+            status=app.poll()
+            if status is not None:
+                raise RuntimeError(f'桌面进程提前退出（退出码 {status}）')
+            return window()
         def child():
             result=powershell(f'Get-CimInstance Win32_Process -Filter "ParentProcessId={app.pid} AND Name=\'fileguard-engine.exe\'" | Select-Object -ExpandProperty ProcessId')
             return int(result) if result.isdigit() else None
         try:
-            hwnd=wait_for(window,'主窗口')
+            hwnd=wait_for(live_window,'主窗口')
+            if missing_engine:
+                if child() is not None:
+                    raise RuntimeError('测试引擎在补回可执行文件之前已启动')
+                document.write_text('引擎缺失期间保存的第二版',encoding='utf-8')
+                os.replace(staged_engine,engine)
+
+                def initial_recovery_logged():
+                    with store.db() as db:
+                        return db.execute(
+                            "SELECT 1 FROM audit WHERE action='引擎启动' AND note IN ('后台自动恢复','界面请求恢复')"
+                        ).fetchone()
+
+                wait_for(initial_recovery_logged,'补回引擎后自动启动',70)
+                wait_for(lambda:versions()>=2,'恢复后采集引擎缺失期间保存的文件')
+                if live_window()!=hwnd:
+                    raise RuntimeError('引擎恢复后未保留同一主窗口')
+                print('通过：引擎缺失时可打开工作台，补回引擎后在同一工作台恢复采集。')
+                return
             first=wait_for(child,'测试引擎')
             if not user.PostMessageW(hwnd,0x0010,0,0):raise ctypes.WinError(ctypes.get_last_error())
             wait_for(lambda:not user.IsWindowVisible(hwnd),'关闭后隐藏至托盘')
@@ -103,4 +129,6 @@ def check(folder):
 if __name__=='__main__':
     parser=argparse.ArgumentParser()
     parser.add_argument('portable_dir',type=Path,help='已解压的便携包目录')
-    check(parser.parse_args().portable_dir.resolve())
+    parser.add_argument('--missing-engine',action='store_true',help='校验首次启动缺少引擎时的工作台和自动恢复')
+    args=parser.parse_args()
+    check(args.portable_dir.resolve(),args.missing_engine)

@@ -186,6 +186,7 @@ const app = createApp({
     render: window.FG_VIEW,
     data: ()=>({
             s: structuredClone(blank),
+            summaryError: '',
             demo: demoMode,
             demoContentSha: window.FILEGUARD_EXAMPLE?.contentCatalog?.example || '',
             demoLineage: window.FILEGUARD_EXAMPLE?.lineOrigins?.example || null,
@@ -409,6 +410,8 @@ const app = createApp({
             return alerts;
         },
         statusText () {
+            if(this.summaryError)return '监控引擎暂不可用';
+            if(!this.s.stamp)return '正在连接监控引擎';
             return this.alerts.length ? '监控需要关注' : this.activeRoots ? '监控运行中' : this.s.roots.length ? '监控已暂停' : '等待添加目录';
         },
         dateText () {
@@ -590,14 +593,15 @@ const app = createApp({
             }
         },
         async refresh () {
-            let seq = (this.flags.summary || 0) + 1;
+            const seq = (this.flags.summary || 0) + 1;
             this.flags.summary = seq;
-            await this.safe(async ()=>{
+            try {
                 const s = await request('summary', {
                     days: this.days
                 });
-                if (seq !== this.flags.summary) return;
+                if (seq !== this.flags.summary) return false;
                 this.s = s;
+                this.summaryError = '';
                 if (!this._started) {
                     this._started = true;
                     this.theme = s.settings.theme;
@@ -605,7 +609,14 @@ const app = createApp({
                         ...s.settings
                     };
                 }
-            });
+                return true;
+            } catch (e) {
+                if(seq===this.flags.summary)this.summaryError=String(e?.message || e || '连接失败');
+                return false;
+            }
+        },
+        async refreshWorkspace () {
+            if(await this.refresh()&&!this.dialog)await this.loadList();
         },
         async go (page, filters                     = {}) {
             const navigation=(this.flags.navigation||0)+1;
@@ -2290,8 +2301,7 @@ const app = createApp({
         await this.refresh();
         if (!this.demo) this._poll = setInterval(async ()=>{
             if (document.hidden || this.busy) return;
-            await this.refresh();
-            if (!this.dialog) await this.loadList();
+            await this.refreshWorkspace();
         }, 4500);
         document.addEventListener?.('visibilitychange',()=>{
             if(document.hidden&&['admin','backup'].includes(this.dialog?.type))this.dialog=null;

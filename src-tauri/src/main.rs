@@ -9,21 +9,23 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager};
 
-struct Worker {
+struct EngineProcess {
     child: Child,
     input: ChildStdin,
     output: BufReader<ChildStdout>,
     started: Instant,
-    retry_at: Instant,
-    delay: u64,
 }
 
-impl Worker {
+impl EngineProcess {
     fn start(cause: &str) -> Result<Self, String> {
-        let host = std::env::current_exe().map_err(|e| e.to_string())?;
+        let host = std::env::current_exe().map_err(|e| format!("无法定位桌面程序：{e}"))?;
         let folder = host.parent().ok_or("无法定位程序目录")?;
-        let mut command = Command::new(folder.join("fileguard-engine.exe"));
-        command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
+        let engine = folder.join("fileguard-engine.exe");
+        let mut command = Command::new(&engine);
+        command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null());
         command.env("FILEGUARD_START_CAUSE", cause);
         command.env("FILEGUARD_DESKTOP_EXE", &host);
         if folder.join("portable.flag").exists() {
@@ -34,35 +36,115 @@ impl Worker {
             use std::os::windows::process::CommandExt;
             command.creation_flags(0x08000000);
         }
-        let mut child = command.spawn().map_err(|e| format!("无法启动监控引擎：{e}"))?;
+        let mut child = command.spawn().map_err(|e| {
+            format!("无法启动监控引擎，请检查 {}（{e}）", engine.display())
+        })?;
         let input = child.stdin.take().ok_or("引擎输入不可用")?;
         let output = BufReader::new(child.stdout.take().ok_or("引擎输出不可用")?);
-        Ok(Self {child,input,output,started:Instant::now(),retry_at:Instant::now(),delay:1})
+        Ok(Self {
+            child,
+            input,
+            output,
+            started: Instant::now(),
+        })
     }
-    fn ensure_running(&mut self, cause: &str) -> Result<(),String> {
-        if self.child.try_wait().map_err(|e|e.to_string())?.is_none() {return Ok(())}
-        let now = Instant::now();
-        if now < self.retry_at {return Err("引擎正等待恢复，请稍后刷新状态".into())}
-        if self.started.elapsed() >= Duration::from_secs(120) {self.delay=1; self.started=now;}
-        let delay=self.delay;
-        self.retry_at=now+Duration::from_secs(delay);
-        self.delay=(delay*2).min(60);
-        let mut next=Self::start(cause)?;
-        next.delay=self.delay;
-        next.retry_at=self.retry_at;
-        *self=next;
-        Ok(())
-    }
+
     fn call(&mut self, cmd: &str, args: Value) -> Result<Value, String> {
         let msg = json!({"cmd":cmd,"args":args});
-        writeln!(self.input, "{msg}").and_then(|_| self.input.flush()).map_err(|e| e.to_string())?;
+        writeln!(self.input, "{msg}")
+            .and_then(|_| self.input.flush())
+            .map_err(|e| format!("无法向监控引擎发送请求：{e}"))?;
         let mut line = String::new();
-        self.output.read_line(&mut line).map_err(|e| e.to_string())?;
-        if line.is_empty() {return Err("引擎已停止，请重新检查运行状态".into())}
-        let reply: Value = serde_json::from_str(&line).map_err(|e| e.to_string())?;
-        if reply["ok"] == true {Ok(reply["data"].clone())} else {
+        self.output
+            .read_line(&mut line)
+            .map_err(|e| format!("无法读取监控引擎的回复：{e}"))?;
+        if line.is_empty() {
+            return Err("监控引擎未返回结果，请稍后刷新运行状态".into());
+        }
+        let reply: Value = serde_json::from_str(&line)
+            .map_err(|e| format!("监控引擎返回了无法识别的数据：{e}"))?;
+        if reply["ok"] == true {
+            Ok(reply["data"].clone())
+        } else {
             Err(reply["error"].as_str().unwrap_or("操作失败").to_string())
         }
+    }
+}
+
+struct RetryBackoff {
+    next_attempt: Instant,
+    delay: Duration,
+}
+
+impl RetryBackoff {
+    fn new(now: Instant) -> Self {
+        Self {
+            next_attempt: now,
+            delay: Duration::from_secs(1),
+        }
+    }
+
+    fn observe_running(&mut self, started: Instant, now: Instant) {
+        if now.duration_since(started) >= Duration::from_secs(120) {
+            *self = Self::new(now);
+        }
+    }
+
+    fn attempted(&mut self, now: Instant) {
+        self.next_attempt = now + self.delay;
+        self.delay = (self.delay * 2).min(Duration::from_secs(60));
+    }
+}
+
+struct Worker {
+    process: Option<EngineProcess>,
+    backoff: RetryBackoff,
+    last_error: Option<String>,
+}
+
+impl Worker {
+    fn new() -> Self {
+        Self {
+            process: None,
+            backoff: RetryBackoff::new(Instant::now()),
+            last_error: None,
+        }
+    }
+
+    fn ensure_running(&mut self, cause: &str) -> Result<&mut EngineProcess, String> {
+        let now = Instant::now();
+        if let Some(process) = &mut self.process {
+            match process.child.try_wait() {
+                Ok(None) => self.backoff.observe_running(process.started, now),
+                Ok(Some(status)) => {
+                    self.process = None;
+                    self.last_error = Some(format!("监控引擎已退出（{status}）"));
+                }
+                Err(e) => return Err(format!("无法检查监控引擎的运行状态：{e}")),
+            }
+        }
+
+        if self.process.is_none() {
+            if now < self.backoff.next_attempt {
+                let error = self.last_error.as_deref().unwrap_or("监控引擎暂不可用");
+                return Err(format!("{error}。监控引擎将在后台重试"));
+            }
+
+            let result = EngineProcess::start(cause);
+            self.backoff.attempted(Instant::now());
+            match result {
+                Ok(process) => {
+                    self.process = Some(process);
+                    self.last_error = None;
+                }
+                Err(error) => {
+                    self.last_error = Some(error.clone());
+                    return Err(format!("{error}。监控引擎将在后台重试"));
+                }
+            }
+        }
+
+        self.process.as_mut().ok_or_else(|| "监控引擎暂不可用".into())
     }
 }
 
@@ -73,8 +155,7 @@ async fn operation(state: tauri::State<'_, Shared>, cmd: String, args: Value) ->
     let engine = Arc::clone(state.inner());
     tauri::async_runtime::spawn_blocking(move || {
         let mut worker = engine.lock().map_err(|_| "引擎通信锁异常".to_string())?;
-        worker.ensure_running("界面请求恢复")?;
-        worker.call(&cmd,args)
+        worker.ensure_running("界面请求恢复")?.call(&cmd, args)
     }).await.map_err(|e| e.to_string())?
 }
 
@@ -101,7 +182,9 @@ fn main() {
             if !args.iter().any(|arg| arg == "--background") { show(app); }
         }))
         .setup(|app| {
-            let worker = Worker::start(if std::env::args().any(|v|v=="--background") {"后台启动"} else {"桌面启动"}).map_err(std::io::Error::other)?;
+            let background = std::env::args_os().any(|arg| arg == "--background");
+            let mut worker = Worker::new();
+            let _ = worker.ensure_running(if background { "后台启动" } else { "桌面启动" });
             let shared = Arc::new(Mutex::new(worker));
             // UI polling stops when hidden. Supervise the engine independently of WebView visibility.
             let monitor = Arc::downgrade(&shared);
@@ -116,7 +199,7 @@ fn main() {
             let open=MenuItem::with_id(app,"show","打开工作台",true,None::<&str>)?;
             let quit=MenuItem::with_id(app,"quit","退出监控",true,None::<&str>)?;
             let menu=Menu::with_items(app,&[&open,&quit])?;
-            let mut tray=TrayIconBuilder::new().tooltip("FileGuard 正在后台监控 · 右键打开或退出").menu(&menu)
+            let mut tray=TrayIconBuilder::new().tooltip("FileGuard · 右键打开或退出监控").menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_tray_icon_event(|tray,event| {
                     if matches!(event,tauri::tray::TrayIconEvent::Click {
@@ -128,7 +211,7 @@ fn main() {
                 });
             if let Some(icon)=app.default_window_icon() {tray=tray.icon(icon.clone());}
             tray.build(app)?;
-            if !std::env::args().any(|v|v=="--background") {show(app.handle());}
+            if !background {show(app.handle());}
             Ok(())
         })
         .on_window_event(|window,event| {
@@ -136,5 +219,37 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![operation,pick_path])
         .run(tauri::generate_context!()).expect("桌面应用启动失败");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RetryBackoff;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn retries_use_capped_backoff() {
+        let mut now = Instant::now();
+        let mut retry = RetryBackoff::new(now);
+        assert_eq!(retry.next_attempt, now);
+        for seconds in [1, 2, 4, 8, 16, 32, 60, 60] {
+            retry.attempted(now);
+            now += Duration::from_secs(seconds);
+            assert_eq!(retry.next_attempt, now);
+        }
+    }
+
+    #[test]
+    fn stable_running_engine_resets_backoff() {
+        let started = Instant::now();
+        let mut retry = RetryBackoff::new(started);
+        retry.attempted(started);
+        retry.observe_running(started, started + Duration::from_secs(119));
+        assert_eq!(retry.delay, Duration::from_secs(2));
+
+        let stable_at = started + Duration::from_secs(120);
+        retry.observe_running(started, stable_at);
+        assert_eq!(retry.next_attempt, stable_at);
+        assert_eq!(retry.delay, Duration::from_secs(1));
+    }
 }
 
