@@ -640,8 +640,9 @@ window.exampleRequest=async function(cmd,a={}){
       if(a.direction&&a.direction!==r.direction)return false;
       return !query||(a.side?[a.side]:['old_value','new_value','location','sheet','field','record_key']).some(k=>r[k]!=null&&(a.exact?norm(r[k])===query:norm(r[k]).includes(query)));
     });
-    if(a.sort==='oldest')selected.sort((x,y)=>x.stamp.localeCompare(y.stamp)||x.eid-y.eid||x.ordinal-y.ordinal);
-    if(a.sort==='path')selected.sort((x,y)=>x.rel.localeCompare(y.rel)||y.stamp.localeCompare(x.stamp)||y.eid-x.eid||x.ordinal-y.ordinal);
+    const instant=stamp=>{const value=Date.parse(stamp);return Number.isFinite(value)?value:-Infinity;};
+    if(a.sort==='oldest')selected.sort((x,y)=>instant(x.stamp)-instant(y.stamp)||x.eid-y.eid||x.ordinal-y.ordinal);
+    if(a.sort==='path')selected.sort((x,y)=>x.rel.localeCompare(y.rel)||instant(y.stamp)-instant(x.stamp)||y.eid-x.eid||y.ordinal-x.ordinal);
     if(cmd==='finder_export')return csvText([Object.values(d.finderColumns),...selected.map(r=>Object.keys(d.finderColumns).map(k=>r[k]))]);
     const result=paginate(selected,a.size||25);
     result.items=result.items.map(r=>({...r,old_value:r.old_value_truncated?Array.from(r.old_value).slice(0,320).join(''):r.old_value,new_value:r.new_value_truncated?Array.from(r.new_value).slice(0,320).join(''):r.new_value}));

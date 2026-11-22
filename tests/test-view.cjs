@@ -517,6 +517,18 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   ctx.exampleRequest=originalRequest;
   await appVm.go('目录监控');await appVm.showRuleHistory(appVm.s.roots[0]);assert(appVm.dialog.entries.length);
   appVm.rootDialog(appVm.s.roots[0]);await ctx.Vue.nextTick();
+  let finishDirectoryPick;
+  ctx.__TAURI__={core:{invoke(command,args){
+    assert.equal(command,'pick_path');assert.equal(args.kind,'directory');
+    return new Promise(resolve=>{finishDirectoryPick=resolve;});
+  }}};
+  const pendingDirectoryPick=appVm.chooseDir();
+  await appVm.fileDialog();
+  const afterDirectoryPicker=appVm.dialog;
+  finishDirectoryPick('C:/FileGuard/other-root');await pendingDirectoryPick;
+  assert.equal(appVm.dialog,afterDirectoryPicker,'迟到的目录选择不得修改新的对话框');
+  delete ctx.__TAURI__;
+  appVm.rootDialog(appVm.s.roots[0]);await ctx.Vue.nextTick();
   const ruleDraft=appVm.dialog;
   const previewRulesButton=()=>findNode(root,node=>node.tag==='button'&&node.textContent==='预演');
   let rejectOldRules;

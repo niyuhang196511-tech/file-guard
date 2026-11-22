@@ -832,13 +832,14 @@ const app = createApp({
             };
         },
         async chooseDir () {
-            await this.safe(async ()=>{
-                let path = await window.__TAURI__.core.invoke('pick_path', {
-                    kind: 'directory',
-                    name: ''
-                });
-                if (path && this.dialog) this.dialog.path = path;
-            });
+            const dialog=this.dialog;
+            if(dialog?.type!=='root')return;
+            try {
+                const path=await window.__TAURI__.core.invoke('pick_path',{kind:'directory',name:''});
+                if(path&&this.dialog===dialog)dialog.path=path;
+            } catch(e) {
+                if(this.dialog===dialog)dialog.error=String(e?.message||e);
+            }
         },
         async actRoot (r, action) {
             if (action === '移除') {

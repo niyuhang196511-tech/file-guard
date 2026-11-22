@@ -40,6 +40,20 @@ class Finder(Work):
         self.a.write_text('编号,数量\nP-1,10\nP-2,5', encoding='utf-8')
         self.b.write_text('Résumé', encoding='utf-8')
         self.scan()
+
+    def test_actual_time_sort_handles_clock_fallback(self):
+        target=self.directory/'时区.txt'
+        early='2026-11-01T01:58:00-04:00'
+        late='2026-11-01T01:03:00-05:00'
+        tied='2026-11-01T02:10:00-05:00'
+        for text,stamp in (('before',early),('after',late),('third',tied)):
+            target.write_text(text,encoding='utf-8')
+            with patch('engine.store.now',return_value=stamp):
+                self.scan()
+        oldest=self.find(sort='oldest',filename='时区.txt')
+        newest=self.find(filename='时区.txt')
+        self.assertEqual([row['stamp'] for row in oldest['items']], [late,tied])
+        self.assertEqual([row['stamp'] for row in newest['items']], [tied,late])
     def find(self,**args):return self.call('finder',**args)
     def test_columns_filters_scopes_and_stats(self):
         all_hits=self.find()

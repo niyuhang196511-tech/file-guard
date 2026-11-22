@@ -91,7 +91,7 @@ def query(db,store,args,export=False):
         filter_by.append('fg_movement(old_value,new_value)=?');params.append(a['direction'])
     sql=DETAILS.format(scope=''.join(' AND '+s for s in scope))
     source=' FROM hits'+(' WHERE '+' AND '.join(filter_by) if filter_by else '')
-    order={'':'stamp DESC,eid DESC','oldest':'stamp,eid','path':'rel COLLATE NOCASE,stamp DESC,eid DESC'}[a['sort']]
+    order={'':'unixepoch(stamp) DESC,eid DESC','oldest':'unixepoch(stamp),eid','path':'rel COLLATE NOCASE,unixepoch(stamp) DESC,eid DESC'}[a['sort']]
     tail=source+' ORDER BY '+order+',ordinal'
     db.execute('BEGIN')
     if export:
