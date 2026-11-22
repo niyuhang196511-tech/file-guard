@@ -8,6 +8,7 @@ on:
       - '.github/workflows/windows.yml'
       - 'src-tauri/**'
       - 'scripts/build-windows.ps1'
+      - 'scripts/windows-python.ps1'
       - '构建Windows版本.cmd'
       - 'FileGuard-RecordAdmin.cmd'
 
@@ -32,12 +33,32 @@ jobs:
       - name: Build and test
         shell: powershell
         run: ./scripts/build-windows.ps1
-      - uses: actions/upload-artifact@v4
+      - name: Test desktop recovery logic
+        run: cargo test --release --manifest-path src-tauri/Cargo.toml
+      - name: Upload portable package
+        uses: actions/upload-artifact@v4
         with:
-          name: FileGuard-Windows-x64
+          name: FileGuard-Portable-x64
           if-no-files-found: error
+          compression-level: 0
+          path: |
+            release/*/FileGuard-Portable-x64.zip
+            release/*/SHA256SUMS.txt
+      - name: Upload NSIS installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: FileGuard-NSIS-x64
+          if-no-files-found: error
+          compression-level: 0
+          path: |
+            release/*/*-setup.exe
+            release/*/SHA256SUMS.txt
+      - name: Upload MSI installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: FileGuard-MSI-x64
+          if-no-files-found: error
+          compression-level: 0
           path: |
             release/*/*.msi
-            release/*/*.exe
-            release/*/*.zip
             release/*/SHA256SUMS.txt
