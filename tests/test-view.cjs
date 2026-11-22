@@ -536,7 +536,39 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   assert.equal(appVm.s.roots[0].settle_ms,3000);await appVm.waitingDialog(firstRoot);assert.equal(appVm.dialog.data.total,3);
   await appVm.go('目录清单');await appVm.inventoryDialog();await ctx.Vue.nextTick();
   assert(root.textContent.includes('清单成员与交付'));assert(appVm.dialog.data.total>0);
+  const inventoryPanel=appVm.dialog;
+  let resolveDisk, rejectDisk, diskArgs;
+  ctx.exampleRequest=(cmd,args)=>cmd==='checkpoint_disk'
+    ?new Promise((resolve,reject)=>{resolveDisk=resolve;rejectDisk=reject;diskArgs=args;})
+    :originalRequest(cmd,args);
+  const diskCheckButton=()=>findNode(root,node=>node.tag==='button'&&node.textContent==='核对本页原路径');
+  const awaitDisk=diskCheckButton().props.onClick();
+  await appVm.go('系统设置');await appVm.fileDialog();
+  const afterDiskPicker=appVm.dialog;
+  rejectDisk(Error('原监控目录当前不可用'));await awaitDisk;
+  assert.equal(afterDiskPicker.error,undefined,'迟到的现场核对错误不得写入新的文件选择器');
+
+  await appVm.go('目录清单');await appVm.inventoryDialog();await ctx.Vue.nextTick();
+  const modePanel=appVm.dialog;
+  assert.notEqual(modePanel,inventoryPanel);
+  const fullDisk=diskCheckButton().props.onClick();await ctx.Vue.nextTick();
+  assert(diskCheckButton().props.disabled);
+  assert(root.textContent.includes('正在核对本页原路径'));
+  const sizeOnly=()=>findNode(findNode(root,node=>node.tag==='label'&&node.textContent.includes('只核对大小')),node=>node.tag==='input');
+  for(const mode of [true,false]){
+    modePanel.quick=mode;
+    sizeOnly().props.onChange();
+    await ctx.Vue.nextTick();
+  }
+  resolveDisk(await originalRequest('checkpoint_disk',diskArgs));await fullDisk;
+  assert.equal(modePanel.disk,null,'重新切回完整核对不得恢复已经失效的结果');
+  const failedDisk=diskCheckButton().props.onClick();
+  rejectDisk(Error('原监控目录当前不可用'));await failedDisk;await ctx.Vue.nextTick();
+  assert(root.textContent.includes('原监控目录当前不可用'));
+  assert(!diskCheckButton().props.disabled);
+  ctx.exampleRequest=originalRequest;
   await appVm.checkDisk();assert(appVm.dialog.disk.items.length);await appVm.exportInventory(true);
+  assert.equal(modePanel.error,'');
   assert.equal(downloads.at(-1).type,'application/zip');const sample=new Uint8Array(await downloads.at(-1).arrayBuffer());assert.equal(sample[0],80);assert.equal(sample[1],75);
   appVm.dialog.ext='xlsx';await appVm.loadInventory();assert(appVm.dialog.data.items.every(r=>r.ext==='.xlsx'));
   await appVm.exportInventory();assert((await downloads.at(-1).text()).includes('SHA-256'));

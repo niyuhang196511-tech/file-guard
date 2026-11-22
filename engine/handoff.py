@@ -184,25 +184,49 @@ def disk_page(db,store,args):
                      WHERE c.id=?""",(meta['id'],)).fetchone()
     base=Path(root['path'])
     if root['removed'] or not base.is_dir():raise ValueError('原监控目录当前不可用')
+    windows=os.name=='nt'
+    physical_base=base.resolve().parts if windows else ()
     quick=bool(args.get('quick'));counts=Counter()
     for row in result['items']:
-        rel=row['rel'];target=base/rel;actual=None;sha=None
+        rel=row['rel'];target=base/rel;actual=None;sha=None;occupant=None
         if any(p in ('','.','..') for p in rel.replace('\\','/').split('/')) or PureWindowsPath(rel).anchor:
             raise ValueError('清单相对路径无效')
         try:
             ensure_plain(target,base);before=target.stat();actual=before.st_size
-            if not stat.S_ISREG(before.st_mode):status='非普通文件'
+            regular=stat.S_ISREG(before.st_mode)
+            if not regular:status='非普通文件'
             elif actual!=row['size']:status='大小不同'
             elif quick:status='大小一致，待验内容'
             else:
                 sha=digest(target)
                 status='内容一致' if sha==row['sha'] else '内容不同'
-            if signature(before)!=signature(target.stat()):status='读取期间变化';sha=None
-        except FileNotFoundError:status='原路径缺失'
-        except ValueError:status='链接路径，已跳过'
-        except OSError:status='不可读取'
+            checked_rel=rel
+            if regular:
+                if windows:
+                    # Resolve the spelling from the filesystem, including case-sensitive directories.
+                    try:
+                        resolved=target.resolve(strict=True)
+                    except FileNotFoundError:
+                        raise
+                    except (OSError,RuntimeError):
+                        checked_rel=None
+                    else:
+                        parts=resolved.parts
+                        if parts[:len(physical_base)]!=physical_base:
+                            raise ValueError('目标超出监控目录')
+                        checked_rel='/'.join(parts[len(physical_base):])
+                ensure_plain(target,base)
+            if signature(before)!=signature(target.stat()):
+                status='读取期间变化';sha=None
+            elif regular and checked_rel is not None and (key:=store.fkey(before)):
+                occupant=db.execute('SELECT id FROM files WHERE root_id=? AND rel=? AND fkey=? AND live=1',
+                                    (root['id'],checked_rel,key)).fetchone()
+        except FileNotFoundError:
+            status='原路径缺失' if actual is None else '读取期间变化'
+            sha=None
+        except ValueError:status='链接路径，已跳过';sha=None
+        except OSError:status='不可读取';sha=None
         current=db.execute('SELECT rel FROM files WHERE id=? AND live=1',(row['file_id'],)).fetchone()
-        occupant=db.execute('SELECT id FROM files WHERE root_id=? AND rel=? AND live=1',(root['id'],rel)).fetchone()
         row.update(state=status,actual=actual,disk_sha=sha,current_rel=current[0] if current else None,
                    replaced=bool(occupant and occupant[0]!=row['file_id']))
         counts[status]+=1

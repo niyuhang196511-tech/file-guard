@@ -1914,21 +1914,46 @@ const app = createApp({
         },
         async inventoryDialog () {
             if(!this.cpNew)return;
-            this.dialog={type:'inventory',title:'清单成员与交付',id:this.cpNew,q:'',folder:'',ext:'',sha:'',sort:'',data:null,active:null};
+            this.dialog={type:'inventory',title:'清单成员与交付',id:this.cpNew,q:'',folder:'',ext:'',sha:'',sort:'',data:null,active:null,
+                disk:null,diskLoading:false,diskError:'',quick:false};
             await this.loadInventory();
         },
         async loadInventory (page=1,applied=null) {
-            const d=this.dialog,args=applied||{id:d.id,q:d.q,folder:d.folder,ext:d.ext,sha:d.sha,sort:d.sort};
-            const seq=(this.flags.inventory||0)+1;this.flags.inventory=seq;d.data=null;d.disk=null;d.active=null;d.error='';
-            const data=await this.safe(()=>request('checkpoint_inventory',{...args,page}));
-            if(this.dialog===d&&this.flags.inventory===seq&&data){d.data=data;d.active=args;}
+            const d=this.dialog;
+            if(d?.type!=='inventory')return;
+            const args=applied||{id:d.id,q:d.q,folder:d.folder,ext:d.ext,sha:d.sha,sort:d.sort};
+            const seq=(this.flags.inventory||0)+1;this.flags.inventory=seq;d.data=null;d.active=null;d.error='';
+            this.resetDiskCheck();
+            const isCurrent=()=>this.dialog===d&&this.flags.inventory===seq;
+            try {
+                const data=await request('checkpoint_inventory',{...args,page});
+                if(isCurrent()){d.data=data;d.active=args;}
+            } catch(e) {
+                if(isCurrent())d.error=String(e?.message||e);
+            }
+        },
+        resetDiskCheck () {
+            const d=this.dialog;
+            if(d?.type!=='inventory')return;
+            this.flags.disk=(this.flags.disk||0)+1;
+            d.disk=null;d.diskLoading=false;d.diskError='';
         },
         async checkDisk (page=1) {
-            const d=this.dialog,seq=(this.flags.disk||0)+1;this.flags.disk=seq;d.disk=null;
-            const active=d.active;if(!active)return;
-            const mode=!!d.quick;
-            const data=await this.safe(()=>request('checkpoint_disk',{...active,page,quick:mode}));
-            if(this.dialog===d&&d.active===active&&this.flags.disk===seq&&!!d.quick===mode)d.disk=data;
+            const d=this.dialog;
+            if(d?.type!=='inventory'||!d.active||d.diskLoading)return;
+            const active=d.active, quick=d.quick;
+            this.resetDiskCheck();
+            const seq=this.flags.disk;
+            const isCurrent=()=>this.dialog===d&&d.active===active&&this.flags.disk===seq&&d.quick===quick;
+            d.diskLoading=true;
+            try {
+                const data=await request('checkpoint_disk',{...active,page,quick});
+                if(isCurrent())d.disk=data;
+            } catch(e) {
+                if(isCurrent())d.diskError=String(e?.message||e);
+            } finally {
+                if(isCurrent())d.diskLoading=false;
+            }
         },
         async exportInventory (zip=false) {
             const d=this.dialog;

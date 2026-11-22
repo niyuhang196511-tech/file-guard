@@ -126,6 +126,45 @@ class Restore(Work):
         self.assertEqual((newest['num'], newest['sha']), (5, hashlib.sha256(latest).hexdigest()))
         self.assertEqual(self.call('events', kind='历史恢复')['total'], 1)
 
+    def test_second_restore_first_reconciles_the_existing_intent(self):
+        target = self.write('note.txt', b'first').resolve()
+        self.scan()
+        file, = self.call('files')['items']
+        first, = self.call('history', id=file['id'])
+        self.write('note.txt', b'second contents')
+        self.scan()
+        second = self.call('history', id=file['id'])[0]
+
+        def temporarily_unreadable(path):
+            if path == target and path.read_bytes() == b'first':
+                raise PermissionError('写回后短时间无法读取')
+            return open_snapshot_source(path)
+
+        preview = self.call('restore_info', id=first['id'])['preview']
+        with patch('engine.store.open_snapshot_source', side_effect=temporarily_unreadable):
+            with self.assertRaises(PermissionError):
+                self.call('restore', id=first['id'], preview=preview)
+        self.assertEqual(target.read_bytes(), b'first')
+        self.assertEqual(self.call('summary')['recovery'], 1)
+
+        next_preview = self.call('restore_info', id=second['id'])
+        self.assertFalse(next_preview['identical'])
+        with patch('engine.store.open_snapshot_source', side_effect=temporarily_unreadable):
+            with self.assertRaisesRegex(ValueError, '仍有恢复任务待核对'):
+                self.call('restore', id=second['id'], preview=next_preview['preview'])
+        self.assertEqual(target.read_bytes(), b'first')
+        self.assertEqual(self.call('summary')['recovery'], 1)
+
+        self.call('restore', id=second['id'], preview=next_preview['preview'])
+        self.assertEqual(target.read_bytes(), b'second contents')
+        self.assertEqual(self.call('summary')['recovery'], 0)
+        events = sorted(self.call('events', q='note.txt')['items'], key=lambda row: row['id'])
+        self.assertEqual([row['kind'] for row in events], ['初始建档', '内容修改', '历史恢复', '历史恢复'])
+        history = self.call('history', id=file['id'])
+        self.assertEqual([(row['num'], row['sha']) for row in history[:2]], [(4, second['sha']), (3, first['sha'])])
+        self.call('retry_recovery')
+        self.assertEqual(self.call('audit', action='恢复中断')['total'], 0)
+
     def test_copy_is_only_published_after_verification(self):
         self.write('a','a');self.scan();dest=self.base/'expected'
         def partial(src,out):
@@ -310,8 +349,79 @@ class Packages(Work):
         self.assertEqual(full['明细/乙.CSV']['state'],'内容一致')
         self.assertEqual(bypath(quick=True)['notes.txt']['state'],'大小一致，待验内容')
         self.assertEqual(self.inventory()['items'][0]['num'],1)
+
+    def test_disk_replacement_uses_filesystem_case_rules(self):
+        original = self.directory/'notes.txt'
+        original.rename(self.directory/'moved.txt')
+        self.scan()
+        replacement = self.write('NOTES.TXT', 'note')
+        self.scan()
+
+        row, = self.call('checkpoint_disk', id=self.cid, q='notes.txt')['items']
+        self.assertEqual(row['current_rel'], 'moved.txt')
+        if original.exists():
+            self.assertTrue(original.samefile(replacement))
+            self.assertEqual(row['state'], '内容一致')
+            self.assertTrue(row['replaced'])
+            quick, = self.call('checkpoint_disk', id=self.cid, q='notes.txt', quick=True)['items']
+            self.assertEqual(quick['state'], '大小一致，待验内容')
+            self.assertTrue(quick['replaced'])
+        else:
+            self.assertEqual(row['state'], '原路径缺失')
+            self.assertFalse(row['replaced'])
+            self.write('notes.txt', 'note')
+            self.assertFalse(original.samefile(replacement))
+            self.scan()
+            exact, = self.call('checkpoint_disk', id=self.cid, q='notes.txt')['items']
+            self.assertEqual(exact['state'], '内容一致')
+            self.assertTrue(exact['replaced'])
+
+    def test_disk_replacement_uses_the_specific_hardlink_path(self):
+        original = self.directory/'notes.txt'
+        moved = original.with_name('moved.txt')
+        original.rename(moved)
+        self.scan()
+        moved.with_name('alternate.txt').hardlink_to(moved)
+        self.scan()
+        missing, = self.call('checkpoint_disk', id=self.cid, q='notes.txt')['items']
+        self.assertEqual(missing['state'], '原路径缺失')
+        self.assertFalse(missing['replaced'])
+
+        original.hardlink_to(moved)
+        self.scan()
+        row, = self.call('checkpoint_disk', id=self.cid, q='notes.txt')['items']
+        self.assertTrue(original.samefile(moved))
+        self.assertEqual(row['state'], '内容一致')
+        self.assertEqual(row['current_rel'], 'moved.txt')
+        self.assertTrue(row['replaced'])
+
+    def test_disk_does_not_attribute_unscanned_occupants_to_an_indexed_file(self):
+        target = self.directory/'notes.txt'
+        target.rename(target.with_name('moved.txt'))
+        self.scan()
+        self.write('notes.txt', 'note')
+        self.scan()
+
+        unrelated = self.base/'unrelated.txt'
+        unrelated.write_bytes(b'note')
+        unrelated.replace(target)
+        row, = self.call('checkpoint_disk', id=self.cid, q='notes.txt')['items']
+        self.assertEqual(row['state'], '内容一致')
+        self.assertFalse(row['replaced'])
+
+        target.unlink()
+        target.mkdir()
+        row, = self.call('checkpoint_disk', id=self.cid, q='notes.txt')['items']
+        self.assertEqual(row['state'], '非普通文件')
+        self.assertFalse(row['replaced'])
+
     def test_check_only_requested_page_and_changed_while_reading(self):
         import engine.store as m
+        target = self.directory/'notes.txt'
+        target.rename(target.with_name('moved.txt'))
+        self.scan()
+        self.write('notes.txt', 'note')
+        self.scan()
         saved=m.digest
         def change(p):
             value=saved(p)
@@ -320,6 +430,24 @@ class Packages(Work):
         with patch('engine.store.digest',side_effect=change):
             r=self.call('checkpoint_disk',id=self.cid,q='notes')
         self.assertEqual(r['counts'],{'读取期间变化':1});self.assertIsNone(r['items'][0]['disk_sha'])
+        self.assertFalse(r['items'][0]['replaced'])
+
+        target.write_bytes(b'note')
+
+        def disappear(path):
+            value = saved(path)
+            path.unlink()
+            return value
+
+        with patch('engine.store.digest', side_effect=disappear):
+            vanished, = self.call('checkpoint_disk', id=self.cid, q='notes')['items']
+        self.assertEqual(vanished['state'], '读取期间变化')
+        self.assertIsNone(vanished['disk_sha'])
+        self.assertFalse(vanished['replaced'])
+        missing, = self.call('checkpoint_disk', id=self.cid, q='notes')['items']
+        self.assertEqual(missing['state'], '原路径缺失')
+        self.assertIsNone(missing['disk_sha'])
+        self.assertFalse(missing['replaced'])
 
 
 class Health(Work):

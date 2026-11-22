@@ -722,6 +722,14 @@ class Store:
         with self.lock,self.db() as db:
             v=self.checked_version(db,vid)
             f,target=self.restore_target(db,v['file_id'])
+            pending = db.execute('''SELECT i.id FROM restores i JOIN files f ON f.id=i.file_id
+                                    WHERE f.root_id=? AND f.rel=? ORDER BY i.id''',
+                                 (f['root_id'], f['rel'])).fetchall()
+            for intent, in pending:
+                if not self._try_reconcile_restore(intent):
+                    raise ValueError('此文件仍有恢复任务待核对，请在系统设置中完成核对后再恢复')
+            if pending:
+                f,target=self.restore_target(db,v['file_id'])
             base=Path(f['path'])
             with protect_overwrite(target):
                 original=None;sha=None
