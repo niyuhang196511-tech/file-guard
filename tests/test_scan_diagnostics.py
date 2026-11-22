@@ -1,14 +1,16 @@
 import csv
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from engine import scan_log
 from engine.service import Service
-from engine.shared_read import _open_windows_file
-from engine.store import Store
+from engine.shared_read import _open_windows_file, open_snapshot_source
+from engine.store import Store, digest
 
 
 class ScanDiagnosticsTests(unittest.TestCase):
@@ -176,6 +178,85 @@ class ScanDiagnosticsTests(unittest.TestCase):
         self.assertIn('等待路径替换完成', filtered['reasons'])
         self.assertNotIn('等待文件解除占用', filtered['reasons'])
         self.assertEqual(self.api.dispatch('waiting_files', dict(base, q='%'))['counts'], {})
+
+    def test_growth_after_enumeration_obeys_size_limit_and_preserves_scope(self):
+        folder = (self.base / '待监控').resolve()
+        self.api.dispatch('configure', {'id': self.root, 'path': str(folder), 'max_mb': 1})
+        current = folder / '当前.txt'
+        source = folder / '原始.txt'
+        current.write_bytes(b'original current')
+        source.write_bytes(b'original to move')
+        self.store.scan(self.root)
+        previous = {row['rel']: row for row in self.api.dispatch('files', {})['items']}
+
+        moved = source.rename(folder / '移入.txt')
+        current.write_bytes(b'small revision')
+        capture = self.store.capture
+
+        def grow_before_capture(path, **options):
+            with path.open('r+b') as stream:
+                stream.truncate(1024**2 + 1)
+            return capture(path, **options)
+
+        def grow_while_checking_reuse(path, **options):
+            if path == moved:
+                with path.open('r+b') as stream:
+                    stream.truncate(1024**2 + 1)
+            return digest(path, **options)
+
+        with (patch.object(self.store, 'capture', side_effect=grow_before_capture),
+              patch('engine.store.digest', side_effect=grow_while_checking_reuse)):
+            self.store.scan(self.root)
+
+        results = {row['rel']: (row['id'], row['live'], row['tracked'], row['version'])
+                   for row in self.api.dispatch('files', {'scope': 'all'})['items']}
+        self.assertEqual(results, {
+            current.name: (previous[current.name]['id'], 1, 0, 1),
+            source.name: (previous[source.name]['id'], 0, 1, 1),
+        })
+        scan = self.journal()['items'][0]
+        self.assertEqual((scan['candidates'], scan['captured'], scan['read_bytes'], scan['waiting']), (0, 0, 0, 0))
+        self.assertEqual(scan['skip_reasons'], {'超出大小上限': 2})
+        self.assertEqual(self.api.dispatch('roots', {})[0]['skip_counts'], scan['skip_reasons'])
+        self.assertEqual(self.api.dispatch('events', {'kind': '删除'})['total'], 1)
+        self.assertEqual(self.api.dispatch('events', {'kind': '重命名'})['total'], 0)
+        self.assertFalse(list(self.store.temp.iterdir()))
+
+    def test_growth_during_capture_discards_temporary_output_at_size_limit(self):
+        folder = (self.base / '待监控').resolve()
+        self.api.dispatch('configure', {'id': self.root, 'path': str(folder), 'max_mb': 1})
+        candidate = folder / '台账.txt'
+        limit = 1024**2
+        candidate.write_bytes(b'x' * limit)
+        chunks_read = []
+
+        @contextmanager
+        def growing_source(path):
+            with open_snapshot_source(path) as stream:
+                class Growing:
+                    def fileno(self):
+                        return stream.fileno()
+
+                    def read(self, size):
+                        data = stream.read(size)
+                        if not chunks_read:
+                            with path.open('r+b') as writer:
+                                writer.truncate(3 * limit)
+                        chunks_read.append(len(data))
+                        return data
+
+                yield Growing()
+
+        with patch('engine.store.open_snapshot_source', growing_source):
+            self.store.scan(self.root)
+
+        self.assertEqual(sum(chunks_read), limit + 1)
+        scan = self.journal()['items'][0]
+        self.assertEqual((scan['status'], scan['read_bytes']), ('完成', 0))
+        self.assertEqual(scan['skip_reasons'], {'超出大小上限': 1})
+        self.assertFalse(self.api.dispatch('files', {'scope': 'all'})['items'])
+        self.assertFalse(list(self.store.objects.iterdir()))
+        self.assertFalse(list(self.store.temp.iterdir()))
 
     @unittest.skipUnless(os.name == 'nt', '需要 Windows 独占句柄')
     def test_exclusive_open_is_reported_and_retried(self):

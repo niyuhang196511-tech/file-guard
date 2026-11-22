@@ -28,6 +28,10 @@ class FileChanging(OSError):
     """文件仍在写入或替换，稍后重试。"""
 
 
+class CaptureTooLarge(ValueError):
+    """采集时文件超过目录的大小上限。"""
+
+
 class ArchiveVerificationError(ValueError):
     """解析依赖的原件缺失、不完整或发生变化。"""
 
@@ -58,8 +62,37 @@ def linklike(p):
     return stat.S_ISLNK(s.st_mode) or bool(getattr(s,'st_file_attributes',0) & 1024)
 
 
-def digest(path):
+def _check_capture_size(info, max_bytes):
+    if max_bytes and info.st_size > max_bytes:
+        raise CaptureTooLarge('超出大小上限')
+
+
+def _capture_digest(source, size, max_bytes, output=None):
+    checksum = hashlib.sha256()
+    remaining = size
+    # Read one byte beyond the sampled length to detect growth without copying it.
+    while block := source.read(min(1024**2, remaining + 1)):
+        if len(block) > remaining:
+            if max_bytes:
+                if size - remaining + len(block) > max_bytes:
+                    raise CaptureTooLarge('超出大小上限')
+                _check_capture_size(os.fstat(source.fileno()), max_bytes)
+            raise FileChanging('读取期间文件发生变化')
+        checksum.update(block)
+        if output is not None:
+            output.write(block)
+        remaining -= len(block)
+    if remaining:
+        raise FileChanging('读取期间文件发生变化')
+    return checksum.hexdigest()
+
+
+def digest(path, *, max_bytes=0):
     with open_snapshot_source(path) as source:
+        if max_bytes:
+            opened = os.fstat(source.fileno())
+            _check_capture_size(opened, max_bytes)
+            return _capture_digest(source, opened.st_size, max_bytes)
         return hashlib.file_digest(source,'sha256').hexdigest()
 
 
@@ -183,30 +216,32 @@ class Store:
             raise ValueError('版本摘要无效')
         return self.objects/sha[:2]/sha
 
-    def capture(self,path):
+    def capture(self,path,*,max_bytes=0):
         before = path.stat()
         if not stat.S_ISREG(before.st_mode):
             raise ValueError('只支持普通文件')
+        _check_capture_size(before, max_bytes)
         fd,name = tempfile.mkstemp(dir=self.temp)
         tmp = Path(name)
         try:
-            h = hashlib.sha256()
             with os.fdopen(fd,'wb') as out,open_snapshot_source(path) as src:
                 opened = os.fstat(src.fileno())
+                _check_capture_size(opened, max_bytes)
                 if not matches_open_file(before, opened):
                     raise FileChanging('文件正在替换')
-                while block := src.read(1024*1024):
-                    h.update(block)
-                    out.write(block)
+                sha = _capture_digest(src, before.st_size, max_bytes, out)
                 if out.tell()!=before.st_size:
                     raise FileChanging('读取期间文件发生变化')
                 out.flush()
                 os.fsync(out.fileno())
-                if signature(os.fstat(src.fileno()))!=signature(opened):
+                after = os.fstat(src.fileno())
+                _check_capture_size(after, max_bytes)
+                if signature(after)!=signature(opened):
                     raise FileChanging('读取期间文件发生变化')
-            if signature(path.stat())!=signature(before):
+            after = path.stat()
+            _check_capture_size(after, max_bytes)
+            if signature(after)!=signature(before):
                 raise FileChanging('文件写入中，将在下次扫描重试')
-            sha = h.hexdigest()
             dest = self.obj(sha)
             ensure_plain(dest, self.home)
             dest.parent.mkdir(exist_ok=True)
@@ -395,6 +430,8 @@ class Store:
             return current-since<root['settle_ms']/1000
 
         patterns=exclusion_patterns(root['patterns'])
+        max_bytes = root['max_mb'] * 1024**2
+        capture_limits = {'max_bytes': max_bytes} if max_bytes else {}
         reasons=Counter()
         pruned=set()
         walked_dirs=set()
@@ -446,7 +483,7 @@ class Store:
                     unavailable.add(rel)
                     waiting[rel]='等待文件读取权限'
                     continue
-                if not stat.S_ISREG(s.st_mode) or (root['max_mb'] and s.st_size>root['max_mb']*1024**2):
+                if not stat.S_ISREG(s.st_mode) or (max_bytes and s.st_size>max_bytes):
                     reasons['超出大小上限' if stat.S_ISREG(s.st_mode) else '非普通文件']+=1
                     ignored.add(rel)
                     continue
@@ -502,6 +539,7 @@ class Store:
             candidates[key]=(row, not absent)
         initially_missing=set(missing)
         full=source not in ('文件监听',)
+        late_skips = set()
         restore_aliases = {Path(rel) for rel in restore_waiting
                            if rel not in found and os.path.lexists(base/rel)}
         for i,(rel,s) in enumerate(found.items(),1):
@@ -524,7 +562,7 @@ class Store:
                 reuse = (known is not None and s.st_size==known['size']
                          and self.obj(known['sha']).is_file()
                          and self.obj(known['sha']).stat().st_size==s.st_size
-                         and digest(base/rel)==known['sha']
+                         and digest(base/rel, **capture_limits)==known['sha']
                          and signature((base/rel).stat())==signature(s))
                 # An explicit check can repair an unchanged file's archive without a new version.
                 if reuse and (source=='手动扫描' or rel in pending):
@@ -540,7 +578,7 @@ class Store:
                 if reuse:
                     sha = known['sha']
                 else:
-                    sha,s = self.capture(base/rel)
+                    sha,s = self.capture(base/rel, **capture_limits)
                     stats['captured']+=1
                     stats['read_bytes']+=s.st_size
                 with self.db() as db:
@@ -566,6 +604,12 @@ class Store:
                         self.record(db,previous['id'],rid,rel,'属性修改',latest,latest,source=source)
                 if moved:
                     candidates.pop(moved['fkey'])
+            except CaptureTooLarge:
+                late_skips.add(rel)
+                reasons['超出大小上限']+=1
+                active_observations.discard(rel)
+                if moved:
+                    candidates.pop(moved['fkey'])
             except (OSError,ValueError) as exc:
                 # Windows sharing violations are also classified as PermissionError.
                 if getattr(exc,'winerror',None) in (32,33):
@@ -576,6 +620,10 @@ class Store:
                     waiting[rel]='等待保存稳定'
                 else:
                     errors.append(f'{rel}：{exc}')
+        if late_skips:
+            for rel in late_skips:
+                del found[rel]
+            stats.update(candidates=len(found),skipped=sum(reasons.values()),skip_reasons=json.dumps(reasons,ensure_ascii=False))
         # An unavailable root must not turn every entry into a deletion.
         if not base.is_dir():
             raise OSError('扫描期间目录离线')
