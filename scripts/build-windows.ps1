@@ -17,7 +17,7 @@ Check-Step "Engine packaging"
 Check-Step "Packaged engine protocol and restore"
 New-Item -ItemType Directory -Force src-tauri/binaries | Out-Null
 Copy-Item dist/fileguard-engine.exe src-tauri/binaries/fileguard-engine-x86_64-pc-windows-msvc.exe -Force
-npm.cmd install --no-audit --no-fund
+npm.cmd ci --no-audit --no-fund
 Check-Step "Tauri CLI"
 npm.cmd run typecheck
 Check-Step "TypeScript"
@@ -25,7 +25,7 @@ node --test tests/test-ledger.cjs
 Check-Step "Ledger reconciliation tests"
 npm.cmd run build:ui
 Check-Step "Chinese interface"
-npm.cmd run tauri -- build
+npm.cmd run tauri -- build -- --locked
 Check-Step "Desktop build"
 $release = "src-tauri/target/release"
 $version = (Get-Content -Raw -Encoding UTF8 src-tauri/tauri.conf.json | ConvertFrom-Json).version
