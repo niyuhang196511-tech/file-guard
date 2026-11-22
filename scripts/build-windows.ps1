@@ -4,15 +4,8 @@ Set-Location (Split-Path $PSScriptRoot -Parent)
 function Check-Step([string]$Name) { if ($LASTEXITCODE -ne 0) { throw "$Name failed ($LASTEXITCODE)" } }
 if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) { throw "Install Rust stable x64 MSVC and Visual Studio C++ Build Tools." }
 if (-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)) { throw "Install Node.js 22 or later." }
-if (-not (Test-Path ".venv\Scripts\python.exe")) {
-    $usePython = $false
-    if (Get-Command python -ErrorAction SilentlyContinue) {
-        python -c "import sys; sys.exit(0 if sys.version_info[:2] == (3,12) else 1)"
-        $usePython = $LASTEXITCODE -eq 0
-    }
-    if ($usePython) { python -m venv .venv } else { py -3.12 -m venv .venv }
-    Check-Step "Python 3.12 virtual environment"
-}
+& "$PSScriptRoot/windows-python.ps1" -Mode Venv
+Check-Step "Python 3.12 virtual environment"
 $py = ".venv\Scripts\python.exe"
 & $py -m pip install -r requirements.txt "pyinstaller>=6.12,<7"
 Check-Step "Python packages"

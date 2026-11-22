@@ -1,10 +1,12 @@
 @echo off
-cd /d "%~dp0"
+setlocal DisableDelayedExpansion
+pushd "%~dp0" || exit /b 1
 if exist "fileguard-engine.exe" (
   "fileguard-engine.exe" --record-admin
-) else if exist ".venv\Scripts\python.exe" (
-  ".venv\Scripts\python.exe" -m engine.main --record-admin
 ) else (
-  py -3.12 -m engine.main --record-admin
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\windows-python.ps1" -Mode RecordAdmin
 )
+set "result=%errorlevel%"
 pause
+popd
+exit /b %result%
