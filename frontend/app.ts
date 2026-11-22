@@ -98,6 +98,11 @@ const navIcons = [
     'settings'
 ];
 const searchPath=(value:string)=>String(value || '').trim().toLowerCase().replaceAll('\\','/');
+const listCommands = {
+    '文件管理': {table:'files', exportCommand:'export_files', filename:'文件清单.csv'},
+    '变更记录': {table:'events', exportCommand:'export', filename:'变更记录.csv'},
+    '审计中心': {table:'audit', exportCommand:'export_audit', filename:'审计中心.csv'}
+} as const;
 const freshFilter = (): ListFilter =>({
         event_id:'',caption:'',amended:false,starred:false,source:'',status:'',sha:'',sort:'',min_bytes:'',max_bytes:'',with_diff:false,multiple:false,
         scope: '',
@@ -211,8 +216,7 @@ const app = createApp({
                 '#9183ba',
                 '#aab8cb'
             ],
-            list: emptyList(),
-            listTable: '',
+            listResult: null,
             findForm:freshFinder(),findApplied:null,found:null,finderBusy:false,presets:[],presetName:'',presetId:0,
             textForm:freshTextHistory(),textApplied:null,textFileLabel:'',textResult:null,textCursors:[],
             textBusy:false,textError:'',textReturn:false,
@@ -306,6 +310,21 @@ const app = createApp({
         }
     },
     computed: {
+        listQuery () {
+            const commands=listCommands[this.page];
+            if(!commands)return null;
+            const filters={...this.f};
+            const args={...filters,page:this.p,size:this.listSize};
+            return {...commands,key:JSON.stringify([commands.table,args]),filters,args};
+        },
+        list () {
+            const query=this.listQuery, result=this.listResult;
+            if(result&&query?.key===result.query.key)return result.data;
+            const empty={...emptyList(),size:this.listSize};
+            if(!query||!result||query.table!==result.query.table)return empty;
+            const {actions,sources}=result.data;
+            return {...empty,actions,sources};
+        },
         journalComparison () {
             if(this.dialog?.type!=='scan_log'||this.dialog.selectedRuns.length!==2)return null;
             const [before,after]=[...this.dialog.selectedRuns].sort((a,b)=>a.id-b.id);
@@ -745,11 +764,13 @@ const app = createApp({
         },
         searchLater () {
             this.flags.list=(this.flags.list || 0)+1;
+            this.p=1;
             this.listLoading=true;
             clearTimeout(this._timer);
             this._timer = setTimeout(()=>this.queryFirst(), 170);
         },
         queryFirst () {
+            clearTimeout(this._timer);
             this.p = 1;
             return this.loadList();
         },
@@ -758,29 +779,29 @@ const app = createApp({
             return this.queryFirst();
         },
         async loadList () {
-            const table = {
-                '文件管理': 'files',
-                '变更记录': 'events',
-                '审计中心': 'audit'
-            }[this.page];
-            if (!table) return;
-            if (table!==this.listTable) {
-                this.listTable=table;
-                this.list=emptyList();
-            }
+            const query=this.listQuery;
+            if(!query)return;
             const marker = (this.flags.list || 0) + 1;
             this.flags.list = marker;
             if (this.rangeError) {
                 this.listLoading=false;
-                this.list={...emptyList(),actions:this.list.actions || []};
                 return;
             }
             this.listLoading=true;
-            const result=await this.safe(() => request(table, {...this.f,page:this.p,size:this.listSize}));
-            if (marker===this.flags.list) {
-                this.listLoading=false;
-                if(result)this.p=result.page;
-                this.list=result || {...emptyList(),actions:this.list.actions || []};
+            const isCurrent=()=>marker===this.flags.list&&query.key===this.listQuery?.key;
+            try {
+                const data=await request(query.table,query.args);
+                if(!isCurrent())return;
+                this.p=data.page;
+                this.listResult={query:this.listQuery,data};
+            } catch(e) {
+                if(isCurrent()){
+                    const {actions,sources}=this.list;
+                    this.listResult={query,data:{...emptyList(),actions,sources,size:this.listSize}};
+                    this.toast(String(e?.message || e));
+                }
+            } finally {
+                if(marker===this.flags.list)this.listLoading=false;
             }
         },
         async perform (cmd, args, msg) {
@@ -2227,11 +2248,9 @@ const app = createApp({
         },
         async exportEvents () {
             if (this.listLoading || this.rangeError || !this.list.total) return;
-            const args={...this.f};
-            const cmd:EngineCommand=this.page==='文件管理'?'export_files':this.page==='审计中心'?'export_audit':'export';
-            const name=(this.page==='文件管理'?'文件清单':this.page)+'.csv';
-            if (this.demo) await this.downloadCsv(cmd,args,name);
-            else await this.saveFile(cmd,name,null,args);
+            const {exportCommand,filename,filters}=this.listResult.query;
+            if (this.demo) await this.downloadCsv(exportCommand,filters,filename);
+            else await this.saveFile(exportCommand,filename,null,filters);
         },
         async downloadCsv (cmd: EngineCommand, args: Arguments, name: string) {
             await this.safe(async () => {

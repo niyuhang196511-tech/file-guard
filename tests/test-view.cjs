@@ -190,6 +190,61 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   assert.equal(appVm.list.items[0].id,filteredFiles.items[0].id);
   finishFiles(filteredFiles);await refreshingFiles;
   ctx.exampleRequest=originalRequest;
+
+  const findNode=(node,match)=>match(node)?node:node.children.map(child=>findNode(child,match)).find(Boolean);
+  const findHistoryButton=()=>findNode(root,node=>node.tag==='button'&&node.props.class==='textbtn'&&node.textContent==='历史版本');
+  const [sourceRoot,targetRoot]=appVm.s.roots;
+  await appVm.rootFiles(sourceRoot);
+  assert(appVm.list.items.length&&findHistoryButton());
+  await appVm.go('目录监控');
+  let finishRootFiles, rootExport;
+  ctx.exampleRequest=(cmd,args)=>{
+    if(cmd==='files'&&args.root===targetRoot.id)return new Promise(resolve=>{finishRootFiles=resolve;});
+    if(cmd==='export_files')rootExport=args;
+    return originalRequest(cmd,args);
+  };
+  const rootFileCount=downloads.length;
+  const openingRoot=appVm.rootFiles(targetRoot);
+  await ctx.Vue.nextTick();
+  assert.equal(appVm.f.root,targetRoot.id);
+  assert(!findHistoryButton(),'新的目录查询不得显示上一目录的历史版本按钮');
+  await appVm.exportEvents();assert.equal(downloads.length,rootFileCount);
+  const targetRows=await originalRequest('files',{root:targetRoot.id});
+  finishRootFiles(targetRows);await openingRoot;await ctx.Vue.nextTick();
+  assert(appVm.list.items.length&&appVm.list.items.every(row=>row.root_id===targetRoot.id));
+  const exportButton=findNode(root,node=>node.tag==='button'&&node.textContent.includes('导出记录'));
+  assert(exportButton&&!exportButton.props.disabled);
+  await exportButton.props.onClick();
+  assert.equal(rootExport.root,targetRoot.id);
+  const rootCsv=Buffer.from(await downloads.at(-1).arrayBuffer()).toString('utf8');
+  assert.equal(rootCsv,await originalRequest('export_files',{root:targetRoot.id}));
+  findHistoryButton().props.onClick();await tick();
+  assert.equal(appVm.file.root_id,targetRoot.id);
+  assert(targetRows.items.some(row=>row.id===appVm.file.id));
+  ctx.exampleRequest=originalRequest;
+
+  await appVm.go('文件管理');
+  appVm.listSize=10;await appVm.queryFirst();
+  assert(appVm.list.total>10);
+  let finishPage;
+  ctx.exampleRequest=(cmd,args)=>cmd==='files'&&args.page===2
+    ?new Promise(resolve=>{finishPage=()=>resolve(originalRequest(cmd,args));})
+    :originalRequest(cmd,args);
+  const nextPage=findNode(root,node=>node.tag==='button'&&node.textContent==='下一页');
+  nextPage.props.onClick();await ctx.Vue.nextTick();
+  assert.equal(appVm.p,2);assert(!findHistoryButton());
+  finishPage();await tick();
+  assert.equal(appVm.list.page,2);assert(findHistoryButton());
+  ctx.exampleRequest=originalRequest;
+  const findSearch=()=>findNode(root,node=>node.tag==='input'&&node.props['aria-label']==='搜索记录');
+  const focusedSearch=findSearch();dom.activeElement=focusedSearch;
+  appVm.f.q='仓库交接';appVm.searchLater();await ctx.Vue.nextTick();
+  assert(!findHistoryButton());
+  assert.equal(findSearch(),focusedSearch);assert.equal(dom.activeElement,focusedSearch);
+  await appVm.queryFirst();await ctx.Vue.nextTick();
+  assert.equal(appVm.p,1);assert.equal(appVm.list.total,1);assert.equal(findSearch(),focusedSearch);
+  dom.activeElement=null;appVm.listSize=25;
+
   let finishRuntime;
   ctx.exampleRequest=(cmd,args)=>cmd==='runtime'?new Promise(resolve=>{finishRuntime=resolve}):originalRequest(cmd,args);
   const pendingSettings=appVm.go('系统设置');
