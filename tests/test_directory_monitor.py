@@ -35,6 +35,16 @@ class DirectoryMonitorTests(unittest.TestCase):
         self.store.scan(self.rid)
         self.assertEqual(self.api.dispatch('files',{})['total'],1)
 
+    def test_settings_rejects_malformed_values_as_api_errors(self):
+        for args in (
+                {'interval':None,'theme':'浅色','autostart':False},
+                {'interval':'not-a-number','theme':'浅色','autostart':False},
+                {'interval':5.5,'theme':'浅色','autostart':False},
+                {'interval':5,'theme':'浅色','autostart':'false'},
+        ):
+            with self.subTest(args=args), self.assertRaisesRegex(ValueError,'设置值无效'):
+                self.api.dispatch('settings',args)
+
     def test_single_scan_is_atomic_and_source_survives_background_queue(self):
         second=self.base/'第二';second.mkdir()
         another=self.store.configure(second)

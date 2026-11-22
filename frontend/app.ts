@@ -2250,7 +2250,6 @@ const app = createApp({
             this.fileDialog();
         },
         async fileDialog () {
-            clearTimeout(this._pickTimer);
             this.pickScope = 'all';
             this.pickQ = '';
             this.pickPage = 1;
@@ -2258,9 +2257,10 @@ const app = createApp({
                 type: 'pick',
                 title: '查找历史文件'
             };
+            const dialog=this.dialog;
             await this.loadPicks();
             await nextTick();
-            document.getElementById('filePicker')?.focus();
+            if(this.dialog===dialog)document.getElementById('filePicker')?.focus();
         },
         searchPick () {
             this.pickPage = 1;
@@ -2270,15 +2270,30 @@ const app = createApp({
             this._pickTimer = setTimeout(()=>this.loadPicks(), 130);
         },
         async loadPicks () {
+            const dialog=this.dialog;
+            if(dialog?.type!=='pick')return;
+            clearTimeout(this._pickTimer);
             const seq = (this.flags.pick || 0) + 1;
             this.flags.pick = seq;
             this.pickLoading=true;
-            const result=await this.safe(()=>request('files',{
-                scope:this.pickScope || 'current', q:this.pickQ, page:this.pickPage, size:15
-            }));
-            if (seq===this.flags.pick) {
-                this.picks=result || emptyList();
-                this.pickLoading=false;
+            delete dialog.error;
+            const isCurrent=()=>this.dialog===dialog&&seq===this.flags.pick;
+            try {
+                const result=await request('files',{
+                    scope:this.pickScope || 'current', q:this.pickQ, page:this.pickPage, size:15
+                });
+                if(isCurrent()){
+                    this.picks=result;
+                    this.pickPage=result.page;
+                }
+            } catch(e) {
+                if(isCurrent()){
+                    this.picks=emptyList();
+                    this.pickPage=1;
+                    dialog.error=String(e?.message||e);
+                }
+            } finally {
+                if(isCurrent())this.pickLoading=false;
             }
         },
         async picked (v) {

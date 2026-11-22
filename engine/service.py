@@ -628,13 +628,19 @@ class Service:
                 return '已重新安排解析'
             if cmd=='settings':
                 val=a.get('interval')
-                if int(val) not in (5,15,30,60,300,900,3600) or a.get('theme') not in ('浅色','深色'):
+                if type(val) not in (int,str):
+                    raise ValueError('设置值无效')
+                try:
+                    interval=int(val)
+                except (TypeError,ValueError,OverflowError) as exc:
+                    raise ValueError('设置值无效') from exc
+                if interval not in (5,15,30,60,300,900,3600) or a.get('theme') not in ('浅色','深色') or type(a.get('autostart',False)) is not bool:
                     raise ValueError('设置值无效')
                 if a.get('autostart',False)!=settings(db)['autostart']:
                     set_login(bool(a.get('autostart')))
-                for k in ('theme','interval','autostart'):
-                    db.execute('INSERT OR REPLACE INTO settings VALUES (?,?)',(k,json.dumps(a.get(k))))
-                self.s.audit(db,'更新系统设置','扫描间隔 '+str(val)+' 秒，'+a['theme'])
+                for k,value in (('theme',a['theme']),('interval',interval),('autostart',a.get('autostart',False))):
+                    db.execute('INSERT OR REPLACE INTO settings VALUES (?,?)',(k,json.dumps(value)))
+                self.s.audit(db,'更新系统设置','扫描间隔 '+str(interval)+' 秒，'+a['theme'])
                 return '设置已保存'
             if cmd in ('export','export_files','export_audit'):
                 dest=Path(a['path']).resolve()

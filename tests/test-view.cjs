@@ -70,6 +70,15 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   }
   exampleData.events.splice(-timeRows.length);
   exampleData.files.splice(-timeRows.length);
+  {
+    const inventoryId=Object.keys(exampleData.inventory)[0];
+    const inventoryRow=exampleData.inventory[inventoryId][0];
+    const savedPath=inventoryRow.rel;
+    inventoryRow.rel='Änderung/Straße.txt';
+    const result=await ctx.exampleRequest('checkpoint_inventory',{id:Number(inventoryId),q:'ÄNDERUNG\\STRASSE'});
+    assert.equal(result.total,1,'离线清单查询应支持 Unicode 大小写和 Windows 路径分隔符');
+    inventoryRow.rel=savedPath;
+  }
   const pickerRequest=ctx.exampleRequest;
   const defaultFile=await pickerRequest('files',{size:1,history:true});
   let finishDefault, rejectDefault;
@@ -300,7 +309,23 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   await appVm.go('目录监控');
   await appVm.treeFor(appVm.s.roots[0]);assert(appVm.dialog.folders.length>0);
   const folder=appVm.dialog.folders[0];appVm.dialog.query=folder.path;assert(appVm.visibleFolders.some(f=>f.path===folder.path));await appVm.treeSelect(appVm.s.roots[0],folder.path);assert.equal(appVm.list.total,folder.total);assert(appVm.list.items.every(x=>x.rel.startsWith(folder.path+'/')));
+  let rejectFilePicker;
+  ctx.exampleRequest=(cmd,args)=>cmd==='files'&&args.size===15
+    ?new Promise((_,reject)=>{rejectFilePicker=reject;})
+    :originalRequest(cmd,args);
+  const closingPicker=appVm.fileDialog();await ctx.Vue.nextTick();
+  assert(root.textContent.includes('正在查找…'));
+  findNode(root,node=>node.tag==='button'&&node.props['aria-label']==='关闭').props.onClick();
+  appVm.rootDialog(appVm.s.roots[0]);
+  const rootSettings=appVm.dialog;
+  rejectFilePicker(Error('已关闭的选择器请求失败'));await closingPicker;await ctx.Vue.nextTick();
+  assert.equal(appVm.dialog,rootSettings);
+  assert(!rootSettings.error,'选择器请求失败不得修改替换它的对话框');
+  assert(!root.textContent.includes('已关闭的选择器请求失败'));
+  ctx.exampleRequest=originalRequest;
   await appVm.fileDialog();appVm.pickQ='库存台账';await appVm.loadPicks();assert.equal(appVm.picks.total,1);
+  appVm.pickPage=2;await appVm.loadPicks();
+  assert.equal(appVm.pickPage,1,'选择器应使用后端返回的有效页码');
   await appVm.picked(appVm.picks.items[0]);assert.equal(appVm.page,'历史版本');
   await appVm.go('文件管理');appVm.f.q='仓库交接';await appVm.queryFirst();
   assert.equal(appVm.list.total,1);assert(appVm.list.items[0].matched_path.endsWith('仓库交接.md'));

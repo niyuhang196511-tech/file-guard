@@ -491,10 +491,11 @@ window.exampleRequest=async function(cmd,a={}){
     const id=a.id||Object.keys(d.inventory)[0],original=d.inventory[id];
     const meta=Object.values(d.checkpoints).flat().find(c=>c.id===Number(id));
     if(!meta)throw Error('目录清单不存在');
-    const q=String(a.q||'').trim().toLowerCase().replaceAll('\\','/'),folder=String(a.folder||'').trim().replaceAll('\\','/').replace(/^\/+|\/+$/g,'');
+    const fold=text=>Array.from(text,c=>d.textSearch.fold[c]??c.toLowerCase()).join('');
+    const q=fold(String(a.q||'').trim().replaceAll('\\','/')),folder=String(a.folder||'').trim().replaceAll('\\','/').replace(/^\/+|\/+$/g,'');
     const ext=String(a.ext||'').toLowerCase().split(/[,，;；\s]+/).filter(Boolean).map(k=>'.'+k.replace(/^\.+/,''));
     const sha=String(a.sha||'').trim().toLowerCase();if(sha&&!/^[0-9a-f]{1,64}$/.test(sha))throw Error('摘要前缀格式不正确');
-    const items=original.filter(r=>(!q||r.rel.toLowerCase().includes(q))&&(!folder||r.rel.startsWith(folder+'/'))&&(!ext.length||ext.includes(r.ext))&&r.sha.startsWith(sha));
+    const items=original.filter(r=>(!q||fold(r.rel).includes(q))&&(!folder||r.rel.startsWith(folder+'/'))&&(!ext.length||ext.includes(r.ext))&&r.sha.startsWith(sha));
     if(a.sort==='size')items.sort((x,y)=>y.size-x.size);
     if(a.sort==='version')items.sort((x,y)=>y.num-x.num);
     if(a.sort==='updated')items.sort((x,y)=>Date.parse(y.stamp)-Date.parse(x.stamp)||y.num-x.num);
