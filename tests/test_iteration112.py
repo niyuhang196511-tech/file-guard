@@ -564,6 +564,36 @@ class Health(Work):
             db.execute("INSERT INTO tasks VALUES(10000,0,'测试')")
         with self.assertRaisesRegex(ValueError,'引用'):health.run(self.store)
         self.assertEqual(len(self.call('health_reports')),1)
+
+    def test_verify_rejects_broken_database_references(self):
+        self.write('tracked.txt', b'healthy contents')
+        self.scan()
+        self.assertEqual(self.call('verify'), '数据库与 1 个历史对象通过校验')
+        with closing(sqlite3.connect(self.store.dbfile)) as db, db:
+            db.execute('PRAGMA foreign_keys=OFF')
+            db.execute("INSERT INTO tasks VALUES(10000,0,'测试')")
+            self.assertEqual(db.execute('PRAGMA integrity_check').fetchone()[0], 'ok')
+
+        with self.assertRaisesRegex(ValueError, '数据库完整性检查失败'):
+            self.call('verify')
+        self.assertEqual(self.call('audit', action='完整性校验')['total'], 1)
+
+    def test_verify_checks_object_size_and_index_agreement(self):
+        content = b'shared bytes'
+        self.write('first.txt', content)
+        self.write('second.txt', content)
+        self.scan()
+        sha = hashlib.sha256(content).hexdigest()
+        self.assertEqual(self.call('verify'), '数据库与 1 个历史对象通过校验')
+        for affected in (1, 2):
+            with self.subTest(affected=affected):
+                with self.store.db() as db:
+                    db.execute('UPDATE versions SET size=? WHERE id<=?', (len(content)+1, affected))
+                self.assertEqual(self.store.obj(sha).read_bytes(), content)
+                with self.assertRaisesRegex(ValueError, '对象校验失败：'+sha):
+                    self.call('verify')
+                self.assertEqual(self.call('audit', action='完整性校验')['total'], 1)
+
     def test_coverage_uses_unique_content_and_version_references(self):
         self.write('a','shared');self.scan();path=self.base/'snapshot.zip';self.store.backup(path)
         self.write('a','new');self.write('b','new');self.scan()
@@ -596,6 +626,23 @@ class Health(Work):
             db.execute('DELETE FROM tasks WHERE root_id=10000')
         self.call('backup', path=str(dest))
         self.assertEqual(self.call('inspect_backup', path=str(dest))['versions'], 1)
+
+    def test_backup_flush_failure_leaves_no_archive_or_success_audit(self):
+        self.write('tracked.txt', b'healthy contents')
+        self.scan()
+        dest = self.base / 'backup.zip'
+
+        with patch('engine.publication.os.fsync', side_effect=OSError('同步备份失败')) as flush:
+            with self.assertRaisesRegex(OSError, '同步备份失败'):
+                self.call('backup', path=str(dest))
+        flush.assert_called_once()
+        self.assertFalse(dest.exists())
+        self.assertFalse(list(self.base.glob('.fileguard-export-*')))
+        self.assertEqual(self.call('audit', action='创建数据备份')['total'], 0)
+
+        self.call('backup', path=str(dest))
+        self.assertEqual(self.call('inspect_backup', path=str(dest))['versions'], 1)
+        self.assertEqual(self.call('audit', action='创建数据备份')['total'], 1)
 
     def test_schema_eight_upgrade_and_older_backup(self):
         self.write('a','a');self.scan()

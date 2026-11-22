@@ -57,8 +57,11 @@ def read(db,store,args):
           FROM versions v JOIN files f ON f.id=v.file_id JOIN roots r ON f.root_id=r.id WHERE v.id=?""",(int(args['id']),)).fetchone()
     if not row or row['ext'] not in EXTENSIONS:raise ValueError('请选择 XLSX 系列、CSV 或 TSV 的历史版本')
     if row['size']>formats.PARSE_BYTES:raise ValueError('版本超过 32 MiB 解析上限')
-    store.checked_version(db,row['id'])
-    path=store.obj(row['sha'])
+    with store.parsing_paths(row) as (path,):
+        return read_table(path,row,args)
+
+
+def read_table(path,row,args):
     result=dict(row)
     if row['ext'] in ('.csv','.tsv'):
         result.update(sheets=['数据表'],sheet='数据表')

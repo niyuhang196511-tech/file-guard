@@ -991,13 +991,21 @@ class Store:
 
     def verify(self):
         with self.lock,self.db() as db:
-            if db.execute('PRAGMA integrity_check').fetchone()[0]!='ok':
-                raise ValueError('数据库完整性检查失败')
-            count=0
-            for sha, in db.execute('SELECT DISTINCT sha FROM versions'):
-                if digest(self.obj(sha))!=sha:
-                    raise ValueError('对象校验失败：'+sha)
-                count+=1
+            db.execute('BEGIN')
+            try:
+                validate_database(db)
+            except ValueError as exc:
+                raise ValueError('数据库完整性检查失败') from exc
+            count = 0
+            for sha, low, high in db.execute('SELECT sha,min(size),max(size) FROM versions GROUP BY sha'):
+                if low != high:
+                    raise ValueError(f'对象校验失败：{sha}（索引长度冲突）')
+                try:
+                    self.checked_object(sha, low)
+                except (ValueError, OSError) as exc:
+                    raise ValueError(f'对象校验失败：{sha}') from exc
+                count += 1
+            db.commit()
             msg=f'数据库与 {count} 个历史对象通过校验'
             self.audit(db,'完整性校验',msg)
             return msg
@@ -1020,10 +1028,7 @@ class Store:
                 if out.execute('SELECT 1 FROM record_admin').fetchone():
                     if authorize is None:raise ValueError('完整备份需要管理口令')
                     authorize(out)
-            fd,name=tempfile.mkstemp(dir=dst.parent)
-            os.close(fd)
-            tmp=Path(name)
-            try:
+            with new_path(dst) as tmp:
                 with zipfile.ZipFile(tmp,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=1) as archive:
                     archive.write(snap,'fileguard.db')
                     with contextlib.closing(sqlite3.connect(snap)) as check:
@@ -1044,12 +1049,6 @@ class Store:
                             schema=schema,objects=objects,bytes=size,
                             versions=check.execute('SELECT count(*) FROM versions').fetchone()[0])
                         archive.writestr(MANIFEST,json.dumps(manifest,ensure_ascii=False))
-                if os.name=='nt':
-                    os.rename(tmp,dst)
-                else:
-                    os.link(tmp,dst)
-            finally:
-                tmp.unlink(missing_ok=True)
             self.audit(db,'创建数据备份',dst)
         return str(dst)
 

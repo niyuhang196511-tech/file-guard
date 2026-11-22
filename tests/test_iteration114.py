@@ -143,6 +143,24 @@ class Receipt(Workspace):
 
 
 class Inputs(Workspace):
+    def test_table_source_rejects_archive_replaced_after_verification(self):
+        self.file('ledger.csv', b'id,value\nA,old\n')
+        self.scan()
+        baseline = self.source()
+        self.assertEqual(baseline['rows'][1], [['文本','A'], ['文本','old']])
+        replacement = self.base/'replacement.csv'
+        replacement.write_bytes(b'id,value\nA,bad\n')
+        verify = self.store.checked_object
+
+        def replace_verified_archive(sha, size):
+            path, signature = verify(sha, size)
+            replacement.replace(path)
+            return path, signature
+
+        with patch.object(self.store, 'checked_object', side_effect=replace_verified_archive):
+            with self.assertRaisesRegex(ValueError, '解析期间变化'):
+                self.source()
+
     def test_saved_snapshot_csv_bom_quotes_and_empty_records(self):
         path=self.file('f.csv','sep=;\n编号;名称;备注\n001;"含;分隔";"两\n行"\n\n002;末项;\n'.encode('utf-8-sig'));self.scan()
         path.write_text('不同的现场',encoding='utf8')
