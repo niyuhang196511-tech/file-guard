@@ -725,18 +725,16 @@ const app = createApp({
             } else await this.go(m.target);
         },
         async treeFor (r) {
-            await this.safe(async ()=>{
-                const folders = await request('folders', {
-                    id: r.id, counts:true
-                });
-                this.dialog = {
-                    type: 'tree',
-                    query: '',
-                    title: this.base(r.path),
-                    root: r,
-                    folders
-                };
-            });
+            this.dialog={type:'tree',query:'',title:this.base(r.path),root:r,folders:[],loading:true,error:''};
+            const d=this.dialog;
+            try {
+                const folders=await request('folders',{id:r.id,counts:true});
+                if(this.dialog===d)d.folders=folders;
+            } catch(e) {
+                if(this.dialog===d)d.error=String(e?.message||e);
+            } finally {
+                if(this.dialog===d)d.loading=false;
+            }
         },
         async treeSelect (r, folder) {
             await this.go('文件管理',{root:r.id,prefix:folder});
@@ -1648,8 +1646,16 @@ const app = createApp({
             else await this.saveFile('checkpoint_three_csv','目录清单三方对照.csv',null,this.triApplied);
         },
         async showRuleHistory (r) {
-            const entries=await this.safe(()=>request('rule_history',{root:r.id}));
-            if(entries)this.dialog={type:'rule_history',title:'采集规则沿革',path:r.path,entries};
+            this.dialog={type:'rule_history',title:'采集规则沿革',path:r.path,entries:null,loading:true,error:''};
+            const d=this.dialog;
+            try {
+                const entries=await request('rule_history',{root:r.id});
+                if(this.dialog===d)d.entries=entries;
+            } catch(e) {
+                if(this.dialog===d)d.error=String(e?.message||e);
+            } finally {
+                if(this.dialog===d)d.loading=false;
+            }
         },
         async previewRules () {
             const d=this.dialog;

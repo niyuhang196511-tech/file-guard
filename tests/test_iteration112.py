@@ -165,6 +165,53 @@ class Restore(Work):
         self.call('retry_recovery')
         self.assertEqual(self.call('audit', action='恢复中断')['total'], 0)
 
+    def case_alias_occupant(self):
+        original = self.write('Note.txt', b'original registered file')
+        if not (self.directory / 'note.txt').exists():
+            self.skipTest('当前目录区分文件名大小写')
+        self.scan()
+        old, = self.call('files')['items']
+        original.rename(self.directory / 'archive.txt')
+        occupant = self.write('note.txt', b'different registered file')
+        self.scan()
+        current, = [row for row in self.call('files')['items'] if row['rel'] == 'note.txt']
+        self.assertNotEqual(old['id'], current['id'])
+        self.assertTrue(original.samefile(occupant))
+        return old, current, occupant
+
+    @unittest.skipUnless(os.name == 'nt', '依赖 Windows 路径别名')
+    def test_restore_cannot_write_over_another_registered_case_alias(self):
+        old, other, occupant = self.case_alias_occupant()
+        # A later atomic save still belongs to the other indexed path.
+        os.replace(self.write('editor.tmp', b'new unrecorded bytes of the other file'), occupant)
+        for unscanned_rename in (False, True):
+            if unscanned_rename:
+                moved = occupant.rename(self.directory / 'case-change.tmp')
+                occupant = moved.rename(self.directory / 'NOTE.TXT')
+            for command in ('restore_info', 'restore'):
+                with self.subTest(command=command, unscanned_rename=unscanned_rename):
+                    with self.assertRaisesRegex(ValueError, '同名文件'):
+                        self.call(command, id=old['vid'])
+        self.assertEqual(occupant.read_bytes(), b'new unrecorded bytes of the other file')
+        self.assertEqual([v['num'] for v in self.call('history', id=old['id'])], [1])
+        self.assertEqual([v['num'] for v in self.call('history', id=other['id'])], [1])
+        self.assertEqual(self.call('summary')['recovery'], 0)
+
+    @unittest.skipUnless(os.name == 'nt', '依赖 Windows 路径别名')
+    def test_pending_restore_terminates_if_another_file_owns_the_case_alias(self):
+        old, other, occupant = self.case_alias_occupant()
+        # An intent may have been written by an older engine before the ownership check.
+        with self.store.db() as db:
+            db.execute('INSERT INTO restores(file_id,version_id,prior_sha,stamp) VALUES (?,?,?,?)',
+                       (old['id'], old['vid'], other['sha'], old['updated']))
+        occupant.write_bytes(b'original registered file')
+        self.call('retry_recovery')
+        self.assertEqual(self.call('summary')['recovery'], 0)
+        self.assertEqual(self.call('audit', action='恢复核对终止')['total'], 1)
+        self.assertEqual(self.call('events', kind='历史恢复')['total'], 0)
+        self.assertEqual([v['num'] for v in self.call('history', id=old['id'])], [1])
+        self.assertEqual(occupant.read_bytes(), b'original registered file')
+
     def test_copy_is_only_published_after_verification(self):
         self.write('a','a');self.scan();dest=self.base/'expected'
         def partial(src,out):

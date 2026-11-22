@@ -9,7 +9,7 @@ MODES=('path','folder','identity')
 TYPES=('初始建档','新增','内容修改','属性修改','重命名','移动','删除','历史恢复','恢复前快照')
 MOVEMENT=('初始建档','新增','重命名','移动','删除')
 DIRECTIONS=('新占用记录','删除记录','移入范围','移出范围','范围内路径变化','重命名','移动','原位置记录')
-SORTS={'newest':'stamp DESC,id DESC','oldest':'stamp,id'}
+SORTS={'newest':'unixepoch(stamp) DESC,id DESC','oldest':'unixepoch(stamp),id'}
 LIMIT=100_000
 CSV_FIELDS=('id','file_id','root','stamp','direction','kind','old_rel','rel','prior','version','source','caption')
 CSV_HEADER=('事件编号','文件身份','监控目录','记录时间','路径关系','事件类型','原路径','事件路径','旧版本','新版本','扫描来源','公开更正')
@@ -143,15 +143,26 @@ def result(db,store,args,export=False):
     db.execute('BEGIN')
     cte,params=relation_query(db,a)
     order=' ORDER BY '+SORTS[a['sort']]
-    stat=dict(db.execute(cte+"""SELECT count(*) AS total,count(DISTINCT file_id) AS identities,
-        count(DISTINCT root_id) AS roots,min(stamp) AS first,max(stamp) AS last FROM filtered""",params).fetchone())
     if export:
-        return write_csv(db,store,args,cte+'SELECT * FROM filtered'+order,params,stat['total'])
+        total=db.execute(cte+'SELECT count(*) FROM filtered',params).fetchone()[0]
+        return write_csv(db,store,args,cte+'SELECT * FROM filtered'+order,params,total)
+    stat=dict(db.execute(cte+""" , dated AS MATERIALIZED (
+        SELECT id,file_id,root_id,stamp,unixepoch(stamp) AS epoch FROM filtered
+    ) SELECT count(*) AS total,count(DISTINCT file_id) AS identities,count(DISTINCT root_id) AS roots,
+        (SELECT stamp FROM dated ORDER BY epoch,id LIMIT 1) AS first,
+        (SELECT stamp FROM dated ORDER BY epoch DESC,id DESC LIMIT 1) AS last
+        FROM dated""",params).fetchone())
     counts=dict(db.execute(cte+'SELECT direction,count(*) FROM filtered GROUP BY direction',params))
     page,pages,offset=pagination(stat['total'],a['page'],a['size'])
     ip,ips,io=pagination(stat['identities'],a['identity_page'],20)
-    identities=db.execute(cte+"""SELECT file_id,root_id,root,count(*) total,min(stamp) first,max(stamp) last
-                  FROM filtered GROUP BY file_id,root_id,root ORDER BY last DESC,file_id DESC LIMIT 20 OFFSET :offset""",
+    identities=db.execute(cte+f"""SELECT file_id,root_id,root,total,first,last FROM (
+                  SELECT file_id,root_id,root,count(*) OVER file_times AS total,
+                         first_value(stamp) OVER file_times AS first,last_value(stamp) OVER file_times AS last,
+                         row_number() OVER file_times AS position
+                  FROM filtered
+                  WINDOW file_times AS (PARTITION BY file_id,root_id,root ORDER BY {SORTS['oldest']}
+                                        ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+                  ) WHERE position=1 ORDER BY unixepoch(last) DESC,file_id DESC LIMIT 20 OFFSET :offset""",
                   {**params,'offset':io})
     items=db.execute(cte+'SELECT * FROM filtered'+order+' LIMIT :size OFFSET :offset',{**params,'size':a['size'],'offset':offset})
     return dict(**stat,items=[dict(r) for r in items],groups=[dict(r) for r in identities],counts=counts,

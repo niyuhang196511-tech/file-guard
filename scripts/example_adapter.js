@@ -141,23 +141,24 @@ window.exampleRequest=async function(cmd,a={}){
       }
       if(!a.direction||a.direction===direction)items.push({...event,old_match,new_match,direction});
     }
-    items.sort((x,y)=>x.stamp.localeCompare(y.stamp)||x.id-y.id);
+    items.sort((x,y)=>Date.parse(x.stamp)-Date.parse(y.stamp)||x.id-y.id);
     const first=items[0]?.stamp??null,last=items.at(-1)?.stamp??null;
-    if(a.sort!=='oldest')items.reverse();
     if(cmd==='path_history_csv'){
       if(!items.length)throw Error('当前范围没有可导出的记录');
+      if(a.sort!=='oldest')items.reverse();
       return csvText([d.pathHistoryHeader,...items.map(r=>d.pathHistoryFields.map(k=>r[k]))]);
     }
     const counts={},byFile=new Map();
     for(const e of items){
       counts[e.direction]=(counts[e.direction]||0)+1;
       const row=byFile.get(e.file_id)||{file_id:e.file_id,root_id:e.root_id,root:e.root,total:0,first:e.stamp,last:e.stamp};
-      row.total++;if(e.stamp<row.first)row.first=e.stamp;if(e.stamp>row.last)row.last=e.stamp;
+      row.total++;row.last=e.stamp;
       byFile.set(e.file_id,row);
     }
-    const groups=[...byFile.values()].sort((x,y)=>y.last.localeCompare(x.last)||y.file_id-x.file_id);
+    const groups=[...byFile.values()].sort((x,y)=>Date.parse(y.last)-Date.parse(x.last)||y.file_id-x.file_id);
     const identity_pages=Math.max(1,Math.ceil(groups.length/20));
     const identity_page=Math.min(identity_pages,Math.max(1,a.identity_page||1));
+    if(a.sort!=='oldest')items.reverse();
     const p=paginate(items,a.size||25);
     return {...p,mode,path,first,last,counts,pages:Math.max(1,Math.ceil(p.total/p.size)),
       identities:groups.length,roots:new Set(items.map(r=>r.root_id)).size,

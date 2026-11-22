@@ -243,6 +243,89 @@ class PathHistoryTests(unittest.TestCase):
                          [('初始建档', 'Note.txt', '', None, 1), ('重命名', 'note.txt', 'Note.txt', 1, 1),
                           ('内容修改', 'note.txt', '', 1, 2)])
 
+    @unittest.skipUnless(os.name == 'nt', '依赖 Windows 路径别名')
+    def test_case_only_rename_with_atomic_save_keeps_identity(self):
+        original_path = self.put('Note.txt', '初版')
+        if not (self.root / 'note.txt').exists():
+            self.skipTest('当前目录区分文件名大小写')
+        self.scan()
+        original, = self.service.dispatch('files', {})['items']
+
+        self.move('Note.txt', 'intermediate.txt')
+        self.move('intermediate.txt', 'note.txt')
+        target = self.root / 'note.txt'
+        staged = self.put('editor.tmp', '通过原子替换保存的新版本')
+        os.replace(staged, target)
+        self.assertTrue(original_path.samefile(target))
+        self.assertNotEqual(self.store.fkey(target.stat()), original['fkey'])
+        self.scan()
+
+        current, = self.service.dispatch('files', {'scope': 'all'})['items']
+        self.assertEqual((current['id'], current['rel'], current['version'], current['live'], current['tracked']),
+                         (original['id'], 'note.txt', 2, 1, 1))
+        versions = self.service.dispatch('history', {'id': original['id']})
+        self.assertEqual([self.store.obj(v['sha']).read_text(encoding='utf-8') for v in versions],
+                         ['通过原子替换保存的新版本', '初版'])
+        history = self.path(mode='identity', file=original['id'], sort='oldest')['items']
+        self.assertEqual([(row['kind'], row['old_rel'], row['prior'], row['version']) for row in history],
+                         [('初始建档', '', None, 1), ('重命名', 'Note.txt', 1, 1), ('内容修改', '', 1, 2)])
+
+    @unittest.skipUnless(os.name == 'nt', '依赖 Windows 路径别名')
+    def test_case_alias_does_not_merge_ambiguous_file_ids(self):
+        original = self.put('Note.txt')
+        if not (self.root / 'note.txt').exists():
+            self.skipTest('当前目录区分文件名大小写')
+        self.put('Shared.txt')
+        self.scan()
+        prior = {row['rel']: row for row in self.service.dispatch('files', {})['items']}
+
+        original.rename(self.root / 'archive.txt')
+        self.put('note.txt', '占用原路径的新文件')
+        self.move('Shared.txt', 'intermediate.txt')
+        self.move('intermediate.txt', 'shared.txt')
+        target = self.root / 'shared.txt'
+        os.replace(self.put('editor.tmp', '另一份正文'), target)
+        try:
+            os.link(target, self.root / 'hardlink.txt')
+        except OSError as exc:
+            self.skipTest(str(exc))
+        self.scan()
+
+        current = {row['rel']: row for row in self.service.dispatch('files', {})['items']}
+        self.assertNotEqual(current['note.txt']['id'], prior['Note.txt']['id'])
+        self.assertNotEqual(current['shared.txt']['id'], prior['Shared.txt']['id'])
+        self.assertEqual(self.service.dispatch('events', {'kind': '重命名'})['total'], 0)
+
+    @unittest.skipUnless(os.name == 'nt', '依赖 Windows 路径别名')
+    def test_case_alias_replaced_during_capture_is_retried(self):
+        self.put('Note.txt', '原稿')
+        if not (self.root / 'note.txt').exists():
+            self.skipTest('当前目录区分文件名大小写')
+        self.scan()
+        original, = self.service.dispatch('files', {})['items']
+        self.move('Note.txt', 'intermediate.txt')
+        self.move('intermediate.txt', 'note.txt')
+        target = (self.root / 'note.txt').resolve()
+        os.replace(self.put('editor.tmp', '电子稿一'), target)
+        capture = self.store.capture
+
+        def replace_after_capture(path, **options):
+            snapshot = capture(path, **options)
+            os.replace(self.put('editor.tmp', '电子稿二'), path)
+            return snapshot
+
+        with patch.object(self.store, 'capture', side_effect=replace_after_capture):
+            self.scan()
+        waiting, = self.service.dispatch('waiting_files', {'root': self.rid})['items']
+        self.assertEqual((waiting['rel'], waiting['reason']), ('note.txt', '等待保存稳定'))
+        current, = self.service.dispatch('files', {})['items']
+        self.assertEqual((current['id'], current['rel'], current['version']), (original['id'], 'Note.txt', 1))
+
+        self.scan(source='保存复查')
+        current, = self.service.dispatch('files', {'scope': 'all'})['items']
+        self.assertEqual((current['id'], current['rel'], current['version']), (original['id'], 'note.txt', 2))
+        self.assertEqual(self.store.obj(current['sha']).read_text(encoding='utf-8'), '电子稿二')
+
     def test_existing_case_variants_remain_distinct(self):
         first=self.put('Note.txt','第一份')
         try:
@@ -284,6 +367,31 @@ class PathHistoryTests(unittest.TestCase):
         self.assertEqual((new['total'],new['first'],new['last']),(2,'2025-12-31T23:59:59+08:00','2025-12-31T23:59:59+08:00'))
         self.assertEqual([r['id'] for r in new['items']],[r['id'] for r in reversed(self.path(**opts,sort='oldest')['items'])])
         self.assertEqual(self.path(rel='核对.txt',end='9999-12-31')['total'],4)
+
+    def test_mixed_offset_history_uses_actual_time_for_bounds_groups_and_csv(self):
+        early = '2026-11-01T01:58:00-04:00'
+        middle = '2026-11-01T14:00:00+08:00'
+        late = '2026-11-01T01:03:00-05:00'
+        tied = '2026-11-01T06:03:00+00:00'
+        for name, text, stamp in (
+            ('甲.txt', '建档', early), ('乙.txt', '另一文件', middle),
+            ('甲.txt', '修改一次', late), ('甲.txt', '再次更新内容', tied),
+        ):
+            self.put('时区/'+name, text)
+            self.scan(stamp=stamp)
+
+        opts = dict(mode='folder', rel='时区')
+        for sort, expected in (('oldest', [early, middle, late, tied]), ('newest', [tied, late, middle, early])):
+            with self.subTest(sort=sort):
+                report = self.path(**opts, sort=sort)
+                dest = self.base/f'path-{sort}.csv'
+                self.service.dispatch('path_history_csv', dict(opts, sort=sort, path=str(dest)))
+                with dest.open(encoding='utf-8-sig', newline='') as src:
+                    exported = [row['记录时间'] for row in csv.DictReader(src)]
+                self.assertEqual(([row['stamp'] for row in report['items']], exported), (expected, expected))
+                self.assertEqual((report['first'], report['last']), (early, tied))
+                self.assertEqual([(group['total'], group['first'], group['last']) for group in report['groups']],
+                                 [(3, early, tied), (1, middle, middle)])
 
     def test_independent_event_and_identity_paging_reports_full_totals(self):
         for i in range(23):

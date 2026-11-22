@@ -257,6 +257,20 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   assert.equal(appVm.page,'文件管理');assert.equal(appVm.f.q,'仓库交接');
   assert.equal(appVm.list.total,1);assert.equal(appVm.dialog,currentDialog);
   for(const page of ['目录监控','文件管理','历史版本','版本对比','审计中心','系统设置','系统总览']){await appVm.go(page);await ctx.Vue.nextTick();assert(root.textContent.includes(page))}
+  await appVm.go('目录监控');await ctx.Vue.nextTick();
+  let finishFolderTree, folderTreeArgs;
+  ctx.exampleRequest=(cmd,args)=>cmd==='folders'
+    ?new Promise(resolve=>{finishFolderTree=resolve;folderTreeArgs=args;})
+    :originalRequest(cmd,args);
+  const folderButton=findNode(root,node=>node.tag==='button'&&node.textContent==='子目录');
+  const departedFolderTree=folderButton.props.onClick();await ctx.Vue.nextTick();
+  assert(root.textContent.includes('正在读取子目录'));
+  await appVm.go('文件管理',{q:'仓库交接'});await appVm.fileDialog();
+  const folderTreePicker=appVm.dialog;
+  finishFolderTree(await originalRequest('folders',folderTreeArgs));await departedFolderTree;
+  assert.equal(appVm.dialog,folderTreePicker,'旧的子目录响应不得覆盖当前文件选择器');
+  ctx.exampleRequest=originalRequest;
+  await appVm.go('目录监控');
   await appVm.treeFor(appVm.s.roots[0]);assert(appVm.dialog.folders.length>0);
   const folder=appVm.dialog.folders[0];appVm.dialog.query=folder.path;assert(appVm.visibleFolders.some(f=>f.path===folder.path));await appVm.treeSelect(appVm.s.roots[0],folder.path);assert.equal(appVm.list.total,folder.total);assert(appVm.list.items.every(x=>x.rel.startsWith(folder.path+'/')));
   await appVm.fileDialog();appVm.pickQ='库存台账';await appVm.loadPicks();assert.equal(appVm.picks.total,1);
@@ -473,6 +487,34 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
   const row=appVm.cpData.items[0];await appVm.openCheckpointRow(row);assert.equal(appVm.right,row.new);assert.equal(appVm.left,row.old);
   await appVm.fromEvent(recent);appVm.gridFilter='修改行';await appVm.loadGrid();assert(appVm.grid.matches>0);
   assert(appVm.grid.rows.every(row=>row.filters.includes('修改行')));
+  await appVm.go('目录监控');await ctx.Vue.nextTick();
+  const initialRulesRoot=appVm.visibleRoots[0];
+  let finishRuleHistory, failRuleHistory, ruleHistoryArgs;
+  ctx.exampleRequest=(cmd,args)=>cmd==='rule_history'
+    ?new Promise((resolve,reject)=>{finishRuleHistory=resolve;failRuleHistory=reject;ruleHistoryArgs=args;})
+    :originalRequest(cmd,args);
+  const ruleHistoryButton=findNode(root,node=>node.tag==='button'&&node.textContent==='规则沿革');
+  const departedRuleHistory=ruleHistoryButton.props.onClick();
+  await appVm.go('文件管理',{q:'仓库交接'});await appVm.fileDialog();
+  const ruleHistoryPicker=appVm.dialog;
+  finishRuleHistory(await originalRequest('rule_history',ruleHistoryArgs));await departedRuleHistory;
+  assert.equal(appVm.dialog,ruleHistoryPicker,'旧的规则沿革响应不得覆盖当前文件选择器');
+
+  await appVm.go('目录监控');await ctx.Vue.nextTick();
+  const outdatedRuleHistory=appVm.showRuleHistory(initialRulesRoot);
+  const failOutdatedRuleHistory=failRuleHistory;
+  const otherRulesRoot=appVm.visibleRoots.find(r=>r.id!==initialRulesRoot.id);
+  const currentRuleHistory=appVm.showRuleHistory(otherRulesRoot);
+  await ctx.Vue.nextTick();
+  assert(root.textContent.includes('正在读取采集规则沿革'));
+  const activeRuleHistory=appVm.dialog;
+  failOutdatedRuleHistory(Error('旧目录规则沿革查询失败'));await outdatedRuleHistory;
+  assert.equal(appVm.dialog,activeRuleHistory);assert.equal(activeRuleHistory.error,'');
+  assert.equal(ruleHistoryArgs.root,otherRulesRoot.id);
+  finishRuleHistory(await originalRequest('rule_history',ruleHistoryArgs));await currentRuleHistory;
+  assert.equal(activeRuleHistory.path,otherRulesRoot.path);
+  assert.equal(activeRuleHistory.loading,false);
+  ctx.exampleRequest=originalRequest;
   await appVm.go('目录监控');await appVm.showRuleHistory(appVm.s.roots[0]);assert(appVm.dialog.entries.length);
   appVm.rootDialog(appVm.s.roots[0]);await ctx.Vue.nextTick();
   const ruleDraft=appVm.dialog;

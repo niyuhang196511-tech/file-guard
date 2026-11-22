@@ -17,7 +17,7 @@ from pathlib import Path
 from . import formats
 from .backup_check import MANIFEST, validate_database
 from .publication import new_path
-from .shared_read import open_snapshot_source, replace_guarded_file
+from .shared_read import open_snapshot_source, replace_guarded_file, resolved_windows_relative_path
 
 
 ARCHIVE_UNVERIFIED = '历史版本不存在或校验未通过'
@@ -505,9 +505,22 @@ class Store:
             return (stat.S_ISDIR(info.st_mode)
                     and not getattr(info,'st_file_attributes',0) & stat.FILE_ATTRIBUTE_REPARSE_POINT)
 
+        def matches_case_alias(path, key, *, single_link=False):
+            try:
+                alias = path.lstat()
+            except OSError:
+                return False
+            return (stat.S_ISREG(alias.st_mode) and self.fkey(alias) == key
+                    and not alias.st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT
+                    and (not single_link or alias.st_nlink == 1))
+
         old_keys=Counter(r['fkey'] for r in old.values())
+        old_spellings = Counter(map(os.path.normcase, old)) if os.name == 'nt' else {}
+        found_spellings = {}
         found_paths={}
         for rel,s in found.items():
+            if old_spellings:
+                found_spellings.setdefault(os.path.normcase(rel), []).append(rel)
             key=self.fkey(s)
             if key:
                 found_paths.setdefault(key,[]).append(rel)
@@ -521,22 +534,29 @@ class Store:
             if absent:
                 missing[rel]=row
             key=row['fkey']
-            matches=found_paths.get(key,())
-            if old_keys[key]!=1 or len(matches)!=1 or matches[0] in old:
+            if not key or old_keys[key]!=1:
                 continue
-            new_rel=matches[0]
-            if not absent:
-                # A Windows lookup can still find a case-only rename by its old spelling.
-                if os.name!='nt' or os.path.normcase(new_rel)!=os.path.normcase(rel):
-                    continue
-                try:
-                    alias=path.lstat()
-                except OSError:
-                    continue
-                if (not stat.S_ISREG(alias.st_mode) or self.fkey(alias)!=key
-                    or alias.st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT):
-                    continue
-            candidates[key]=(row, not absent)
+            if absent:
+                matches=found_paths.get(key,())
+                if len(matches)==1 and matches[0] not in old:
+                    candidates[key]=(row,False)
+                continue
+            if not old_spellings:
+                continue
+            # After an atomic save, the old spelling can resolve to the replacement's new file ID.
+            spelling = os.path.normcase(rel)
+            matches = found_spellings.get(spelling, ())
+            if old_spellings[spelling] != 1 or len(matches) != 1 or matches[0] in old:
+                continue
+            info = found[matches[0]]
+            current_key = self.fkey(info)
+            if len(found_paths.get(current_key, ())) != 1:
+                continue
+            replaced = current_key != key
+            if replaced and (key in found_paths or current_key in old_keys):
+                continue
+            if matches_case_alias(path, current_key, single_link=replaced):
+                candidates[current_key]=(row,True)
         initially_missing=set(missing)
         full=source not in ('文件监听',)
         late_skips = set()
@@ -548,8 +568,9 @@ class Store:
                 waiting[rel]='等待恢复核对'
                 continue
             previous=old.get(rel)
-            moved,case_alias=(None,False) if previous else candidates.get(self.fkey(s),(None,False))
-            unchanged=previous and s.st_size==previous['size'] and s.st_mtime_ns==previous['mtime'] and self.fkey(s)==previous['fkey']
+            key=self.fkey(s)
+            moved,case_alias=(None,False) if previous else candidates.get(key,(None,False))
+            unchanged=previous and s.st_size==previous['size'] and s.st_mtime_ns==previous['mtime'] and key==previous['fkey']
             if (watch_scan or rel in observed) and not unchanged and (root['all_types'] or Path(rel).suffix.lower() in formats.SETTLE_EXTENSIONS) and settling(rel,signature(s)):
                 waiting[rel]='等待保存稳定'
                 continue
@@ -581,9 +602,12 @@ class Store:
                     sha,s = self.capture(base/rel, **capture_limits)
                     stats['captured']+=1
                     stats['read_bytes']+=s.st_size
+                captured_key = self.fkey(s)
+                if case_alias:
+                    if captured_key != key or not matches_case_alias(base/moved['rel'], key, single_link=key!=moved['fkey']):
+                        raise FileChanging('文件正在替换')
                 with self.db() as db:
-                    # A verified case alias still names the same file after a content edit.
-                    if moved and (case_alias or moved['sha']==sha) and moved['fkey']==self.fkey(s):
+                    if moved and (case_alias or (moved['sha']==sha and captured_key==key)):
                         previous=moved
                         old_rel=moved['rel']
                         missing.pop(old_rel,None)
@@ -603,13 +627,13 @@ class Store:
                         db.execute('UPDATE files SET mtime=?,fkey=?,updated=? WHERE id=?',(s.st_mtime_ns,self.fkey(s),now(),previous['id']))
                         self.record(db,previous['id'],rid,rel,'属性修改',latest,latest,source=source)
                 if moved:
-                    candidates.pop(moved['fkey'])
+                    candidates.pop(key)
             except CaptureTooLarge:
                 late_skips.add(rel)
                 reasons['超出大小上限']+=1
                 active_observations.discard(rel)
                 if moved:
-                    candidates.pop(moved['fkey'])
+                    candidates.pop(key)
             except (OSError,ValueError) as exc:
                 # Windows sharing violations are also classified as PermissionError.
                 if getattr(exc,'winerror',None) in (32,33):
@@ -627,8 +651,10 @@ class Store:
         # An unavailable root must not turn every entry into a deletion.
         if not base.is_dir():
             raise OSError('扫描期间目录离线')
+        deferred_aliases = {row['rel'] for row,case_alias in candidates.values() if case_alias}
         with self.db() as db:
-            excluded_ids=[(r['id'],) for rel,r in old.items() if rel not in found and rel not in initially_missing and rel not in unavailable]
+            excluded_ids=[(r['id'],) for rel,r in old.items() if rel not in found and rel not in initially_missing
+                          and rel not in unavailable and rel not in deferred_aliases]
             db.executemany('UPDATE files SET tracked=0 WHERE id=?',excluded_ids)
             db.executemany('UPDATE files SET tracked=1 WHERE id=?',[(old[k]['id'],) for k in found if k in old and not old[k]['tracked']])
             for rel,r in missing.items():
@@ -730,6 +756,43 @@ class Store:
         self.checked_object(v['sha'],v['size'])
         return v
 
+    @staticmethod
+    def _restore_path_claimed(db, file, target, base):
+        query = 'SELECT 1 FROM files WHERE root_id=? AND rel=? AND live=1 AND id!=?'
+        if db.execute(query, (file['root_id'], file['rel'], file['id'])).fetchone():
+            return True
+        if os.name != 'nt':
+            return False
+        try:
+            target.lstat()
+        except (FileNotFoundError, NotADirectoryError):
+            return False
+        root_parts = base.resolve(strict=True).parts
+        rel = resolved_windows_relative_path(target, root_parts)
+        if rel is None:
+            raise ValueError('无法确认原路径，请稍后重试或另存历史副本')
+        if rel != file['rel'] and db.execute(query, (file['root_id'], rel, file['id'])).fetchone():
+            return True
+
+        # Another indexed spelling may also be behind the current spelling by one save.
+        folded = os.path.normcase(rel)
+        indexed = db.execute('SELECT rel FROM files WHERE root_id=? AND live=1 AND id!=?',
+                             (file['root_id'], file['id']))
+        for spelling, in indexed:
+            if os.path.normcase(spelling) != folded:
+                continue
+            candidate = base / spelling
+            try:
+                ensure_plain(candidate, base)
+                resolved = resolved_windows_relative_path(candidate, root_parts)
+            except (FileNotFoundError, NotADirectoryError, ValueError):
+                continue
+            if resolved is None:
+                raise ValueError('无法确认原路径，请稍后重试或另存历史副本')
+            if resolved == rel:
+                return True
+        return False
+
     def restore_target(self,db,file_id):
         f=db.execute('SELECT f.*,r.path,r.removed FROM files f JOIN roots r ON r.id=f.root_id WHERE f.id=?',(file_id,)).fetchone()
         base=Path(f['path'])
@@ -737,8 +800,7 @@ class Store:
             raise ValueError('请先重新接入原目录')
         target=base/f['rel']
         ensure_plain(target,base)
-        other=db.execute('SELECT id FROM files WHERE root_id=? AND rel=? AND live=1 AND id!=?',(f['root_id'],f['rel'],f['id'])).fetchone()
-        if other or (not f['live'] and os.path.lexists(target)):
+        if self._restore_path_claimed(db,f,target,base) or (not f['live'] and os.path.lexists(target)):
             raise ValueError('原路径已出现同名文件，请另存历史副本')
         if target.exists() and not target.is_file():
             raise ValueError('原路径不是普通文件，请另存历史副本')
@@ -761,6 +823,8 @@ class Store:
                 state=signature(before);size=before.st_size
                 if state!=signature(target.stat()):
                     raise ValueError('预览期间文件发生变化，请重新预览')
+                if self._restore_path_claimed(db,f,target,Path(f['path'])):
+                    raise ValueError('原路径已出现同名文件，请另存历史副本')
             return dict(path=str(target),exists=state is not None,version=v['num'],size=v['size'],
                         sha=v['sha'],current_sha=sha,current_size=size,latest=last,
                         identical=sha==v['sha'],unrecorded=sha is not None and sha!=f['sha'],
@@ -780,6 +844,8 @@ class Store:
                 f,target=self.restore_target(db,v['file_id'])
             base=Path(f['path'])
             with protect_overwrite(target):
+                if self._restore_path_claimed(db,f,target,base):
+                    raise ValueError('原路径已出现同名文件，请另存历史副本')
                 original=None;sha=None
                 if preview is not None:
                     before=target.stat() if target.exists() else None
@@ -793,6 +859,8 @@ class Store:
                         raise ValueError('原路径已出现同名文件，请另存历史副本')
                     sha,s=self.capture(target)
                     original=signature(s)
+                    if self._restore_path_claimed(db,f,target,base):
+                        raise ValueError('原路径已出现同名文件，请另存历史副本')
                 if preview is not None and preview!=self.preview_key(v['id'],target,original,sha):
                     raise ValueError('原路径或文件内容已变化，请重新预览后恢复')
                 if preview is not None and sha==v['sha'] and sha==f['sha']:
@@ -817,6 +885,8 @@ class Store:
                         raise ValueError('临时副本校验失败')
                     ensure_plain(target,base)
                     if original:
+                        if self._restore_path_claimed(db,f,target,base):
+                            raise ValueError('原路径已出现同名文件，请另存历史副本')
                         if signature(target.stat())!=original:
                             raise ValueError('文件已变化，请重试')
                         replace_guarded_file(tmp,target)
@@ -871,11 +941,8 @@ class Store:
             return True
         base=Path(item['path'])
         target=base/item['rel']
-        other=db.execute('SELECT id FROM files WHERE root_id=? AND rel=? AND live AND id!=?',
-                         (item['root_id'],item['rel'],item['id'])).fetchone()
-        if item['removed'] or other:
-            self.audit(db,'恢复核对终止',f'{target} · 目录已移除或路径已由另一文件使用')
-        else:
+        terminated = item['removed'] or self._restore_path_claimed(db,item,target,base)
+        if not terminated:
             if not base.is_dir():
                 return False
             ensure_plain(target,base)
@@ -894,13 +961,17 @@ class Store:
                 after=target.stat()
                 if signature(before)!=signature(after):
                     return False
-                if observed!=sha:
+                if self._restore_path_claimed(db,item,target,base):
+                    terminated = True
+                elif observed!=sha:
                     self.audit(db,'恢复中断',target)
                 elif item['prior_sha']==sha:
                     self.audit(db,'恢复内容一致',f'{target} · 写回前后摘要相同，无法确认写回')
                 else:
                     self.version(db,item['id'],item['root_id'],item['rel'],sha,after,'历史恢复','恢复任务核对')
                     self.audit(db,'核对恢复结果',target)
+        if terminated:
+            self.audit(db,'恢复核对终止',f'{target} · 目录已移除或路径已由另一文件使用')
         db.execute('DELETE FROM restores WHERE id=?',(intent,))
         return True
 

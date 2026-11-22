@@ -831,9 +831,9 @@ aside nav{min-height:0;overflow-y:auto}.snippet111{max-width:28ch;overflow-wrap:
 </template>
 <small>每个目录保留最近 200 次扫描。汇总涵盖所有匹配运行，同一文件可能计入多次。</small>
 </template>
-<template v-if="dialog.type==='rule_history'"><p class="path">{{dialog.path}}</p><ol><li v-for="r in dialog.entries" :key="r.id">{{fmt(r.stamp)}} · {{r.patterns||'无排除规则'}} · {{r.max_mb ? r.max_mb+' MiB':'不限大小'}}</li></ol><small>最近 100 次配置，最新在前。</small></template><template v-if="dialog.type==='inspect'"><label>备份 ZIP 路径<input v-model="dialog.path" required></label><small>逐个核对对象，无需退出监控。</small></template><template v-if="dialog.type==='backup'"><label>管理口令<input v-model="dialog.password" type="password" autocomplete="off" required></label><label>新备份文件的完整路径<input v-model="dialog.path" required></label></template><template v-if="dialog.type==='root'"><label>目录路径<div class="inline"><input v-model="dialog.path" placeholder="例如 D:\业务资料\仓库" required :readonly="!!dialog.id"><button type="button" class="btn" v-if="native&&!dialog.id" @click="chooseDir">浏览</button></div></label><label>排除规则<input v-model="dialog.patterns" placeholder="例如 *.tmp，*.bak，缓存/*"></label><label>单文件大小上限（MiB）<input type="number" min="0" v-model.number="dialog.max_mb"></label><small>填 0 表示不限大小。超过上限的文件会跳过。</small><details><summary>保存前预演规则</summary><label>待测文件相对路径，每行一个<textarea v-model="dialog.paths" placeholder="草稿/试算.xlsx"></textarea></label><label>假设每个文件大小（字节，可留空）<input type="number" min="0" v-model="dialog.probeBytes"></label><button class="btn" type="button" @click="previewRules">预演</button><ul v-if="dialog.samples&&dialog.probed===ruleSignature(dialog)"><li v-for="r in dialog.samples">{{r.rel}} · {{r.reason}} <span v-if="r.pattern">· {{r.pattern}} 命中 {{r.part}}</span></li></ul></details></template>
+<template v-if="dialog.type==='rule_history'"><p class="path">{{dialog.path}}</p><p v-if="dialog.loading" role="status">正在读取采集规则沿革…</p><ol v-else-if="dialog.entries?.length"><li v-for="r in dialog.entries" :key="r.id">{{fmt(r.stamp)}} · {{r.patterns||'无排除规则'}} · {{r.max_mb ? r.max_mb+' MiB':'不限大小'}}</li></ol><small v-if="dialog.entries?.length">最近 100 次配置，最新在前。</small><small v-else-if="dialog.entries">没有采集规则变更记录。</small></template><template v-if="dialog.type==='inspect'"><label>备份 ZIP 路径<input v-model="dialog.path" required></label><small>逐个核对对象，无需退出监控。</small></template><template v-if="dialog.type==='backup'"><label>管理口令<input v-model="dialog.password" type="password" autocomplete="off" required></label><label>新备份文件的完整路径<input v-model="dialog.path" required></label></template><template v-if="dialog.type==='root'"><label>目录路径<div class="inline"><input v-model="dialog.path" placeholder="例如 D:\业务资料\仓库" required :readonly="!!dialog.id"><button type="button" class="btn" v-if="native&&!dialog.id" @click="chooseDir">浏览</button></div></label><label>排除规则<input v-model="dialog.patterns" placeholder="例如 *.tmp，*.bak，缓存/*"></label><label>单文件大小上限（MiB）<input type="number" min="0" v-model.number="dialog.max_mb"></label><small>填 0 表示不限大小。超过上限的文件会跳过。</small><details><summary>保存前预演规则</summary><label>待测文件相对路径，每行一个<textarea v-model="dialog.paths" placeholder="草稿/试算.xlsx"></textarea></label><label>假设每个文件大小（字节，可留空）<input type="number" min="0" v-model="dialog.probeBytes"></label><button class="btn" type="button" @click="previewRules">预演</button><ul v-if="dialog.samples&&dialog.probed===ruleSignature(dialog)"><li v-for="r in dialog.samples">{{r.rel}} · {{r.reason}} <span v-if="r.pattern">· {{r.pattern}} 命中 {{r.part}}</span></li></ul></details></template>
 <template v-if="dialog.type==='save'"><label>保存路径<input v-model="dialog.path" required placeholder="请输入完整的新文件路径"></label></template><template v-if="['info','confirm'].includes(dialog.type)"><p style="white-space:pre-line">{{dialog.body}}</p></template>
-<template v-if="dialog.type==='tree'"><label class="search-input"><ico n="search"></ico><input v-model="dialog.query" placeholder="搜索子目录路径"></label><div class="picklist"><button type="button" @click="rootFiles(dialog.root)">全部文件</button><button type="button" v-for="folder in visibleFolders" :key="folder.path" @click="treeSelect(dialog.root,folder.path)" :style="{paddingLeft:(8+14*(folder.path.split('/').length-1))+'px'}"><ico n="folder"></ico><span>{{folder.path}}</span><small>{{folder.total}} 个文件</small></button></div><small v-if="!dialog.folders.length">当前目录没有含已跟踪文件的子目录。</small><small v-else-if="!visibleFolders.length">没有匹配的子目录。</small></template><template v-if="dialog.type==='pick'"><div class="picker-tools"><label class="search-input"><ico n="search"></ico><input id="filePicker" v-model="pickQ" @input="searchPick" placeholder="搜索现名、旧名或相对路径"></label><select v-model="pickScope" aria-label="历史文件范围" @change="pickPage=1;loadPicks()"><option v-for="entry in fileScopes" :value="entry[0]">{{entry[1]}}</option></select></div><div class="picklist"><button type="button" v-for="v in picks.items" :key="v.id" :disabled="pickLoading" @click="picked(v)"><span class="file-icon" :class="tone(v.ext)"><ico :n="fileIcon(v.ext)"></ico></span><span class="file-summary"><b>{{base(v.rel)}}</b><small>{{parent(v.root,v.rel)}}</small><small v-if="v.matched_path">原路径：{{v.matched_path}}</small><small><span class="tag" :class="stateTone(v.file_state)">{{v.file_state}}</span>　V{{v.version}} · {{fmt(v.updated)}}</small></span><ico n="chevron-right"></ico></button><p v-if="pickLoading" role="status">正在查找…</p><p v-else-if="!picks.items.length">当前范围内没有找到文件</p></div><div class="pager"><span>共 {{picks.total}} 个文件</span><span><button type="button" class="btn" :disabled="pickPage<=1" @click="pickPage--;loadPicks()">上一页</button> <button type="button" class="btn" :disabled="pickPage*picks.size>=picks.total" @click="pickPage++;loadPicks()">下一页</button></span></div></template>
+<template v-if="dialog.type==='tree'"><p v-if="dialog.loading" role="status">正在读取子目录…</p><label class="search-input"><ico n="search"></ico><input v-model="dialog.query" :disabled="dialog.loading" placeholder="搜索子目录路径"></label><div class="picklist"><button type="button" @click="rootFiles(dialog.root)">全部文件</button><button type="button" v-for="folder in visibleFolders" :key="folder.path" @click="treeSelect(dialog.root,folder.path)" :style="{paddingLeft:(8+14*(folder.path.split('/').length-1))+'px'}"><ico n="folder"></ico><span>{{folder.path}}</span><small>{{folder.total}} 个文件</small></button></div><template v-if="!dialog.loading&&!dialog.error"><small v-if="!dialog.folders.length">当前目录没有含已跟踪文件的子目录。</small><small v-else-if="!visibleFolders.length">没有匹配的子目录。</small></template></template><template v-if="dialog.type==='pick'"><div class="picker-tools"><label class="search-input"><ico n="search"></ico><input id="filePicker" v-model="pickQ" @input="searchPick" placeholder="搜索现名、旧名或相对路径"></label><select v-model="pickScope" aria-label="历史文件范围" @change="pickPage=1;loadPicks()"><option v-for="entry in fileScopes" :value="entry[0]">{{entry[1]}}</option></select></div><div class="picklist"><button type="button" v-for="v in picks.items" :key="v.id" :disabled="pickLoading" @click="picked(v)"><span class="file-icon" :class="tone(v.ext)"><ico :n="fileIcon(v.ext)"></ico></span><span class="file-summary"><b>{{base(v.rel)}}</b><small>{{parent(v.root,v.rel)}}</small><small v-if="v.matched_path">原路径：{{v.matched_path}}</small><small><span class="tag" :class="stateTone(v.file_state)">{{v.file_state}}</span>　V{{v.version}} · {{fmt(v.updated)}}</small></span><ico n="chevron-right"></ico></button><p v-if="pickLoading" role="status">正在查找…</p><p v-else-if="!picks.items.length">当前范围内没有找到文件</p></div><div class="pager"><span>共 {{picks.total}} 个文件</span><span><button type="button" class="btn" :disabled="pickPage<=1" @click="pickPage--;loadPicks()">上一页</button> <button type="button" class="btn" :disabled="pickPage*picks.size>=picks.total" @click="pickPage++;loadPicks()">下一页</button></span></div></template>
 <p class="error" v-if="dialog.error">{{dialog.error}}</p><div v-if="!['pick','info','tree','rule_history','private_records','scan_log','waiting_files','ledger','receipt','period','trace','inventory','health','variance','backup_result','delivery_result','review_batch'].includes(dialog.type)&&!(dialog.type==='restore_preview'&&(demo||dialog.loading||!dialog.info||dialog.info.identical))" class="form-actions"><button type="button" class="btn" :disabled="busy" @click="dialog=null">取消</button><button class="primary" :disabled="busy">{{busy?'处理中…':dialog.submit||'保存'}}</button></div></form></section></div><div class="toast" role="status" v-if="message">{{message}}</div></div></div><script>/**
 * vue v3.5.13
 * (c) 2018-present Yuxi (Evan) You and Vue contributors
@@ -2667,60 +2667,71 @@ const _hoisted_1185 = {
 const _hoisted_1186 = ["disabled", "onClick"]
 const _hoisted_1187 = ["disabled", "onClick"]
 const _hoisted_1188 = { class: "path" }
-const _hoisted_1189 = ["onUpdate:modelValue"]
-const _hoisted_1190 = ["onUpdate:modelValue"]
-const _hoisted_1191 = ["onUpdate:modelValue"]
-const _hoisted_1192 = { class: "inline" }
-const _hoisted_1193 = ["onUpdate:modelValue", "readonly"]
-const _hoisted_1194 = ["onClick"]
-const _hoisted_1195 = ["onUpdate:modelValue"]
-const _hoisted_1196 = ["onUpdate:modelValue"]
-const _hoisted_1197 = ["onUpdate:modelValue"]
-const _hoisted_1198 = ["onUpdate:modelValue"]
-const _hoisted_1199 = ["onClick"]
-const _hoisted_1200 = { key: 0 }
-const _hoisted_1201 = { key: 0 }
-const _hoisted_1202 = { key: 21 }
-const _hoisted_1203 = ["onUpdate:modelValue"]
-const _hoisted_1204 = {
-  key: 22,
-  style: {"white-space":"pre-line"}
-}
-const _hoisted_1205 = { class: "search-input" }
-const _hoisted_1206 = ["onUpdate:modelValue"]
-const _hoisted_1207 = { class: "picklist" }
-const _hoisted_1208 = ["onClick"]
-const _hoisted_1209 = ["onClick"]
-const _hoisted_1210 = { key: 0 }
-const _hoisted_1211 = { key: 1 }
-const _hoisted_1212 = { class: "picker-tools" }
-const _hoisted_1213 = { class: "search-input" }
-const _hoisted_1214 = ["onUpdate:modelValue", "onInput"]
-const _hoisted_1215 = ["onUpdate:modelValue", "onChange"]
-const _hoisted_1216 = ["value"]
-const _hoisted_1217 = { class: "picklist" }
-const _hoisted_1218 = ["disabled", "onClick"]
-const _hoisted_1219 = { class: "file-summary" }
-const _hoisted_1220 = { key: 0 }
-const _hoisted_1221 = {
+const _hoisted_1189 = {
   key: 0,
   role: "status"
 }
-const _hoisted_1222 = { key: 1 }
-const _hoisted_1223 = { class: "pager" }
-const _hoisted_1224 = ["disabled", "onClick"]
-const _hoisted_1225 = ["disabled", "onClick"]
+const _hoisted_1190 = { key: 1 }
+const _hoisted_1191 = { key: 2 }
+const _hoisted_1192 = { key: 3 }
+const _hoisted_1193 = ["onUpdate:modelValue"]
+const _hoisted_1194 = ["onUpdate:modelValue"]
+const _hoisted_1195 = ["onUpdate:modelValue"]
+const _hoisted_1196 = { class: "inline" }
+const _hoisted_1197 = ["onUpdate:modelValue", "readonly"]
+const _hoisted_1198 = ["onClick"]
+const _hoisted_1199 = ["onUpdate:modelValue"]
+const _hoisted_1200 = ["onUpdate:modelValue"]
+const _hoisted_1201 = ["onUpdate:modelValue"]
+const _hoisted_1202 = ["onUpdate:modelValue"]
+const _hoisted_1203 = ["onClick"]
+const _hoisted_1204 = { key: 0 }
+const _hoisted_1205 = { key: 0 }
+const _hoisted_1206 = { key: 21 }
+const _hoisted_1207 = ["onUpdate:modelValue"]
+const _hoisted_1208 = {
+  key: 22,
+  style: {"white-space":"pre-line"}
+}
+const _hoisted_1209 = {
+  key: 0,
+  role: "status"
+}
+const _hoisted_1210 = { class: "search-input" }
+const _hoisted_1211 = ["onUpdate:modelValue", "disabled"]
+const _hoisted_1212 = { class: "picklist" }
+const _hoisted_1213 = ["onClick"]
+const _hoisted_1214 = ["onClick"]
+const _hoisted_1215 = { key: 0 }
+const _hoisted_1216 = { key: 1 }
+const _hoisted_1217 = { class: "picker-tools" }
+const _hoisted_1218 = { class: "search-input" }
+const _hoisted_1219 = ["onUpdate:modelValue", "onInput"]
+const _hoisted_1220 = ["onUpdate:modelValue", "onChange"]
+const _hoisted_1221 = ["value"]
+const _hoisted_1222 = { class: "picklist" }
+const _hoisted_1223 = ["disabled", "onClick"]
+const _hoisted_1224 = { class: "file-summary" }
+const _hoisted_1225 = { key: 0 }
 const _hoisted_1226 = {
+  key: 0,
+  role: "status"
+}
+const _hoisted_1227 = { key: 1 }
+const _hoisted_1228 = { class: "pager" }
+const _hoisted_1229 = ["disabled", "onClick"]
+const _hoisted_1230 = ["disabled", "onClick"]
+const _hoisted_1231 = {
   key: 25,
   class: "error"
 }
-const _hoisted_1227 = {
+const _hoisted_1232 = {
   key: 26,
   class: "form-actions"
 }
-const _hoisted_1228 = ["disabled", "onClick"]
-const _hoisted_1229 = ["disabled"]
-const _hoisted_1230 = {
+const _hoisted_1233 = ["disabled", "onClick"]
+const _hoisted_1234 = ["disabled"]
+const _hoisted_1235 = {
   key: 1,
   class: "toast",
   role: "status"
@@ -7653,77 +7664,85 @@ return function render(_ctx, _cache) {
                 ], 64))
               : _createCommentVNode("", true),
             (dialog.type==='rule_history')
-              ? (_openBlock(), _createElementBlock(_Fragment, { key: 17 }, [_createElementVNode("p", _hoisted_1188, _toDisplayString(dialog.path), 1), _createElementVNode("ol", null, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.entries, (r) => {
-                  return (_openBlock(), _createElementBlock("li", { key: r.id }, _toDisplayString(fmt(r.stamp)) + " · " + _toDisplayString(r.patterns||'无排除规则') + " · " + _toDisplayString(r.max_mb ? r.max_mb+' MiB':'不限大小'), 1))
-                }), 128))]), _cache[481] || (_cache[481] = _createElementVNode("small", null, "最近 100 次配置，最新在前。", -1))], 64))
+              ? (_openBlock(), _createElementBlock(_Fragment, { key: 17 }, [_createElementVNode("p", _hoisted_1188, _toDisplayString(dialog.path), 1), (dialog.loading)
+                  ? (_openBlock(), _createElementBlock("p", _hoisted_1189, "正在读取采集规则沿革…"))
+                  : (dialog.entries?.length)
+                    ? (_openBlock(), _createElementBlock("ol", _hoisted_1190, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.entries, (r) => {
+                        return (_openBlock(), _createElementBlock("li", { key: r.id }, _toDisplayString(fmt(r.stamp)) + " · " + _toDisplayString(r.patterns||'无排除规则') + " · " + _toDisplayString(r.max_mb ? r.max_mb+' MiB':'不限大小'), 1))
+                      }), 128))]))
+                    : _createCommentVNode("", true), (dialog.entries?.length)
+                  ? (_openBlock(), _createElementBlock("small", _hoisted_1191, "最近 100 次配置，最新在前。"))
+                  : (dialog.entries)
+                    ? (_openBlock(), _createElementBlock("small", _hoisted_1192, "没有采集规则变更记录。"))
+                    : _createCommentVNode("", true)], 64))
               : _createCommentVNode("", true),
             (dialog.type==='inspect')
-              ? (_openBlock(), _createElementBlock(_Fragment, { key: 18 }, [_createElementVNode("label", null, [_cache[482] || (_cache[482] = _createTextVNode("备份 ZIP 路径")), _withDirectives(_createElementVNode("input", {
+              ? (_openBlock(), _createElementBlock(_Fragment, { key: 18 }, [_createElementVNode("label", null, [_cache[481] || (_cache[481] = _createTextVNode("备份 ZIP 路径")), _withDirectives(_createElementVNode("input", {
                   "onUpdate:modelValue": $event => ((dialog.path) = $event),
                   required: ""
-                }, null, 8, _hoisted_1189), [[_vModelText, dialog.path]])]), _cache[483] || (_cache[483] = _createElementVNode("small", null, "逐个核对对象，无需退出监控。", -1))], 64))
+                }, null, 8, _hoisted_1193), [[_vModelText, dialog.path]])]), _cache[482] || (_cache[482] = _createElementVNode("small", null, "逐个核对对象，无需退出监控。", -1))], 64))
               : _createCommentVNode("", true),
             (dialog.type==='backup')
-              ? (_openBlock(), _createElementBlock(_Fragment, { key: 19 }, [_createElementVNode("label", null, [_cache[484] || (_cache[484] = _createTextVNode("管理口令")), _withDirectives(_createElementVNode("input", {
+              ? (_openBlock(), _createElementBlock(_Fragment, { key: 19 }, [_createElementVNode("label", null, [_cache[483] || (_cache[483] = _createTextVNode("管理口令")), _withDirectives(_createElementVNode("input", {
                   "onUpdate:modelValue": $event => ((dialog.password) = $event),
                   type: "password",
                   autocomplete: "off",
                   required: ""
-                }, null, 8, _hoisted_1190), [[_vModelText, dialog.password]])]), _createElementVNode("label", null, [_cache[485] || (_cache[485] = _createTextVNode("新备份文件的完整路径")), _withDirectives(_createElementVNode("input", {
+                }, null, 8, _hoisted_1194), [[_vModelText, dialog.password]])]), _createElementVNode("label", null, [_cache[484] || (_cache[484] = _createTextVNode("新备份文件的完整路径")), _withDirectives(_createElementVNode("input", {
                   "onUpdate:modelValue": $event => ((dialog.path) = $event),
                   required: ""
-                }, null, 8, _hoisted_1191), [[_vModelText, dialog.path]])])], 64))
+                }, null, 8, _hoisted_1195), [[_vModelText, dialog.path]])])], 64))
               : _createCommentVNode("", true),
             (dialog.type==='root')
               ? (_openBlock(), _createElementBlock(_Fragment, { key: 20 }, [
-                  _createElementVNode("label", null, [_cache[486] || (_cache[486] = _createTextVNode("目录路径")), _createElementVNode("div", _hoisted_1192, [_withDirectives(_createElementVNode("input", {
+                  _createElementVNode("label", null, [_cache[485] || (_cache[485] = _createTextVNode("目录路径")), _createElementVNode("div", _hoisted_1196, [_withDirectives(_createElementVNode("input", {
                     "onUpdate:modelValue": $event => ((dialog.path) = $event),
                     placeholder: "例如 D:\\业务资料\\仓库",
                     required: "",
                     readonly: !!dialog.id
-                  }, null, 8, _hoisted_1193), [[_vModelText, dialog.path]]), (native&&!dialog.id)
+                  }, null, 8, _hoisted_1197), [[_vModelText, dialog.path]]), (native&&!dialog.id)
                     ? (_openBlock(), _createElementBlock("button", {
                         key: 0,
                         type: "button",
                         class: "btn",
                         onClick: chooseDir
-                      }, "浏览", 8, _hoisted_1194))
+                      }, "浏览", 8, _hoisted_1198))
                     : _createCommentVNode("", true)])]),
-                  _createElementVNode("label", null, [_cache[487] || (_cache[487] = _createTextVNode("排除规则")), _withDirectives(_createElementVNode("input", {
+                  _createElementVNode("label", null, [_cache[486] || (_cache[486] = _createTextVNode("排除规则")), _withDirectives(_createElementVNode("input", {
                     "onUpdate:modelValue": $event => ((dialog.patterns) = $event),
                     placeholder: "例如 *.tmp，*.bak，缓存/*"
-                  }, null, 8, _hoisted_1195), [[_vModelText, dialog.patterns]])]),
-                  _createElementVNode("label", null, [_cache[488] || (_cache[488] = _createTextVNode("单文件大小上限（MiB）")), _withDirectives(_createElementVNode("input", {
+                  }, null, 8, _hoisted_1199), [[_vModelText, dialog.patterns]])]),
+                  _createElementVNode("label", null, [_cache[487] || (_cache[487] = _createTextVNode("单文件大小上限（MiB）")), _withDirectives(_createElementVNode("input", {
                     type: "number",
                     min: "0",
                     "onUpdate:modelValue": $event => ((dialog.max_mb) = $event)
-                  }, null, 8, _hoisted_1196), [[
+                  }, null, 8, _hoisted_1200), [[
                     _vModelText,
                     dialog.max_mb,
                     void 0,
                     { number: true }
                   ]])]),
-                  _cache[492] || (_cache[492] = _createElementVNode("small", null, "填 0 表示不限大小。超过上限的文件会跳过。", -1)),
+                  _cache[491] || (_cache[491] = _createElementVNode("small", null, "填 0 表示不限大小。超过上限的文件会跳过。", -1)),
                   _createElementVNode("details", null, [
-                    _cache[491] || (_cache[491] = _createElementVNode("summary", null, "保存前预演规则", -1)),
-                    _createElementVNode("label", null, [_cache[489] || (_cache[489] = _createTextVNode("待测文件相对路径，每行一个")), _withDirectives(_createElementVNode("textarea", {
+                    _cache[490] || (_cache[490] = _createElementVNode("summary", null, "保存前预演规则", -1)),
+                    _createElementVNode("label", null, [_cache[488] || (_cache[488] = _createTextVNode("待测文件相对路径，每行一个")), _withDirectives(_createElementVNode("textarea", {
                       "onUpdate:modelValue": $event => ((dialog.paths) = $event),
                       placeholder: "草稿/试算.xlsx"
-                    }, null, 8, _hoisted_1197), [[_vModelText, dialog.paths]])]),
-                    _createElementVNode("label", null, [_cache[490] || (_cache[490] = _createTextVNode("假设每个文件大小（字节，可留空）")), _withDirectives(_createElementVNode("input", {
+                    }, null, 8, _hoisted_1201), [[_vModelText, dialog.paths]])]),
+                    _createElementVNode("label", null, [_cache[489] || (_cache[489] = _createTextVNode("假设每个文件大小（字节，可留空）")), _withDirectives(_createElementVNode("input", {
                       type: "number",
                       min: "0",
                       "onUpdate:modelValue": $event => ((dialog.probeBytes) = $event)
-                    }, null, 8, _hoisted_1198), [[_vModelText, dialog.probeBytes]])]),
+                    }, null, 8, _hoisted_1202), [[_vModelText, dialog.probeBytes]])]),
                     _createElementVNode("button", {
                       class: "btn",
                       type: "button",
                       onClick: previewRules
-                    }, "预演", 8, _hoisted_1199),
+                    }, "预演", 8, _hoisted_1203),
                     (dialog.samples&&dialog.probed===ruleSignature(dialog))
-                      ? (_openBlock(), _createElementBlock("ul", _hoisted_1200, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.samples, (r) => {
+                      ? (_openBlock(), _createElementBlock("ul", _hoisted_1204, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(dialog.samples, (r) => {
                           return (_openBlock(), _createElementBlock("li", null, [_createTextVNode(_toDisplayString(r.rel) + " · " + _toDisplayString(r.reason) + " ", 1), (r.pattern)
-                            ? (_openBlock(), _createElementBlock("span", _hoisted_1201, "· " + _toDisplayString(r.pattern) + " 命中 " + _toDisplayString(r.part), 1))
+                            ? (_openBlock(), _createElementBlock("span", _hoisted_1205, "· " + _toDisplayString(r.pattern) + " 命中 " + _toDisplayString(r.part), 1))
                             : _createCommentVNode("", true)]))
                         }), 256))]))
                       : _createCommentVNode("", true)
@@ -7731,95 +7750,105 @@ return function render(_ctx, _cache) {
                 ], 64))
               : _createCommentVNode("", true),
             (dialog.type==='save')
-              ? (_openBlock(), _createElementBlock("label", _hoisted_1202, [_cache[493] || (_cache[493] = _createTextVNode("保存路径")), _withDirectives(_createElementVNode("input", {
+              ? (_openBlock(), _createElementBlock("label", _hoisted_1206, [_cache[492] || (_cache[492] = _createTextVNode("保存路径")), _withDirectives(_createElementVNode("input", {
                   "onUpdate:modelValue": $event => ((dialog.path) = $event),
                   required: "",
                   placeholder: "请输入完整的新文件路径"
-                }, null, 8, _hoisted_1203), [[_vModelText, dialog.path]])]))
+                }, null, 8, _hoisted_1207), [[_vModelText, dialog.path]])]))
               : _createCommentVNode("", true),
             (['info','confirm'].includes(dialog.type))
-              ? (_openBlock(), _createElementBlock("p", _hoisted_1204, _toDisplayString(dialog.body), 1))
+              ? (_openBlock(), _createElementBlock("p", _hoisted_1208, _toDisplayString(dialog.body), 1))
               : _createCommentVNode("", true),
             (dialog.type==='tree')
-              ? (_openBlock(), _createElementBlock(_Fragment, { key: 23 }, [_createElementVNode("label", _hoisted_1205, [_createVNode(_component_ico, { n: "search" }), _withDirectives(_createElementVNode("input", {
-                  "onUpdate:modelValue": $event => ((dialog.query) = $event),
-                  placeholder: "搜索子目录路径"
-                }, null, 8, _hoisted_1206), [[_vModelText, dialog.query]])]), _createElementVNode("div", _hoisted_1207, [_createElementVNode("button", {
-                  type: "button",
-                  onClick: $event => (rootFiles(dialog.root))
-                }, "全部文件", 8, _hoisted_1208), (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(visibleFolders, (folder) => {
-                  return (_openBlock(), _createElementBlock("button", {
+              ? (_openBlock(), _createElementBlock(_Fragment, { key: 23 }, [
+                  (dialog.loading)
+                    ? (_openBlock(), _createElementBlock("p", _hoisted_1209, "正在读取子目录…"))
+                    : _createCommentVNode("", true),
+                  _createElementVNode("label", _hoisted_1210, [_createVNode(_component_ico, { n: "search" }), _withDirectives(_createElementVNode("input", {
+                    "onUpdate:modelValue": $event => ((dialog.query) = $event),
+                    disabled: dialog.loading,
+                    placeholder: "搜索子目录路径"
+                  }, null, 8, _hoisted_1211), [[_vModelText, dialog.query]])]),
+                  _createElementVNode("div", _hoisted_1212, [_createElementVNode("button", {
                     type: "button",
-                    key: folder.path,
-                    onClick: $event => (treeSelect(dialog.root,folder.path)),
-                    style: _normalizeStyle({paddingLeft:(8+14*(folder.path.split('/').length-1))+'px'})
-                  }, [_createVNode(_component_ico, { n: "folder" }), _createElementVNode("span", null, _toDisplayString(folder.path), 1), _createElementVNode("small", null, _toDisplayString(folder.total) + " 个文件", 1)], 12, _hoisted_1209))
-                }), 128))]), (!dialog.folders.length)
-                  ? (_openBlock(), _createElementBlock("small", _hoisted_1210, "当前目录没有含已跟踪文件的子目录。"))
-                  : (!visibleFolders.length)
-                    ? (_openBlock(), _createElementBlock("small", _hoisted_1211, "没有匹配的子目录。"))
-                    : _createCommentVNode("", true)], 64))
+                    onClick: $event => (rootFiles(dialog.root))
+                  }, "全部文件", 8, _hoisted_1213), (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(visibleFolders, (folder) => {
+                    return (_openBlock(), _createElementBlock("button", {
+                      type: "button",
+                      key: folder.path,
+                      onClick: $event => (treeSelect(dialog.root,folder.path)),
+                      style: _normalizeStyle({paddingLeft:(8+14*(folder.path.split('/').length-1))+'px'})
+                    }, [_createVNode(_component_ico, { n: "folder" }), _createElementVNode("span", null, _toDisplayString(folder.path), 1), _createElementVNode("small", null, _toDisplayString(folder.total) + " 个文件", 1)], 12, _hoisted_1214))
+                  }), 128))]),
+                  (!dialog.loading&&!dialog.error)
+                    ? (_openBlock(), _createElementBlock(_Fragment, { key: 1 }, [(!dialog.folders.length)
+                        ? (_openBlock(), _createElementBlock("small", _hoisted_1215, "当前目录没有含已跟踪文件的子目录。"))
+                        : (!visibleFolders.length)
+                          ? (_openBlock(), _createElementBlock("small", _hoisted_1216, "没有匹配的子目录。"))
+                          : _createCommentVNode("", true)], 64))
+                    : _createCommentVNode("", true)
+                ], 64))
               : _createCommentVNode("", true),
             (dialog.type==='pick')
-              ? (_openBlock(), _createElementBlock(_Fragment, { key: 24 }, [_createElementVNode("div", _hoisted_1212, [_createElementVNode("label", _hoisted_1213, [_createVNode(_component_ico, { n: "search" }), _withDirectives(_createElementVNode("input", {
+              ? (_openBlock(), _createElementBlock(_Fragment, { key: 24 }, [_createElementVNode("div", _hoisted_1217, [_createElementVNode("label", _hoisted_1218, [_createVNode(_component_ico, { n: "search" }), _withDirectives(_createElementVNode("input", {
                   id: "filePicker",
                   "onUpdate:modelValue": $event => ((pickQ) = $event),
                   onInput: searchPick,
                   placeholder: "搜索现名、旧名或相对路径"
-                }, null, 40, _hoisted_1214), [[_vModelText, pickQ]])]), _withDirectives(_createElementVNode("select", {
+                }, null, 40, _hoisted_1219), [[_vModelText, pickQ]])]), _withDirectives(_createElementVNode("select", {
                   "onUpdate:modelValue": $event => ((pickScope) = $event),
                   "aria-label": "历史文件范围",
                   onChange: $event => {pickPage=1;loadPicks()}
                 }, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(fileScopes, (entry) => {
-                  return (_openBlock(), _createElementBlock("option", { value: entry[0] }, _toDisplayString(entry[1]), 9, _hoisted_1216))
-                }), 256))], 40, _hoisted_1215), [[_vModelSelect, pickScope]])]), _createElementVNode("div", _hoisted_1217, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(picks.items, (v) => {
+                  return (_openBlock(), _createElementBlock("option", { value: entry[0] }, _toDisplayString(entry[1]), 9, _hoisted_1221))
+                }), 256))], 40, _hoisted_1220), [[_vModelSelect, pickScope]])]), _createElementVNode("div", _hoisted_1222, [(_openBlock(true), _createElementBlock(_Fragment, null, _renderList(picks.items, (v) => {
                   return (_openBlock(), _createElementBlock("button", {
                     type: "button",
                     key: v.id,
                     disabled: pickLoading,
                     onClick: $event => (picked(v))
-                  }, [_createElementVNode("span", { class: _normalizeClass(["file-icon", tone(v.ext)]) }, [_createVNode(_component_ico, { n: fileIcon(v.ext) }, null, 8, ["n"])], 2), _createElementVNode("span", _hoisted_1219, [
+                  }, [_createElementVNode("span", { class: _normalizeClass(["file-icon", tone(v.ext)]) }, [_createVNode(_component_ico, { n: fileIcon(v.ext) }, null, 8, ["n"])], 2), _createElementVNode("span", _hoisted_1224, [
                     _createElementVNode("b", null, _toDisplayString(base(v.rel)), 1),
                     _createElementVNode("small", null, _toDisplayString(parent(v.root,v.rel)), 1),
                     (v.matched_path)
-                      ? (_openBlock(), _createElementBlock("small", _hoisted_1220, "原路径：" + _toDisplayString(v.matched_path), 1))
+                      ? (_openBlock(), _createElementBlock("small", _hoisted_1225, "原路径：" + _toDisplayString(v.matched_path), 1))
                       : _createCommentVNode("", true),
                     _createElementVNode("small", null, [_createElementVNode("span", { class: _normalizeClass(["tag", stateTone(v.file_state)]) }, _toDisplayString(v.file_state), 3), _createTextVNode("　V" + _toDisplayString(v.version) + " · " + _toDisplayString(fmt(v.updated)), 1)])
-                  ]), _createVNode(_component_ico, { n: "chevron-right" })], 8, _hoisted_1218))
+                  ]), _createVNode(_component_ico, { n: "chevron-right" })], 8, _hoisted_1223))
                 }), 128)), pickLoading
-                  ? (_openBlock(), _createElementBlock("p", _hoisted_1221, "正在查找…"))
+                  ? (_openBlock(), _createElementBlock("p", _hoisted_1226, "正在查找…"))
                   : (!picks.items.length)
-                    ? (_openBlock(), _createElementBlock("p", _hoisted_1222, "当前范围内没有找到文件"))
-                    : _createCommentVNode("", true)]), _createElementVNode("div", _hoisted_1223, [_createElementVNode("span", null, "共 " + _toDisplayString(picks.total) + " 个文件", 1), _createElementVNode("span", null, [_createElementVNode("button", {
+                    ? (_openBlock(), _createElementBlock("p", _hoisted_1227, "当前范围内没有找到文件"))
+                    : _createCommentVNode("", true)]), _createElementVNode("div", _hoisted_1228, [_createElementVNode("span", null, "共 " + _toDisplayString(picks.total) + " 个文件", 1), _createElementVNode("span", null, [_createElementVNode("button", {
                   type: "button",
                   class: "btn",
                   disabled: pickPage<=1,
                   onClick: $event => {pickPage--;loadPicks()}
-                }, "上一页", 8, _hoisted_1224), _cache[494] || (_cache[494] = _createTextVNode()), _createElementVNode("button", {
+                }, "上一页", 8, _hoisted_1229), _cache[493] || (_cache[493] = _createTextVNode()), _createElementVNode("button", {
                   type: "button",
                   class: "btn",
                   disabled: pickPage*picks.size>=picks.total,
                   onClick: $event => {pickPage++;loadPicks()}
-                }, "下一页", 8, _hoisted_1225)])])], 64))
+                }, "下一页", 8, _hoisted_1230)])])], 64))
               : _createCommentVNode("", true),
             (dialog.error)
-              ? (_openBlock(), _createElementBlock("p", _hoisted_1226, _toDisplayString(dialog.error), 1))
+              ? (_openBlock(), _createElementBlock("p", _hoisted_1231, _toDisplayString(dialog.error), 1))
               : _createCommentVNode("", true),
             (!['pick','info','tree','rule_history','private_records','scan_log','waiting_files','ledger','receipt','period','trace','inventory','health','variance','backup_result','delivery_result','review_batch'].includes(dialog.type)&&!(dialog.type==='restore_preview'&&(demo||dialog.loading||!dialog.info||dialog.info.identical)))
-              ? (_openBlock(), _createElementBlock("div", _hoisted_1227, [_createElementVNode("button", {
+              ? (_openBlock(), _createElementBlock("div", _hoisted_1232, [_createElementVNode("button", {
                   type: "button",
                   class: "btn",
                   disabled: busy,
                   onClick: $event => (dialog=null)
-                }, "取消", 8, _hoisted_1228), _createElementVNode("button", {
+                }, "取消", 8, _hoisted_1233), _createElementVNode("button", {
                   class: "primary",
                   disabled: busy
-                }, _toDisplayString(busy?'处理中…':dialog.submit||'保存'), 9, _hoisted_1229)]))
+                }, _toDisplayString(busy?'处理中…':dialog.submit||'保存'), 9, _hoisted_1234)]))
               : _createCommentVNode("", true)
           ], 40, _hoisted_834)], 10, _hoisted_831)], 8, _hoisted_830))
         : _createCommentVNode("", true),
       message
-        ? (_openBlock(), _createElementBlock("div", _hoisted_1230, _toDisplayString(message), 1))
+        ? (_openBlock(), _createElementBlock("div", _hoisted_1235, _toDisplayString(message), 1))
         : _createCommentVNode("", true)
     ], 2))
   }
@@ -7970,23 +7999,24 @@ window.exampleRequest=async function(cmd,a={}){
       }
       if(!a.direction||a.direction===direction)items.push({...event,old_match,new_match,direction});
     }
-    items.sort((x,y)=>x.stamp.localeCompare(y.stamp)||x.id-y.id);
+    items.sort((x,y)=>Date.parse(x.stamp)-Date.parse(y.stamp)||x.id-y.id);
     const first=items[0]?.stamp??null,last=items.at(-1)?.stamp??null;
-    if(a.sort!=='oldest')items.reverse();
     if(cmd==='path_history_csv'){
       if(!items.length)throw Error('当前范围没有可导出的记录');
+      if(a.sort!=='oldest')items.reverse();
       return csvText([d.pathHistoryHeader,...items.map(r=>d.pathHistoryFields.map(k=>r[k]))]);
     }
     const counts={},byFile=new Map();
     for(const e of items){
       counts[e.direction]=(counts[e.direction]||0)+1;
       const row=byFile.get(e.file_id)||{file_id:e.file_id,root_id:e.root_id,root:e.root,total:0,first:e.stamp,last:e.stamp};
-      row.total++;if(e.stamp<row.first)row.first=e.stamp;if(e.stamp>row.last)row.last=e.stamp;
+      row.total++;row.last=e.stamp;
       byFile.set(e.file_id,row);
     }
-    const groups=[...byFile.values()].sort((x,y)=>y.last.localeCompare(x.last)||y.file_id-x.file_id);
+    const groups=[...byFile.values()].sort((x,y)=>Date.parse(y.last)-Date.parse(x.last)||y.file_id-x.file_id);
     const identity_pages=Math.max(1,Math.ceil(groups.length/20));
     const identity_page=Math.min(identity_pages,Math.max(1,a.identity_page||1));
+    if(a.sort!=='oldest')items.reverse();
     const p=paginate(items,a.size||25);
     return {...p,mode,path,first,last,counts,pages:Math.max(1,Math.ceil(p.total/p.size)),
       identities:groups.length,roots:new Set(items.map(r=>r.root_id)).size,
@@ -9518,18 +9548,16 @@ const app = createApp({
             } else await this.go(m.target);
         },
         async treeFor (r) {
-            await this.safe(async ()=>{
-                const folders = await request('folders', {
-                    id: r.id, counts:true
-                });
-                this.dialog = {
-                    type: 'tree',
-                    query: '',
-                    title: this.base(r.path),
-                    root: r,
-                    folders
-                };
-            });
+            this.dialog={type:'tree',query:'',title:this.base(r.path),root:r,folders:[],loading:true,error:''};
+            const d=this.dialog;
+            try {
+                const folders=await request('folders',{id:r.id,counts:true});
+                if(this.dialog===d)d.folders=folders;
+            } catch(e) {
+                if(this.dialog===d)d.error=String(e?.message||e);
+            } finally {
+                if(this.dialog===d)d.loading=false;
+            }
         },
         async treeSelect (r, folder) {
             await this.go('文件管理',{root:r.id,prefix:folder});
@@ -10441,8 +10469,16 @@ const app = createApp({
             else await this.saveFile('checkpoint_three_csv','目录清单三方对照.csv',null,this.triApplied);
         },
         async showRuleHistory (r) {
-            const entries=await this.safe(()=>request('rule_history',{root:r.id}));
-            if(entries)this.dialog={type:'rule_history',title:'采集规则沿革',path:r.path,entries};
+            this.dialog={type:'rule_history',title:'采集规则沿革',path:r.path,entries:null,loading:true,error:''};
+            const d=this.dialog;
+            try {
+                const entries=await request('rule_history',{root:r.id});
+                if(this.dialog===d)d.entries=entries;
+            } catch(e) {
+                if(this.dialog===d)d.error=String(e?.message||e);
+            } finally {
+                if(this.dialog===d)d.loading=false;
+            }
         },
         async previewRules () {
             const d=this.dialog;
