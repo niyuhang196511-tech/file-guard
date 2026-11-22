@@ -78,6 +78,41 @@ class Receipt(Workspace):
         self.assertIn('尚未确认身份',self.receipt(mode='full')['result'])
         self.scan();self.assertIn('其他文件占用',self.receipt(mode='full')['result'])
 
+    def test_deleted_file_receipt_uses_actual_case_alias(self):
+        original = self.file('notes.txt', b'old record')
+        self.scan()
+        original.unlink()
+        self.scan()
+        replacement = self.file('NOTES.TXT', b'new identity')
+        self.scan()
+
+        if original.exists():
+            self.assertTrue(original.samefile(replacement))
+            for mode in ('quick', 'full'):
+                item = self.receipt(mode=mode)
+                self.assertEqual(item['result'], '同名路径已由其他文件占用')
+                self.assertIsNone(item['disk_sha'])
+        else:
+            self.assertEqual(self.receipt(mode='full')['result'], '原路径缺失')
+
+    def test_receipt_distinguishes_stale_index_from_actual_path_occupant(self):
+        original = self.file('notes.txt', b'old record')
+        self.scan()
+        original.unlink()
+        self.scan()
+        self.file('notes.txt', b'new identity')
+        self.scan()
+        self.assertEqual(self.receipt()['result'], '同名路径已由其他文件占用')
+
+        unsaved = self.base/'newer.txt'
+        unsaved.write_bytes(b'yet another identity')
+        unsaved.replace(original)
+        self.assertEqual(self.receipt(mode='full')['result'], '旧路径出现尚未确认身份的文件')
+        original.unlink()
+        self.assertEqual(self.receipt()['result'], '原路径缺失')
+        original.mkdir()
+        self.assertEqual(self.receipt()['result'], '原路径不是普通文件')
+
     def test_offline_link_and_directory(self):
         p=self.file('f','a');self.scan()
         offline=self.base/'away';self.root.rename(offline)

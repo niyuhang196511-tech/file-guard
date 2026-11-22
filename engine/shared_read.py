@@ -31,6 +31,19 @@ def open_snapshot_source(path):
     return os.fdopen(fd,'rb')
 
 
+def resolved_windows_relative_path(path, root_parts):
+    """Return the filesystem's spelling of a path beneath the resolved root."""
+    try:
+        parts = path.resolve(strict=True).parts
+    except FileNotFoundError:
+        raise
+    except (OSError, RuntimeError):
+        return None
+    if parts[:len(root_parts)] != root_parts:
+        raise ValueError('目标超出监控目录')
+    return '/'.join(parts[len(root_parts):])
+
+
 def replace_guarded_file(source, target):
     if os.name != 'nt':
         os.replace(source,target)

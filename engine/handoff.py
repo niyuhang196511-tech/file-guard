@@ -12,7 +12,7 @@ import zipfile
 from .comparison import new_csv,csv_cell
 from .publication import new_path
 from .store import ensure_plain,within,now
-from .shared_read import open_snapshot_source
+from .shared_read import open_snapshot_source,resolved_windows_relative_path
 
 MANIFEST='fileguard-delivery.json'
 MANIFEST_MAX=16*1024*1024
@@ -203,18 +203,7 @@ def disk_page(db,store,args):
             checked_rel=rel
             if regular:
                 if windows:
-                    # Resolve the spelling from the filesystem, including case-sensitive directories.
-                    try:
-                        resolved=target.resolve(strict=True)
-                    except FileNotFoundError:
-                        raise
-                    except (OSError,RuntimeError):
-                        checked_rel=None
-                    else:
-                        parts=resolved.parts
-                        if parts[:len(physical_base)]!=physical_base:
-                            raise ValueError('目标超出监控目录')
-                        checked_rel='/'.join(parts[len(physical_base):])
+                    checked_rel=resolved_windows_relative_path(target,physical_base)
                 ensure_plain(target,base)
             if signature(before)!=signature(target.stat()):
                 status='读取期间变化';sha=None

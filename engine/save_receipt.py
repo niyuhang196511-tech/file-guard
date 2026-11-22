@@ -6,7 +6,7 @@ from pathlib import Path, PureWindowsPath
 import stat
 
 from . import rules
-from .shared_read import open_snapshot_source
+from .shared_read import open_snapshot_source, resolved_windows_relative_path
 from .store import ensure_plain, matches_open_file, now, signature
 
 
@@ -52,7 +52,6 @@ def receipt(db, store, args):
                  tracked=bool(f['tracked']),active=bool(f['active'] and not f['removed']),last_scan=f['last_scan'],
                  root_error=f['error'],settle_ms=f['settle_ms'],all_types=bool(f['all_types']),
                  waiting=dict(wait) if wait else None,queued=task['source'] if task else '',rule='',result='',object_state='')
-    owner = db.execute('SELECT id FROM files WHERE live=1 AND root_id=? AND rel=?',(f['root_id'],rel)).fetchone()
     if args.get('object'):
         try:
             store.checked_version(db,f['vid'])
@@ -60,29 +59,40 @@ def receipt(db, store, args):
         except (ValueError,OSError):
             state['object_state']='历史副本损坏或不可读'
     if f['removed']:state['result']='目录已移除'
-    elif owner and owner[0]!=fid:state['result']='同名路径已由其他文件占用'
     else:
+        before=None
         try:
             ensure_plain(target,base)
             if not base.is_dir():state['result']='监控目录离线'
             else:
                 before=target.stat()
                 if not stat.S_ISREG(before.st_mode):state['result']='原路径不是普通文件'
-                elif not f['live']:state['result']='旧路径出现尚未确认身份的文件'
                 else:
-                    size=before.st_size
-                    state.update(disk_size=size,delta=size-f['size'],mtime=datetime.fromtimestamp(before.st_mtime).astimezone().isoformat(timespec='seconds'))
-                    state['rule']=rules.preview(dict(paths=rel,max_mb=f['max_mb'],patterns=f['patterns'],bytes=size))[0]['reason']
-                    if mode=='quick':
-                        state['result']='大小相同，尚未核对内容' if size==f['size'] else '大小已变化'
+                    checked_rel=resolved_windows_relative_path(target,base.resolve().parts) if os.name=='nt' else rel
+                    key=store.fkey(before)
+                    owner=None
+                    if checked_rel and key:
+                        owner=db.execute('SELECT id FROM files WHERE root_id=? AND rel=? AND fkey=? AND live=1',
+                                         (f['root_id'],checked_rel,key)).fetchone()
+                    if owner and owner[0]!=fid:
+                        state['result']='同名路径已由其他文件占用'
+                    elif not f['live']:
+                        state['result']='旧路径出现尚未确认身份的文件'
                     else:
-                        sha=read_digest(target,before)
-                        state['disk_sha']=sha
-                        count,latest=db.execute('SELECT count(*),max(num) FROM versions WHERE file_id=? AND sha=?',(fid,sha)).fetchone()
-                        state.update(matches=count,matched_version=latest)
-                        state['result']='已记入最新版本' if sha==f['sha'] else '与较早历史版本相同' if count else '磁盘内容尚未入库'
+                        size=before.st_size
+                        state.update(disk_size=size,delta=size-f['size'],mtime=datetime.fromtimestamp(before.st_mtime).astimezone().isoformat(timespec='seconds'))
+                        state['rule']=rules.preview(dict(paths=rel,max_mb=f['max_mb'],patterns=f['patterns'],bytes=size))[0]['reason']
+                        if mode=='quick':
+                            state['result']='大小相同，尚未核对内容' if size==f['size'] else '大小已变化'
+                        else:
+                            sha=read_digest(target,before)
+                            state['disk_sha']=sha
+                            count,latest=db.execute('SELECT count(*),max(num) FROM versions WHERE file_id=? AND sha=?',(fid,sha)).fetchone()
+                            state.update(matches=count,matched_version=latest)
+                            state['result']='已记入最新版本' if sha==f['sha'] else '与较早历史版本相同' if count else '磁盘内容尚未入库'
+                    ensure_plain(target,base)
                     if signature(target.stat())!=signature(before):raise ValueError('读取期间变化')
-        except FileNotFoundError:state['result']='读取期间变化' if state['disk_size'] is not None else '原路径缺失'
+        except FileNotFoundError:state['result']='读取期间变化' if before is not None else '原路径缺失'
         except ValueError as exc:state['result']='读取期间变化' if str(exc)=='读取期间变化' else '已跳过链接路径'
         except PermissionError:state['result']='文件被占用或无读取权限'
         except OSError:state['result']='文件暂时不可读'
