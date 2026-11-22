@@ -681,13 +681,16 @@ const app = createApp({
                 '历史版本',
                 '版本对比'
             ].includes(page)) {
-                await this.safe(async ()=>{
-                    let found = await request('files', {
+                const needsDefault = () => isCurrent() && !this.file;
+                try {
+                    const found = await request('files', {
                         size: 1,
                         history: true
                     });
-                    if (isCurrent() && found.items.length) await this.selectFile(found.items[0], page);
-                });
+                    if (needsDefault() && found.items.length) await this.selectFile(found.items[0], page);
+                } catch (e) {
+                    if (needsDefault() && !this.dialog) this.toast(String(e?.message || e));
+                }
             }
         },
         async metricGo (m) {

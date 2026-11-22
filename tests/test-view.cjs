@@ -42,6 +42,36 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{
   await tick();await ctx.Vue.nextTick();
   assert(root.textContent.includes('监控工作台'));assert(appVm.s.files>0);assert.equal(appVm.metrics.length,4);
+  const pickerRequest=ctx.exampleRequest;
+  const defaultFile=await pickerRequest('files',{size:1,history:true});
+  let finishDefault, rejectDefault;
+  ctx.exampleRequest=(cmd,args)=>cmd==='files'&&args.history
+    ?new Promise((resolve,reject)=>{finishDefault=resolve;rejectDefault=reject;})
+    :pickerRequest(cmd,args);
+  const enteringHistory=appVm.go('历史版本');
+  await appVm.fileDialog();
+  const manualFile=appVm.picks.items.find(f=>f.id!==defaultFile.items[0].id&&f.version>1);
+  assert(manualFile);
+  await appVm.picked(manualFile);
+  const manualVersions=appVm.versions;
+  finishDefault(defaultFile);await enteringHistory;
+  assert.equal(appVm.file.id,manualFile.id,'自动选择不能覆盖用户已指定的历史文件');
+  assert.equal(appVm.versions,manualVersions);
+
+  appVm.file=null;
+  const enteringCompare=appVm.go('版本对比');
+  await appVm.fileDialog();
+  await appVm.picked(manualFile);
+  const manualDiff=appVm.diff;
+  assert(manualDiff);
+  await appVm.fileDialog();
+  const reopenedPicker=appVm.dialog;
+  rejectDefault(Error('自动查询历史文件失败'));await enteringCompare;
+  assert.equal(appVm.file.id,manualFile.id);assert.equal(appVm.diff,manualDiff);
+  assert.equal(appVm.dialog,reopenedPicker);assert.equal(reopenedPicker.error,undefined);
+  ctx.exampleRequest=pickerRequest;
+  appVm.file=null;
+  await appVm.go('历史版本');assert.equal(appVm.file.id,defaultFile.items[0].id);
   const connectionRequest=ctx.exampleRequest;
   const connectionError='无法启动监控引擎：找不到 fileguard-engine.exe';
   const savedFiles=appVm.s.files;
