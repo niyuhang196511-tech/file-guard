@@ -276,7 +276,8 @@ window.exampleRequest=async function(cmd,a={}){
       }
     }
     const cmp=(x,y)=>x<y?-1:x>y?1:0;
-    const recent=(x,y)=>cmp(y.stamp,x.stamp)||y.id-x.id;
+    const epoch=stamp=>{const value=Date.parse(stamp);return Number.isFinite(value)?value:-Infinity;};
+    const recent=(x,y)=>epoch(y.stamp)-epoch(x.stamp)||y.id-x.id;
     let ordered,summary={};
     if(refs){
       const by={recent,oldest:(x,y)=>recent(y,x),path:(x,y)=>cmp(fold(x.rel),fold(y.rel))||x.file_id-y.file_id||y.num-x.num||y.id-x.id};
@@ -291,17 +292,17 @@ window.exampleRequest=async function(cmd,a={}){
         const sizes=new Set(rows.map(v=>v.size));
         const size=rows[0].size;
         const conflict=sizes.size!==1||size<0;
-        const days=rows.map(v=>v.stamp).sort();
+        const days=[...rows].sort((x,y)=>epoch(x.stamp)-epoch(y.stamp)||x.id-y.id);
         return {sha,conflict,size:conflict?null:size,versions:rows.length,
           files:new Set(rows.map(v=>v.file_id)).size,roots:new Set(rows.map(v=>v.root_id)).size,
           formats:new Set(rows.map(v=>v.ext)).size,latest:rows.filter(v=>v.latest).length,
-          first_stamp:days[0],last_stamp:days.at(-1),logical:conflict?null:size*rows.length,
+          first_stamp:days[0].stamp,last_stamp:days.at(-1).stamp,logical:conflict?null:size*rows.length,
           saved:conflict?null:size*(rows.length-1)};
       });
       const modes={cross:x=>x.files>1,repeat:x=>x.versions>x.files,shared:x=>x.versions>1,all:()=>true};
       const by={saved:(x,y)=>(y.saved??-1)-(x.saved??-1)||y.versions-x.versions,
         versions:(x,y)=>y.versions-x.versions||y.files-x.files,files:(x,y)=>y.files-x.files||y.versions-x.versions,
-        bytes:(x,y)=>(y.size??-1)-(x.size??-1),recent:(x,y)=>cmp(y.last_stamp,x.last_stamp)};
+        bytes:(x,y)=>(y.size??-1)-(x.size??-1),recent:(x,y)=>epoch(y.last_stamp)-epoch(x.last_stamp)};
       const order=by[a.sort||'saved'];
       ordered=ordered.filter(modes[a.mode||'cross']).sort((x,y)=>order(x,y)||cmp(x.sha,y.sha));
       summary={total:ordered.length,versions:0,unique_bytes:0,logical:0,saved:0,conflicts:0};

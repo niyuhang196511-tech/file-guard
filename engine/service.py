@@ -359,7 +359,8 @@ class Service:
         query=' FROM '+source
         if cond:
             query+=' WHERE '+' AND '.join(cond)
-        orders={'':date+' DESC','oldest':date+' ASC'}
+        time_order='unixepoch('+date+')'
+        orders={'':time_order+' DESC','oldest':time_order+' ASC'}
         if table=='files':
             orders.update(size='x.size DESC',versions='v.num DESC',name='x.rel COLLATE NOCASE ASC')
         order=orders.get(a.get('sort',''))

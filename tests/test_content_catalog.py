@@ -134,6 +134,21 @@ class ContentCatalogTests(unittest.TestCase):
         group, = self.groups(mode='all',start='2025-12-30',end='9999-12-31')['items']
         self.assertEqual((group['first_stamp'][:10],group['last_stamp'][:10]),('2025-12-30','2026-01-01'))
 
+    def test_recent_sort_uses_actual_timezone_instant(self):
+        early = '2026-11-01T01:58:00-04:00'
+        late = '2026-11-01T01:03:00-05:00'
+        self.write('early.txt', 'early')
+        self.scan(stamp=early)
+        self.write('late.txt', 'late')
+        self.scan(stamp=late)
+
+        groups = self.groups(mode='all', sort='recent')
+        self.assertEqual([row['last_stamp'] for row in groups['items']], [late, early])
+        self.assertEqual((groups['items'][0]['first_stamp'], groups['items'][0]['last_stamp']), (late, late))
+        refs = self.refs('early', sort='recent')
+        self.assertEqual([row['stamp'] for row in refs['items']], [early])
+        self.assertEqual(self.refs('late', sort='recent')['items'][0]['stamp'], late)
+
     def test_renames_use_registered_path_and_saved_extension(self):
         path = self.write('old.log','earlier')
         self.scan()

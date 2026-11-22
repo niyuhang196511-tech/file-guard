@@ -27,11 +27,11 @@ GROUP_ORDER = {
     'versions': 'versions DESC,files DESC,sha',
     'files': 'files DESC,versions DESC,sha',
     'bytes': 'size DESC,sha',
-    'recent': 'last_stamp DESC,sha',
+    'recent': 'last_epoch DESC,sha',
 }
 REF_ORDER = {
-    'recent': 'v.stamp DESC,v.id DESC',
-    'oldest': 'v.stamp,v.id',
+    'recent': 'unixepoch(v.stamp) DESC,v.id DESC',
+    'oldest': 'unixepoch(v.stamp),v.id',
     'path': 'fg_catalog_fold(f.rel),v.file_id,v.num DESC,v.id DESC',
 }
 STATES = ('当前在册', '目录已暂停', '规则已排除', '目录已移除', '已删除')
@@ -147,12 +147,17 @@ def references_sql(db, args, exact):
 
 
 def groups_sql(source):
-    return """WITH grouped AS (
-        SELECT v.sha, min(v.size) low, max(v.size) high,
-               count(*) versions, count(DISTINCT v.file_id) files, count(DISTINCT r.id) roots,
-               count(DISTINCT v.ext) formats, sum("""+LATEST+""") latest,
-               min(v.stamp) first_stamp,max(v.stamp) last_stamp
-        """+source+""" GROUP BY v.sha
+    filtered = "SELECT v.id AS vid,v.sha,v.size,v.file_id,r.id AS root_id,v.ext,v.stamp,"+LATEST+" AS latest"+source
+    return """WITH filtered AS ("""+filtered+"""), grouped AS (
+        SELECT sha, min(size) low, max(size) high,
+               count(*) versions, count(DISTINCT file_id) files, count(DISTINCT root_id) roots,
+               count(DISTINCT ext) formats, sum(latest) latest,
+               (SELECT stamp FROM filtered first WHERE first.sha=filtered.sha
+                  ORDER BY unixepoch(first.stamp),first.vid LIMIT 1) first_stamp,
+               (SELECT stamp FROM filtered last WHERE last.sha=filtered.sha
+                  ORDER BY unixepoch(last.stamp) DESC,last.vid DESC LIMIT 1) last_stamp,
+               min(unixepoch(stamp)) first_epoch,max(unixepoch(stamp)) last_epoch
+        FROM filtered GROUP BY sha
     ), catalog AS (
         SELECT *, low<>high OR low<0 AS conflict,
                CASE WHEN low=high AND low>=0 THEN low END size,

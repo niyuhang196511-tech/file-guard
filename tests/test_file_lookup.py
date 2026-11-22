@@ -1,6 +1,7 @@
 import csv
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from engine import record_admin
@@ -103,6 +104,18 @@ class FileLookupTests(unittest.TestCase):
         self.api.dispatch('record_amend',dict(amend,action='撤回',revision=1))
         self.assertEqual(self.api.dispatch('events',{'caption':'STRASSE'})['total'],0)
         self.assertEqual(self.api.dispatch('events',{'q':'已撤回'})['total'],1)
+
+    def test_event_list_sort_uses_actual_offset_time(self):
+        path=self.root/'时区.txt'
+        stamps=('2026-11-01T01:58:00-04:00','2026-11-01T01:03:00-05:00','2026-11-01T02:10:00-05:00')
+        for number,stamp in enumerate(stamps,1):
+            path.write_text(str(number),encoding='utf-8')
+            with patch('engine.store.now',return_value=stamp):
+                self.scan()
+        oldest=self.api.dispatch('events',{'sort':'oldest','q':'时区.txt'})
+        newest=self.api.dispatch('events',{'q':'时区.txt'})
+        self.assertEqual([row['stamp'] for row in oldest['items']],list(stamps))
+        self.assertEqual([row['stamp'] for row in newest['items']],list(reversed(stamps)))
 
     def test_recreated_name_preserves_two_distinct_histories(self):
         file=self.root/'交接单.txt'
