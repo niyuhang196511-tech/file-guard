@@ -520,6 +520,19 @@ class Packages(Work):
 
 
 class Health(Work):
+    def test_health_pages_reject_malformed_page_arguments(self):
+        orphan = b'orphan health object'
+        sha = hashlib.sha256(orphan).hexdigest()
+        obj = self.store.obj(sha)
+        obj.parent.mkdir()
+        obj.write_bytes(orphan)
+        report = health.run(self.store)
+        for args in ({'page':None},{'page':5.5},{'page':'1.5'},{'page':'1_0'}):
+            with self.subTest(args=args), self.assertRaisesRegex(ValueError,'分页条件无效'):
+                self.call('health_results',id=report,**args)
+            with self.subTest(reference=args), self.assertRaisesRegex(ValueError,'分页条件无效'):
+                self.call('health_references',id=report,key=sha,**args)
+
     def test_reports_corruption_repair_reference_and_retention(self):
         self.write('a.txt','one');self.write('b.txt','one');self.write('c.txt','two');self.scan()
         one=hashlib.sha256(b'one').hexdigest();two=hashlib.sha256(b'two').hexdigest()

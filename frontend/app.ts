@@ -2071,8 +2071,12 @@ const app = createApp({
             const {old,new:right,mode,field,sheet,record,minimum,rate,direction,sort}=d;
             const args=previous||{old,new:right,mode,field,sheet,record,minimum,rate,direction,sort};
             d.error='';d.data=null;
-            const data=await this.safe(()=>request('variance',{...args,page}));
-            if(this.dialog===d&&seq===this.flags.variance){d.data=data;d.applied=args;}
+            try {
+                const data=await request('variance',{...args,page});
+                if(this.dialog===d&&seq===this.flags.variance){d.data=data;d.applied=args;}
+            } catch(error) {
+                if(this.dialog===d&&seq===this.flags.variance)d.error=String(error?.message||error);
+            }
         },
         async varianceExport () {
             const args=this.dialog.applied;

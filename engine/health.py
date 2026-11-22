@@ -5,7 +5,7 @@ import re
 import stat
 import time
 
-from .comparison import csv_cell,new_csv
+from .comparison import csv_cell,new_csv,page_integer
 from .store import digest,ensure_plain,linklike,now,within
 
 SHA=re.compile('[0-9a-f]{64}')
@@ -113,7 +113,7 @@ def results(db,store,args,export=False):
             for r in filtered:out.writerow([csv_cell(r[k]) for k in (*KEYS,'change')])
         db.commit();store.audit(db,'导出仓库体检明细',f"报告 #{report['id']} · {len(filtered)} 项")
         return str(dest)
-    pages=max(1,(len(filtered)+24)//25);p=min(pages,max(1,int(args.get('page',1))))
+    pages=max(1,(len(filtered)+24)//25);p=min(pages,max(1,page_integer(args,'page',1)))
     return dict(report=dict(report),previous=previous,counts=counts,changes=changes,total=len(filtered),
                 items=filtered[(p-1)*25:p*25],page=p,pages=pages)
 
@@ -125,6 +125,6 @@ def references(db,args):
         raise ValueError('该报告没有此对象')
     query=' FROM versions v JOIN files f ON f.id=v.file_id JOIN roots r ON r.id=f.root_id WHERE v.sha=?'
     total=db.execute('SELECT count(*)'+query,(opts[1],)).fetchone()[0]
-    pages=max(1,(total+24)//25);p=min(pages,max(1,int(args.get('page',1))))
+    pages=max(1,(total+24)//25);p=min(pages,max(1,page_integer(args,'page',1)))
     rows=db.execute('SELECT v.id,v.num,v.stamp,v.file_id,f.rel,f.ext,r.path AS root'+query+' ORDER BY v.id DESC LIMIT 25 OFFSET ?',(opts[1],(p-1)*25))
     return dict(items=[dict(r) for r in rows],total=total,page=p,pages=pages)
