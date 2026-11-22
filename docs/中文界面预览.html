@@ -543,7 +543,7 @@ aside nav{min-height:0;overflow-y:auto}.snippet111{max-width:28ch;overflow-wrap:
 <label>查看方式<select v-model="snapshotForm.mode" @change="resetSnapshotView()" :disabled="snapshotBusy"><option value="auto">自动</option><option value="text">文本</option><option value="hex">十六进制</option></select></label>
 <label v-if="snapshotShowsHex">每行字节<select v-model.number="snapshotForm.width"><option :value="16">16 字节</option><option :value="32">32 字节</option></select></label>
 <label>每页<select v-model.number="snapshotForm.size"><option v-for="n in [20,50,100]" :value="n" :key="n">{{n}} 行</option></select></label>
-<label>{{snapshotShowsHex?'十六进制字节序列':'正文关键词'}}<input v-model="snapshotForm.q" maxlength="160" :placeholder="snapshotShowsHex?'例如 50 4B 03 04':'例如 RK-001'"></label>
+<label>{{snapshotShowsHex?'十六进制字节序列':snapshotMode==='text'?'正文关键词':'检索内容'}}<input v-model="snapshotForm.q" :maxlength="snapshotQueryLimit" :placeholder="snapshotShowsHex?'例如 50 4B 03 04':snapshotMode==='text'?'例如 RK-001':'文本关键词或十六进制字节'"></label>
 </div>
 <details><summary>位置与匹配</summary><div class="filters">
 <label>{{snapshotShowsHex?'起始字节偏移':'起始行号'}}<input type="number" step="1" :min="snapshotShowsHex?0:1" v-model.number="snapshotForm.low"></label>
@@ -554,7 +554,7 @@ aside nav{min-height:0;overflow-y:auto}.snippet111{max-width:28ch;overflow-wrap:
 </div></details>
 <div class="filters"><button class="primary" :disabled="snapshotBusy||!snapshotVersions.length">更新预览</button><button type="button" class="btn" :disabled="snapshotBusy||!snapshotVersions.length" @click="resetSnapshotView">清空范围与检索</button><button type="button" v-if="!demo" class="btn" :disabled="!snapshotVersions.length" @click="saveSnapshotOriginal">另存原件</button></div>
 </form>
-<details><summary>预览范围和编码</summary><p>预览校验历史副本大小与 SHA-256，每个快照最多 2 MiB。文本模式按物理行显示，十六进制模式的字节偏移从 0 开始，位置输入使用十进制。直接定位会显示指定位置所在页，筛选后可定位到下一条匹配记录。</p><p v-if="demo">离线样例提供文本版本和一个工作簿的原始字节。</p></details>
+<details><summary>预览范围和编码</summary><p>预览校验历史副本大小与 SHA-256，每个快照最多 2 MiB。文本模式按物理行显示。十六进制模式的字节偏移从 0 开始，位置输入使用十进制，最多可检索 64 个字节。直接定位会显示指定位置所在页，筛选后可定位到下一条匹配记录。</p><p v-if="demo">离线样例提供文本版本和一个工作簿的原始字节。</p></details>
 </section>
 <section v-if="snapshotFile" class="card listcard" :aria-busy="snapshotBusy">
 <p v-if="snapshotBusy" role="status">正在校验并读取历史原件…</p><p v-if="snapshotError" role="alert" class="error">{{snapshotError}}</p>
@@ -2061,7 +2061,7 @@ const _hoisted_726 = ["value"]
 const _hoisted_727 = ["value"]
 const _hoisted_728 = ["onUpdate:modelValue"]
 const _hoisted_729 = ["value"]
-const _hoisted_730 = ["onUpdate:modelValue", "placeholder"]
+const _hoisted_730 = ["onUpdate:modelValue", "maxlength", "placeholder"]
 const _hoisted_731 = { class: "filters" }
 const _hoisted_732 = ["min", "onUpdate:modelValue"]
 const _hoisted_733 = ["min", "onUpdate:modelValue"]
@@ -5652,10 +5652,10 @@ return function render(_ctx, _cache) {
                             void 0,
                             { number: true }
                           ]])]),
-                          _createElementVNode("label", null, [_createTextVNode(_toDisplayString(snapshotShowsHex?'十六进制字节序列':'正文关键词'), 1), _withDirectives(_createElementVNode("input", {
+                          _createElementVNode("label", null, [_createTextVNode(_toDisplayString(snapshotShowsHex?'十六进制字节序列':snapshotMode==='text'?'正文关键词':'检索内容'), 1), _withDirectives(_createElementVNode("input", {
                             "onUpdate:modelValue": $event => ((snapshotForm.q) = $event),
-                            maxlength: "160",
-                            placeholder: snapshotShowsHex?'例如 50 4B 03 04':'例如 RK-001'
+                            maxlength: snapshotQueryLimit,
+                            placeholder: snapshotShowsHex?'例如 50 4B 03 04':snapshotMode==='text'?'例如 RK-001':'文本关键词或十六进制字节'
                           }, null, 8, _hoisted_730), [[_vModelText, snapshotForm.q]])])
                         ]), _createElementVNode("details", null, [_cache[272] || (_cache[272] = _createElementVNode("summary", null, "位置与匹配", -1)), _createElementVNode("div", _hoisted_731, [
                           _createElementVNode("label", null, [_createTextVNode(_toDisplayString(snapshotShowsHex?'起始字节偏移':'起始行号'), 1), _withDirectives(_createElementVNode("input", {
@@ -5720,7 +5720,7 @@ return function render(_ctx, _cache) {
                               onClick: saveSnapshotOriginal
                             }, "另存原件", 8, _hoisted_742))
                           : _createCommentVNode("", true)])], 40, _hoisted_719)),
-                    _createElementVNode("details", null, [_cache[273] || (_cache[273] = _createElementVNode("summary", null, "预览范围和编码", -1)), _cache[274] || (_cache[274] = _createElementVNode("p", null, "预览校验历史副本大小与 SHA-256，每个快照最多 2 MiB。文本模式按物理行显示，十六进制模式的字节偏移从 0 开始，位置输入使用十进制。直接定位会显示指定位置所在页，筛选后可定位到下一条匹配记录。", -1)), demo
+                    _createElementVNode("details", null, [_cache[273] || (_cache[273] = _createElementVNode("summary", null, "预览范围和编码", -1)), _cache[274] || (_cache[274] = _createElementVNode("p", null, "预览校验历史副本大小与 SHA-256，每个快照最多 2 MiB。文本模式按物理行显示。十六进制模式的字节偏移从 0 开始，位置输入使用十进制，最多可检索 64 个字节。直接定位会显示指定位置所在页，筛选后可定位到下一条匹配记录。", -1)), demo
                       ? (_openBlock(), _createElementBlock("p", _hoisted_743, "离线样例提供文本版本和一个工作簿的原始字节。"))
                       : _createCommentVNode("", true)])
                   ]), snapshotFile
@@ -7903,8 +7903,8 @@ window.exampleRequest=async function(cmd,a={}){
     const bundle=d.snapshotPreview,entry=bundle.samples[a.id];
     if(!entry)throw Error('离线预览提供文本样例和一份工作簿。');
     const size=a.size||50,width=a.width||16;
-    const q=String(a.q||'');
-    if(Array.from(q).length>160||/[\r\n\0]/.test(q))throw Error('检索内容须为不超过 160 字的单行文本');
+    const q=a.q===undefined?'':a.q;
+    if(typeof q!=='string'||Array.from(q).length>512||/[\r\n\0]/.test(q))throw Error('检索内容须为不超过 512 字的单行文本');
     if(a.low!=null&&a.high!=null&&a.low>a.high)throw Error('起始位置须小于或等于结束位置');
     let mode=a.mode||'auto',fallback='';
     if(mode==='auto'&&!entry.auto_text){mode='hex';fallback='此格式按原始字节查看';}
@@ -7915,6 +7915,7 @@ window.exampleRequest=async function(cmd,a={}){
     const rows=[];
     let units,make,encoding='',endings={};
     if(mode==='text'){
+      if(Array.from(q).length>160)throw Error('检索内容须为不超过 160 字的单行文本');
       if([a.low,a.high,a.at].includes(0))throw Error('文本行号从 1 开始');
       const text=entry.text;
       units=text.rows.length;encoding=text.encoding;endings=text.endings;
@@ -7943,7 +7944,7 @@ window.exampleRequest=async function(cmd,a={}){
           right:chars.slice(stop,hi).join(''),before:lo>0,after:hi<chars.length};
       };
     }else{
-      const compact=q.replace(/\s+/g,'');
+      const compact=q.replace(/[\p{White_Space}\u001c-\u001f]+/gu,'');
       if(compact&&!/^(?:[0-9a-f]{2}){1,64}$/i.test(compact))throw Error('字节检索请输入 1 至 64 组两位十六进制数字');
       const needle=(compact.match(/../g)||[]).map(x=>parseInt(x,16));
       const raw=Uint8Array.from(atob(entry.raw),c=>c.charCodeAt(0));
@@ -9076,7 +9077,7 @@ const app = createApp({
             triBusy:false,triReturn:false,
             triKinds:['相同','仅左侧变动','仅右侧变动','两侧结果相同','两侧互补','两侧内容冲突','两侧路径冲突','两侧路径与内容冲突','移出与变动冲突'],
             snapshotFile:null,snapshotVersions:[],snapshotForm:freshSnapshot(),snapshotData:null,
-            snapshotApplied:null,snapshotBusy:false,snapshotError:'',snapshotBack:'',
+            snapshotApplied:null,snapshotBusy:false,snapshotError:'',snapshotBack:'',snapshotAuto:null,
             reviewStates:['待复核','需跟进','已复核'],historyReview:'',storageData:null,
             gridFilter:'',gridTarget:'',gridLocate:'new',
             cpRoot:0,cpOld:0,cpNew:0,checkpoints:[],cpLabel:'',cpKind:'',cpQ:'',cpSort:'',cpSame:false,cpData:null,cpPage:1,cpBusy:false,cpSaving:false,
@@ -9185,7 +9186,12 @@ const app = createApp({
                 JSON.stringify(d.filters)!==JSON.stringify(d.applied));
         },
         activeContentVersion () {return this.versions.find(v=>v.id===this.right);},
-        snapshotShowsHex () {return this.snapshotForm.mode==='hex'||(this.snapshotForm.mode==='auto'&&this.snapshotData?.mode==='hex');},
+        snapshotMode () {
+            const {id,mode}=this.snapshotForm;
+            return mode==='auto'&&this.snapshotAuto?.id===id?this.snapshotAuto.mode:mode;
+        },
+        snapshotShowsHex () {return this.snapshotMode==='hex';},
+        snapshotQueryLimit () {return this.snapshotMode==='text'?160:512;},
         ledgerEnabled () {return this.versions.some(v=>ledgerExt.includes(v.ext));},
         ledgerSlice () {return this.dialog?.type==='ledger'?Ledger.paginate(this.ledgerData(),this.dialog.page):Ledger.paginate([],1);},
         matchedVersions () {
@@ -9890,7 +9896,10 @@ const app = createApp({
             else {this.snapshotData=null;this.snapshotApplied=null;}
             try {
                 const data=await request('snapshot_preview',{...opts,page});
-                if(seq===this.flags.snapshot){this.snapshotData=data;this.snapshotApplied=opts;}
+                if(seq===this.flags.snapshot){
+                    if(opts.mode==='auto')this.snapshotAuto={id:opts.id,mode:data.mode};
+                    this.snapshotData=data;this.snapshotApplied=opts;
+                }
             } catch (error) {
                 if(seq===this.flags.snapshot)this.snapshotError=String(error.message||error);
             } finally {

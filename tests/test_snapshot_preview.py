@@ -137,6 +137,41 @@ class SnapshotPreviewTests(unittest.TestCase):
         self.assertEqual(self.view(row,q='41424344',low=15,high=18)['total'],1)
         self.assertEqual(self.view(row,q='41424344',low=15,high=17)['total'],0)
 
+    def test_hex_accepts_formatted_64_byte_sequence_in_explicit_and_auto_modes(self):
+        pattern = bytes(range(64))
+        raw = b'x'*15 + pattern + b'y'
+        binary = self.save(raw, name='signature.bin')
+        text_fallback = self.save(raw, name='signature.txt')
+        for row, mode in ((binary, 'hex'), (binary, 'auto'), (text_fallback, 'auto')):
+            with self.subTest(ext=row['ext'], mode=mode):
+                contiguous = self.view(row, mode=mode, q=pattern.hex())
+                grouped = self.view(row, mode=mode, q=pattern.hex(' '))
+                self.assertEqual(grouped, contiguous)
+                matched, = grouped['items']
+                self.assertEqual((grouped['mode'], matched['match'], matched['match_size']), ('hex', 15, 64))
+                for query in ((pattern+b'!').hex(), (pattern+b'!').hex(' ')):
+                    with self.assertRaisesRegex(ValueError, '1 至 64 组'):
+                        self.view(row, mode=mode, q=query)
+
+        report = self.export(binary, mode='auto', q=pattern.hex(' '))
+        with report.open(encoding='utf-8-sig', newline='') as stream:
+            match, = csv.DictReader(stream)
+        self.assertEqual(match['匹配字节偏移'], '15')
+
+    def test_resolved_text_query_and_raw_request_limits(self):
+        keyword = '字'*160
+        row = self.save(keyword+'尾')
+        for mode in ('text', 'auto'):
+            with self.subTest(mode=mode):
+                self.assertEqual(self.view(row, mode=mode, q=keyword)['total'], 1)
+                with self.assertRaisesRegex(ValueError, '160 字'):
+                    self.view(row, mode=mode, q=keyword+'尾')
+        with patch.object(snapshot_preview, 'snapshot_bytes') as read:
+            for query in (' '*513, '00\x00', '00\n00', '00\r00', ['00']):
+                with self.subTest(query=query), self.assertRaises(ValueError):
+                    self.view(row, mode='hex', q=query)
+            read.assert_not_called()
+
     def test_hex_direct_location_uses_row_containing_offset(self):
         row=self.save(bytes(range(256))*5,name='data.bin')
         before=self.view(row,at=319,size=20,width=16)

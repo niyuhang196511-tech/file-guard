@@ -239,7 +239,7 @@ const app = createApp({
             triBusy:false,triReturn:false,
             triKinds:['相同','仅左侧变动','仅右侧变动','两侧结果相同','两侧互补','两侧内容冲突','两侧路径冲突','两侧路径与内容冲突','移出与变动冲突'],
             snapshotFile:null,snapshotVersions:[],snapshotForm:freshSnapshot(),snapshotData:null,
-            snapshotApplied:null,snapshotBusy:false,snapshotError:'',snapshotBack:'',
+            snapshotApplied:null,snapshotBusy:false,snapshotError:'',snapshotBack:'',snapshotAuto:null,
             reviewStates:['待复核','需跟进','已复核'],historyReview:'',storageData:null,
             gridFilter:'',gridTarget:'',gridLocate:'new',
             cpRoot:0,cpOld:0,cpNew:0,checkpoints:[],cpLabel:'',cpKind:'',cpQ:'',cpSort:'',cpSame:false,cpData:null,cpPage:1,cpBusy:false,cpSaving:false,
@@ -348,7 +348,12 @@ const app = createApp({
                 JSON.stringify(d.filters)!==JSON.stringify(d.applied));
         },
         activeContentVersion () {return this.versions.find(v=>v.id===this.right);},
-        snapshotShowsHex () {return this.snapshotForm.mode==='hex'||(this.snapshotForm.mode==='auto'&&this.snapshotData?.mode==='hex');},
+        snapshotMode () {
+            const {id,mode}=this.snapshotForm;
+            return mode==='auto'&&this.snapshotAuto?.id===id?this.snapshotAuto.mode:mode;
+        },
+        snapshotShowsHex () {return this.snapshotMode==='hex';},
+        snapshotQueryLimit () {return this.snapshotMode==='text'?160:512;},
         ledgerEnabled () {return this.versions.some(v=>ledgerExt.includes(v.ext));},
         ledgerSlice () {return this.dialog?.type==='ledger'?Ledger.paginate(this.ledgerData(),this.dialog.page):Ledger.paginate([],1);},
         matchedVersions () {
@@ -1053,7 +1058,10 @@ const app = createApp({
             else {this.snapshotData=null;this.snapshotApplied=null;}
             try {
                 const data=await request('snapshot_preview',{...opts,page});
-                if(seq===this.flags.snapshot){this.snapshotData=data;this.snapshotApplied=opts;}
+                if(seq===this.flags.snapshot){
+                    if(opts.mode==='auto')this.snapshotAuto={id:opts.id,mode:data.mode};
+                    this.snapshotData=data;this.snapshotApplied=opts;
+                }
             } catch (error) {
                 if(seq===this.flags.snapshot)this.snapshotError=String(error.message||error);
             } finally {

@@ -30,8 +30,8 @@ window.exampleRequest=async function(cmd,a={}){
     const bundle=d.snapshotPreview,entry=bundle.samples[a.id];
     if(!entry)throw Error('离线预览提供文本样例和一份工作簿。');
     const size=a.size||50,width=a.width||16;
-    const q=String(a.q||'');
-    if(Array.from(q).length>160||/[\r\n\0]/.test(q))throw Error('检索内容须为不超过 160 字的单行文本');
+    const q=a.q===undefined?'':a.q;
+    if(typeof q!=='string'||Array.from(q).length>512||/[\r\n\0]/.test(q))throw Error('检索内容须为不超过 512 字的单行文本');
     if(a.low!=null&&a.high!=null&&a.low>a.high)throw Error('起始位置须小于或等于结束位置');
     let mode=a.mode||'auto',fallback='';
     if(mode==='auto'&&!entry.auto_text){mode='hex';fallback='此格式按原始字节查看';}
@@ -42,6 +42,7 @@ window.exampleRequest=async function(cmd,a={}){
     const rows=[];
     let units,make,encoding='',endings={};
     if(mode==='text'){
+      if(Array.from(q).length>160)throw Error('检索内容须为不超过 160 字的单行文本');
       if([a.low,a.high,a.at].includes(0))throw Error('文本行号从 1 开始');
       const text=entry.text;
       units=text.rows.length;encoding=text.encoding;endings=text.endings;
@@ -70,7 +71,7 @@ window.exampleRequest=async function(cmd,a={}){
           right:chars.slice(stop,hi).join(''),before:lo>0,after:hi<chars.length};
       };
     }else{
-      const compact=q.replace(/\s+/g,'');
+      const compact=q.replace(/[\p{White_Space}\u001c-\u001f]+/gu,'');
       if(compact&&!/^(?:[0-9a-f]{2}){1,64}$/i.test(compact))throw Error('字节检索请输入 1 至 64 组两位十六进制数字');
       const needle=(compact.match(/../g)||[]).map(x=>parseInt(x,16));
       const raw=Uint8Array.from(atob(entry.raw),c=>c.charCodeAt(0));

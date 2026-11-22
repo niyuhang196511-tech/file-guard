@@ -1004,7 +1004,7 @@ const _hoisted_726 = ["value"]
 const _hoisted_727 = ["value"]
 const _hoisted_728 = ["onUpdate:modelValue"]
 const _hoisted_729 = ["value"]
-const _hoisted_730 = ["onUpdate:modelValue", "placeholder"]
+const _hoisted_730 = ["onUpdate:modelValue", "maxlength", "placeholder"]
 const _hoisted_731 = { class: "filters" }
 const _hoisted_732 = ["min", "onUpdate:modelValue"]
 const _hoisted_733 = ["min", "onUpdate:modelValue"]
@@ -4595,10 +4595,10 @@ return function render(_ctx, _cache) {
                             void 0,
                             { number: true }
                           ]])]),
-                          _createElementVNode("label", null, [_createTextVNode(_toDisplayString(snapshotShowsHex?'十六进制字节序列':'正文关键词'), 1), _withDirectives(_createElementVNode("input", {
+                          _createElementVNode("label", null, [_createTextVNode(_toDisplayString(snapshotShowsHex?'十六进制字节序列':snapshotMode==='text'?'正文关键词':'检索内容'), 1), _withDirectives(_createElementVNode("input", {
                             "onUpdate:modelValue": $event => ((snapshotForm.q) = $event),
-                            maxlength: "160",
-                            placeholder: snapshotShowsHex?'例如 50 4B 03 04':'例如 RK-001'
+                            maxlength: snapshotQueryLimit,
+                            placeholder: snapshotShowsHex?'例如 50 4B 03 04':snapshotMode==='text'?'例如 RK-001':'文本关键词或十六进制字节'
                           }, null, 8, _hoisted_730), [[_vModelText, snapshotForm.q]])])
                         ]), _createElementVNode("details", null, [_cache[272] || (_cache[272] = _createElementVNode("summary", null, "位置与匹配", -1)), _createElementVNode("div", _hoisted_731, [
                           _createElementVNode("label", null, [_createTextVNode(_toDisplayString(snapshotShowsHex?'起始字节偏移':'起始行号'), 1), _withDirectives(_createElementVNode("input", {
@@ -4663,7 +4663,7 @@ return function render(_ctx, _cache) {
                               onClick: saveSnapshotOriginal
                             }, "另存原件", 8, _hoisted_742))
                           : _createCommentVNode("", true)])], 40, _hoisted_719)),
-                    _createElementVNode("details", null, [_cache[273] || (_cache[273] = _createElementVNode("summary", null, "预览范围和编码", -1)), _cache[274] || (_cache[274] = _createElementVNode("p", null, "预览校验历史副本大小与 SHA-256，每个快照最多 2 MiB。文本模式按物理行显示，十六进制模式的字节偏移从 0 开始，位置输入使用十进制。直接定位会显示指定位置所在页，筛选后可定位到下一条匹配记录。", -1)), demo
+                    _createElementVNode("details", null, [_cache[273] || (_cache[273] = _createElementVNode("summary", null, "预览范围和编码", -1)), _cache[274] || (_cache[274] = _createElementVNode("p", null, "预览校验历史副本大小与 SHA-256，每个快照最多 2 MiB。文本模式按物理行显示。十六进制模式的字节偏移从 0 开始，位置输入使用十进制，最多可检索 64 个字节。直接定位会显示指定位置所在页，筛选后可定位到下一条匹配记录。", -1)), demo
                       ? (_openBlock(), _createElementBlock("p", _hoisted_743, "离线样例提供文本版本和一个工作簿的原始字节。"))
                       : _createCommentVNode("", true)])
                   ]), snapshotFile

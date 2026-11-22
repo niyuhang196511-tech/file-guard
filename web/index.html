@@ -447,7 +447,7 @@
 <label>查看方式<select v-model="snapshotForm.mode" @change="resetSnapshotView()" :disabled="snapshotBusy"><option value="auto">自动</option><option value="text">文本</option><option value="hex">十六进制</option></select></label>
 <label v-if="snapshotShowsHex">每行字节<select v-model.number="snapshotForm.width"><option :value="16">16 字节</option><option :value="32">32 字节</option></select></label>
 <label>每页<select v-model.number="snapshotForm.size"><option v-for="n in [20,50,100]" :value="n" :key="n">{{n}} 行</option></select></label>
-<label>{{snapshotShowsHex?'十六进制字节序列':'正文关键词'}}<input v-model="snapshotForm.q" maxlength="160" :placeholder="snapshotShowsHex?'例如 50 4B 03 04':'例如 RK-001'"></label>
+<label>{{snapshotShowsHex?'十六进制字节序列':snapshotMode==='text'?'正文关键词':'检索内容'}}<input v-model="snapshotForm.q" :maxlength="snapshotQueryLimit" :placeholder="snapshotShowsHex?'例如 50 4B 03 04':snapshotMode==='text'?'例如 RK-001':'文本关键词或十六进制字节'"></label>
 </div>
 <details><summary>位置与匹配</summary><div class="filters">
 <label>{{snapshotShowsHex?'起始字节偏移':'起始行号'}}<input type="number" step="1" :min="snapshotShowsHex?0:1" v-model.number="snapshotForm.low"></label>
@@ -458,7 +458,7 @@
 </div></details>
 <div class="filters"><button class="primary" :disabled="snapshotBusy||!snapshotVersions.length">更新预览</button><button type="button" class="btn" :disabled="snapshotBusy||!snapshotVersions.length" @click="resetSnapshotView">清空范围与检索</button><button type="button" v-if="!demo" class="btn" :disabled="!snapshotVersions.length" @click="saveSnapshotOriginal">另存原件</button></div>
 </form>
-<details><summary>预览范围和编码</summary><p>预览校验历史副本大小与 SHA-256，每个快照最多 2 MiB。文本模式按物理行显示，十六进制模式的字节偏移从 0 开始，位置输入使用十进制。直接定位会显示指定位置所在页，筛选后可定位到下一条匹配记录。</p><p v-if="demo">离线样例提供文本版本和一个工作簿的原始字节。</p></details>
+<details><summary>预览范围和编码</summary><p>预览校验历史副本大小与 SHA-256，每个快照最多 2 MiB。文本模式按物理行显示。十六进制模式的字节偏移从 0 开始，位置输入使用十进制，最多可检索 64 个字节。直接定位会显示指定位置所在页，筛选后可定位到下一条匹配记录。</p><p v-if="demo">离线样例提供文本版本和一个工作簿的原始字节。</p></details>
 </section>
 <section v-if="snapshotFile" class="card listcard" :aria-busy="snapshotBusy">
 <p v-if="snapshotBusy" role="status">正在校验并读取历史原件…</p><p v-if="snapshotError" role="alert" class="error">{{snapshotError}}</p>

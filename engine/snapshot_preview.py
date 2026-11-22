@@ -11,6 +11,8 @@ from .text_history import EXTENSIONS,original_span,snapshot_bytes
 MAX_BYTES=2*1024**2
 MAX_LINES=200_000
 MAX_CSV=10_000
+MAX_QUERY_CHARS=512
+MAX_TEXT_QUERY_CHARS=160
 SIZES=(20,50,100)
 WIDTHS=(16,32)
 SCREEN=360
@@ -39,8 +41,8 @@ def params(args):
     a['q']=args.get('q','')
     if a['mode'] not in ('auto','text','hex') or a['size'] not in SIZES or a['width'] not in WIDTHS:
         raise ValueError('无效的查看方式、每页行数或字节宽度')
-    if not isinstance(a['q'],str) or len(a['q'])>160 or any(c in a['q'] for c in '\r\n\0'):
-        raise ValueError('检索内容须为不超过 160 字的单行文本')
+    if not isinstance(a['q'],str) or len(a['q'])>MAX_QUERY_CHARS or any(c in a['q'] for c in '\r\n\0'):
+        raise ValueError(f'检索内容须为不超过 {MAX_QUERY_CHARS} 字的单行文本')
     if a['high'] is not None and a['low'] is not None and a['high']<a['low']:
         raise ValueError('起始位置须小于或等于结束位置')
     return a
@@ -86,6 +88,8 @@ def byte_pattern(q):
 
 
 def text_selection(rows,a):
+    if len(a['q'])>MAX_TEXT_QUERY_CHARS:
+        raise ValueError(f'检索内容须为不超过 {MAX_TEXT_QUERY_CHARS} 字的单行文本')
     if 0 in (a['low'],a['high'],a['at']):
         raise ValueError('文本行号从 1 开始')
     needle=a['q'] if a['sensitive'] else a['q'].casefold()
