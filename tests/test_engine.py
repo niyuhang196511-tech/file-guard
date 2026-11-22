@@ -71,6 +71,31 @@ class EngineTest(unittest.TestCase):
     def test_initial_excluded_from_today(self):
         xlsx(self.root/'台账.xlsx',100);self.scan();s=self.api.dispatch('summary',{})
         self.assertEqual((s['today'],s['files'],s['versions']),(0,1,1))
+
+    def test_summary_uses_one_snapshot_when_a_scan_finishes(self):
+        (self.root/'existing.txt').write_bytes(b'original')
+        self.scan()
+        scans = []
+
+        def finish_scan_before_loading_roots(statement):
+            if not scans and 'FROM roots r LEFT JOIN capture_policy' in statement:
+                (self.root/'latest.txt').write_bytes(b'newly captured')
+                self.scan()
+                scans.append(True)
+
+        with self.store.db() as db:
+            db.set_trace_callback(finish_scan_before_loading_roots)
+            in_flight = self.api.summary(db, {})
+        self.assertEqual(scans, [True])
+        self.assertEqual((in_flight['files'], in_flight['versions'], in_flight['roots'][0]['total']), (1,1,1))
+        self.assertEqual(in_flight['today'], 0)
+        self.assertNotIn('latest.txt', {row['rel'] for row in in_flight['recent']})
+
+        current = self.api.dispatch('summary', {})
+        self.assertEqual((current['files'], current['versions'], current['roots'][0]['total']), (2,2,2))
+        self.assertEqual(current['today'], 1)
+        self.assertEqual(current['recent'][0]['rel'], 'latest.txt')
+
     def test_formula_format_comment_merge_validation(self):
         f=self.root/'台账.xlsx';xlsx(f,100);self.scan()
         w=load_workbook(f);s=w.active;s['E2']='=ROUND(C2*D2,2)';s['C2'].font=Font(bold=True);s['C2'].comment=Comment('复核','仓库');s.merge_cells('G3:H3')

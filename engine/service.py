@@ -221,6 +221,7 @@ class Service:
             raise ValueError('无效的统计周期')
         today=dt.date.today()
         start=(today-dt.timedelta(days=days-1)).isoformat()
+        db.execute('BEGIN')
         stats=rows(db.execute("""SELECT substr(stamp,1,10) AS day,kind,count(*) AS total FROM visible_events
                 WHERE stamp>=? AND kind!='初始建档' GROUP BY day,kind""",(start,)))
         trend=[]
