@@ -15,7 +15,7 @@ from collections import Counter
 from pathlib import Path
 
 from . import formats
-from .backup_check import MANIFEST
+from .backup_check import MANIFEST, validate_database
 from .publication import new_path
 from .shared_read import open_snapshot_source, replace_guarded_file
 
@@ -863,7 +863,11 @@ class Store:
                     raise ValueError('备份应保存到监控目录外')
             snap=Path(scratch)/'fileguard.db'
             with contextlib.closing(sqlite3.connect(snap)) as out:
-                db.backup(out)
+                try:
+                    db.backup(out)
+                except sqlite3.DatabaseError as exc:
+                    raise ValueError('无法读取仓库数据库以创建备份') from exc
+                schema = validate_database(out)
                 if out.execute('SELECT 1 FROM record_admin').fetchone():
                     if authorize is None:raise ValueError('完整备份需要管理口令')
                     authorize(out)
@@ -888,7 +892,7 @@ class Store:
                             if h.hexdigest()!=sha or written!=expected:raise ValueError('仓库对象校验失败')
                             size+=written;objects+=1
                         manifest=dict(format=1,created=now(),database_sha256=digest(snap),
-                            schema=check.execute('PRAGMA user_version').fetchone()[0],objects=objects,bytes=size,
+                            schema=schema,objects=objects,bytes=size,
                             versions=check.execute('SELECT count(*) FROM versions').fetchone()[0])
                         archive.writestr(MANIFEST,json.dumps(manifest,ensure_ascii=False))
                 if os.name=='nt':

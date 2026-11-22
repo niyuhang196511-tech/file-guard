@@ -346,6 +346,27 @@ class Health(Work):
         self.assertEqual((result['coverage']['shared'],result['coverage']['missing'],result['coverage']['missing_bytes'],result['coverage']['affected_versions']),(1,1,3,2))
         self.assertEqual(result['logical'],6);self.assertEqual(result['files'],1)
         self.assertIsNone(backup_check.inspect(path)['coverage'])
+
+    def test_backup_refuses_invalid_database_snapshot_before_publication(self):
+        self.write('tracked.txt', b'contents')
+        self.scan()
+        with closing(sqlite3.connect(self.store.dbfile)) as db, db:
+            db.execute('PRAGMA foreign_keys=OFF')
+            db.execute("INSERT INTO tasks VALUES(10000,0,'测试')")
+            self.assertEqual(db.execute('PRAGMA integrity_check').fetchone()[0], 'ok')
+
+        dest = self.base / 'snapshot.zip'
+        with self.assertRaisesRegex(ValueError, '备份数据库校验失败'):
+            self.call('backup', path=str(dest))
+        self.assertFalse(dest.exists())
+        self.assertEqual(self.call('audit', action='创建数据备份')['total'], 0)
+
+        with self.store.db() as db:
+            self.assertIsNotNone(db.execute('PRAGMA foreign_key_check').fetchone())
+            db.execute('DELETE FROM tasks WHERE root_id=10000')
+        self.call('backup', path=str(dest))
+        self.assertEqual(self.call('inspect_backup', path=str(dest))['versions'], 1)
+
     def test_schema_eight_upgrade_and_older_backup(self):
         self.write('a','a');self.scan()
         with self.store.db() as db:

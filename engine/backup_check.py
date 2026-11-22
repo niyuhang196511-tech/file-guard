@@ -1,4 +1,4 @@
-"""核查备份与提取待恢复仓库共用同一套检查。"""
+"""创建、核查和还原备份共用的数据库检查。"""
 from contextlib import closing,nullcontext
 import hashlib
 import json
@@ -10,6 +10,32 @@ import zipfile
 MANIFEST='fileguard-backup.json'
 CORE={'roots','files','versions','events','settings','tasks','audit','restores'}
 V6={'version_reviews','file_stars','record_admin','event_edits'}
+
+
+def validate_database(db):
+    error = '备份数据库校验失败或版本不兼容'
+    try:
+        db.execute('PRAGMA trusted_schema=OFF')
+        schema = db.execute('PRAGMA user_version').fetchone()[0]
+        if (schema not in range(1, 12)
+                or db.execute('PRAGMA integrity_check').fetchone()[0] != 'ok'
+                or db.execute('PRAGMA foreign_key_check').fetchone()):
+            raise ValueError(error)
+        tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    except sqlite3.DatabaseError as exc:
+        raise ValueError(error) from exc
+    if schema >= 11 and 'ledger_templates' not in tables:
+        raise ValueError('对账模板表缺失')
+    if schema >= 9 and not {'health_reports', 'health_findings'} <= tables:
+        raise ValueError('仓库体检表缺失')
+    if schema >= 8 and not {'scan_runs', 'finder_presets', 'capture_policy', 'waiting_files'} <= tables:
+        raise ValueError('扫描记录或检索条件表缺失')
+    required = CORE | (V6 if schema >= 6 else set())
+    if schema >= 7:
+        required |= {'rule_changes', 'checkpoints', 'checkpoint_files'}
+    if not required <= tables:
+        raise ValueError('备份数据表不完整')
+    return schema
 
 
 def validate(path,scratch,materialize,reference=None):
@@ -29,15 +55,7 @@ def validate(path,scratch,materialize,reference=None):
                 out.write(block);h.update(block)
         if manifest and h.hexdigest()!=manifest.get('database_sha256'):raise ValueError('备份数据库摘要不匹配')
         with closing(sqlite3.connect(target)) as db:
-            db.execute('PRAGMA trusted_schema=OFF')
-            schema=db.execute('PRAGMA user_version').fetchone()[0]
-            if schema not in range(1,12) or db.execute('PRAGMA integrity_check').fetchone()[0]!='ok' or db.execute('PRAGMA foreign_key_check').fetchone():
-                raise ValueError('备份数据库校验失败或版本不兼容')
-            tables={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-            if schema>=11 and 'ledger_templates' not in tables:raise ValueError('对账模板表缺失')
-            if schema>=9 and not {'health_reports','health_findings'}<=tables:raise ValueError('仓库体检表缺失')
-            if schema>=8 and not {'scan_runs','finder_presets','capture_policy','waiting_files'}<=tables:raise ValueError('扫描记录或检索条件表缺失')
-            if not (CORE|(V6 if schema>=6 else set())|({'rule_changes','checkpoints','checkpoint_files'} if schema>=7 else set()))<=tables:raise ValueError('备份数据表不完整')
+            schema=validate_database(db)
             versions=db.execute('SELECT count(*) FROM versions').fetchone()[0]
             checks=dict(shared=0,only_backup=0,only_backup_bytes=0)
             objects=0;size=0
