@@ -7,7 +7,11 @@ if (-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)) { throw "Install N
 & "$PSScriptRoot/windows-python.ps1" -Mode Venv
 Check-Step "Python 3.12 virtual environment"
 $py = ".venv\Scripts\python.exe"
-& $py -m pip install -r requirements.txt "pyinstaller>=6.12,<7"
+if (Get-Command uv -ErrorAction SilentlyContinue) {
+    uv pip install -r requirements.txt "pyinstaller>=6.12,<7"
+} else {
+    & $py -m pip install -r requirements.txt "pyinstaller>=6.12,<7"
+}
 Check-Step "Python packages"
 & $py -m unittest discover -s tests -v
 Check-Step "Engine regression tests"
